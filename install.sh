@@ -140,10 +140,10 @@ TERMINAL_PACMAN=(
   "fd"                                                          # Lunarvim telescope dependency
   "neovim"                                                      # text editor
   "yarn"                                                        # markdown-preview dependency
-  "noto-fonts"                                                  # special fonts
-  "noto-fonts-cjk"                                              # .
-  "noto-fonts-emoji"                                            # .
-  "noto-fonts-extra"                                            # .
+  # "noto-fonts"                                                  # special fonts
+  # "noto-fonts-cjk"                                              # .
+  # "noto-fonts-emoji"                                            # .
+  # "noto-fonts-extra"                                            # .
   "tree"                                                        # show directory contents in tree form
   "cmus"                                                        # Music player
   "locate"                                                      # locate files
@@ -229,7 +229,7 @@ echo "Beginning dotfiles installation..."
 # Pacman packages
 if ! $SKIP_PACMAN; then
   echo "Installing pacman packages for terminal..."; sudo pacman --needed -Sq ${TERMINAL_PACMAN[@]} < /dev/tty; echo
-  echo "Installing pacman packages for gnome...";    sudo pacman --needed -Sq ${GNOME_PACMAN[@]}    < /dev/tty; echo
+  # echo "Installing pacman packages for gnome...";    sudo pacman --needed -Sq ${GNOME_PACMAN[@]}    < /dev/tty; echo
   echo "Installing pacman packages for latex...";    sudo pacman --needed -Sq ${LATEX_PACMAN[@]}    < /dev/tty; echo
 fi
 
@@ -241,8 +241,8 @@ if ! $SKIP_YAY; then
     sudo pacman --needed -S git base-devel && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si && cd .. && rm -rf yay
   fi
 
-  echo "Installing yay packages for terminal..."; yay --answerclean None --answerdiff None --needed -Sq ${TERMINAL_YAY[@]} < /dev/tty; echo
-  echo "Installing yay packages for gnome...";    yay --answerclean None --answerdiff None --needed -Sq ${GNOME_YAY[@]}    < /dev/tty; echo
+  # echo "Installing yay packages for terminal..."; yay --answerclean None --answerdiff None --needed -Sq ${TERMINAL_YAY[@]} < /dev/tty; echo
+  # echo "Installing yay packages for gnome...";    yay --answerclean None --answerdiff None --needed -Sq ${GNOME_YAY[@]}    < /dev/tty; echo
 fi
 
 
