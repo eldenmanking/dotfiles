@@ -9,6 +9,7 @@
 
 ### Github PRs
 - When iterating on an open or draft PR, add new commits instead of amending existing ones and force pushing
+- Prefix the first commit message with \[PR-start <branch-name>\]
 - Never add comments in github unless I say exactly to "reply" to a comment.
 - Double check for permission before adding comments.
 - Always create PRs in draft mode, never ready for review
