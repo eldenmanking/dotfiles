@@ -29,3 +29,13 @@ nnoremap <Leader>bo <cmd>BufferLineCloseOthers<CR><C-w>o
 
 " nvim-tree/nvim-tree.lua
 nnoremap <Leader>e <cmd>NvimTreeOpen<CR>
+
+
+" lua plugin keymappings
+lua << EOF
+
+-- dmtrKovalenko/fff: fast search
+vim.keymap.set('n', '<Leader>f', function() require('fff').find_files() end, { desc = 'FFFind files' })
+vim.keymap.set('n', '<Leader>t', function() require('fff').live_grep() end, { desc = 'FFFind content' })
+
+EOF

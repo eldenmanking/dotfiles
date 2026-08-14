@@ -61,6 +61,8 @@ gb() {
     shift
   fi
   # Remaining "$@" is now the pass-through option list.
+  local -a extra
+  extra=( "$@" )
 
   command gh >/dev/null && target="$(gh pr view --json baseRefName -q '.baseRefName')"
   if [ -z "$target" ]; then
@@ -88,10 +90,12 @@ gb() {
 
   # Pass-through options go AFTER the built-in `-S -i` so they can override the
   # defaults (e.g. `--no-gpg-sign` wins over `-S`); the upstream ref stays last.
-  echo "Command to run: git fetch $remote $rebase && git rebase -S -i $* $remote/$rebase"
-  read -n 1
+  local shown=""
+  [ "$#" -gt 0 ] && shown=" $*"
+  echo "Command to run: git fetch $remote $rebase && git rebase -S -i${shown} $remote/$rebase"
+  if [ -n "$ZSH_VERSION" ]; then read -k 1; else read -n 1; fi
   echo "Running command..."
-  git fetch "$remote" "$rebase" && git rebase -S -i "$@" "$remote/$rebase"
+  git fetch "$remote" "$rebase" && git rebase -S -i "${extra[@]}" "$remote/$rebase"
 }
 gbg() {
   local base

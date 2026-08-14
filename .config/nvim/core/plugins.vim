@@ -29,6 +29,19 @@ call plug#end()
 
 " lua plugin setup
 lua << EOF
+-- vim.pack plugins
+vim.pack.add({ 'https://github.com/dmtrKovalenko/fff' })
+
+vim.api.nvim_create_autocmd('PackChanged', {
+  callback = function(ev)
+    local name, kind = ev.data.spec.name, ev.data.kind
+    if name == 'fff' and (kind == 'install' or kind == 'update') then
+      if not ev.data.active then vim.cmd.packadd('fff') end
+      require('fff.download').download_or_build_binary()
+    end
+  end,
+})
+
 local function nvimTreeOnAttach(bufnr)
   local api = require "nvim-tree.api"
 
@@ -43,6 +56,13 @@ end
 require("which-key").setup { win = {height = 8} }
 require("bufferline").setup {}
 require("nvim-tree").setup { on_attach = nvimTreeOnAttach, git = { enable = false }, update_cwd = true, view = { adaptive_size = true } }
+
+-- lua plugin configuration
+
+vim.g.fff = {
+  debug = { enabled = true, show_scores = true },
+}
+
 EOF
 
 " vim-airline & vim-airline-themes
