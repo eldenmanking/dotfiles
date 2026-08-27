@@ -208,7 +208,6 @@ configure_shell() {
 configure_starship() {
   if command -v starship &>/dev/null; then
     info "starship already available: $(command -v starship)"
-    return
   else
     curl -sS https://starship.rs/install.sh | sh -s -- -y
   fi
@@ -318,12 +317,12 @@ link_configs() {
 link_bin() {
   # Paths relative to DOTFILES_ROOT/root, linked to / (requires sudo).
   local paths=(
-    usr/local/bin/vis
-    usr/local/bin/clip
+    data/data/com.termux/files/usr/bin/vis
+    data/data/com.termux/files/usr/bin/clip
   )
 
   for rel in "${paths[@]}"; do
-    make_symlink "$DOTFILES_ROOT/root/$rel" "/$rel" sudo
+    make_symlink "$DOTFILES_ROOT/root/$rel" "/$rel"
   done
 }
 
@@ -740,9 +739,9 @@ if $DO_TMUX; then
   install_tmux_plugins
 fi
 
-if $DO_GNG; then
-  install_gng
-fi
+# if $DO_GNG; then
+#   install_gng
+# fi
 
 if $DO_TRE; then
   install_tre

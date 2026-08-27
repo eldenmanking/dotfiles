@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-CLIP_FILE="/tmp/clip.50eb42db-6835-4960-89dd-3813a9adeec3"
+CLIP_FILE="$HOME/tmp/clip.50eb42db-6835-4960-89dd-3813a9adeec3"
 CLIP_HOST_FILE="$HOME/.cache/clip.last_host"
 
 log() { printf '[clip] %s\n' "$*" >&2; }
