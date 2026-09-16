@@ -2,7 +2,6 @@
 # ~/.zshrc
 #
 
-[[ ! -o login ]] && . "$HOME/.zprofile"                         # Source zprofile if shell was not interactive
 typeset -U path                                                 # Remove duplicates in path/PATH
 
 ################################################################################
