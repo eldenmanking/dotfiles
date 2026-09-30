@@ -15,9 +15,3 @@ if command -v go >/dev/null 2>&1; then
   export GOBIN="$(go env GOPATH)/bin"                             # Go-installed binaries (already on PATH above)
 fi
 
-# Claude Code
-export CLAUDE_CODE_USE_BEDROCK=1
-export CLAUDE_CODE_SKIP_BEDROCK_AUTH=1
-export DISABLE_TELEMETRY=1
-export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
-
