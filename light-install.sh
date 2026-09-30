@@ -336,7 +336,7 @@ configure_git() {
 
   info "Configuring global git settings..."
   git config --global core.excludesFile "$DOTFILES_ROOT/.config/git/ignore"
-  git config --global core.fsmonitor true
+  # git config --global core.fsmonitor true # This is not compatible with coder
   git config --global core.untrackedCache true
   git config --global credential.helper store
   git config --global feature.manyFiles true
