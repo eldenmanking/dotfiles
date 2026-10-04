@@ -32,7 +32,7 @@ Options:
   -t, --tmux        Install tmux plugin manager and plugins
   -i, --install     Install neovim and tmux to ~/.local/bin from GitHub
   -l, --link-config        Symlink neovim and tmux configs into ~
-  -b, --link-bin    Symlink executables into /usr/local/bin (requires sudo)
+  -b, --link-bin    Symlink executables into $LOCAL_BIN (requires sudo)
   -G, --gng         Install gng (Gradle wrapper) to ~/.local
   -r, --tre         Build and install tre (tree alternative) from source
   -c, --claude      Configure CLAUDE.md, hooks, scripts, and commands
@@ -187,16 +187,24 @@ detect_shell_rc() {
 
 # --- Shell keybindings ---
 configure_shell() {
-  local aliases_line="source ~/dotfiles/.config/sh/aliases.sh"
-  local keybindings_line="source ~/dotfiles/.config/zsh/keybindings.zsh"
+  local all_shell_config=$(cat <<EOF
+# global config
+source ~/dotfiles/.config/sh/aliases.sh
+source ~/dotfiles/.config/sh/env.sh
+EOF
+)
+  local zsh_shell_config=$(cat <<EOF
+# zsh config
+source ~/dotfiles/.config/zsh/keybindings.zsh
+source ~/dotfiles/.config/zsh/settings.zsh
+EOF
+)
 
   detect_shell_rc
 
-  # Aliases apply to every shell; keybindings.zsh is zsh-only. Both live in a
-  # single managed block.
-  local content="$aliases_line"
+  local content="$all_shell_config"
   if [[ "$SHELL_NAME" == zsh ]]; then
-    content+=$'\n'"$keybindings_line"
+    content+=$'\n'"$zsh_shell_config"
   fi
 
   upsert_block "$RC_FILE" shell "$content"
@@ -210,7 +218,7 @@ configure_starship() {
     info "starship already available: $(command -v starship)"
     return
   else
-    curl -sS https://starship.rs/install.sh | sh -s -- -y
+    curl -sS https://starship.rs/install.sh | sh -s -- -y -b $LOCAL_BIN
   fi
 
   detect_shell_rc
@@ -245,6 +253,14 @@ configure_zsh_plugins() {
     [[ -n "$content" ]] && content+=$'\n'
     content+="source ~/.zsh/plugins/$name/$name.zsh"
   done
+
+  [[ -n "$content" ]] && content+=$'\n'
+  content+=$(cat <<EOF
+autoload -Uz compinit colors                                    # Autoload these zsh functions when called
+compinit -d                                                     # Initialize zsh completion
+colors                                                          # Activate color-coding for completion
+EOF
+)
 
   upsert_block "$HOME/.zshrc" zsh_plugins "$content"
 }
@@ -316,14 +332,13 @@ link_configs() {
 
 # --- Link executables ---
 link_bin() {
-  # Paths relative to DOTFILES_ROOT/root, linked to / (requires sudo).
   local paths=(
-    usr/local/bin/vis
-    usr/local/bin/clip
+    .local/bin/vis
+    .local/bin/clip
   )
 
   for rel in "${paths[@]}"; do
-    make_symlink "$DOTFILES_ROOT/root/$rel" "/$rel" sudo
+    make_symlink "$DOTFILES_ROOT/$rel" "$HOME/$rel"
   done
 }
 
