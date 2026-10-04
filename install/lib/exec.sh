@@ -55,7 +55,11 @@ confirmsed() {
     if confirm "Edit $file to replace '$pattern' with '$replace'?"; then
       mkdir -pv "$(dirname "$BACKUPS_ROOT$file")"
       cp -nvi "$file" "$BACKUPS_ROOT$file" < /dev/tty
-      $user sed -Ei "s@^${pattern}\$@${replace}@" "$file"
+      local tmp
+      tmp="$(mktemp)"
+      sed -E "s@^${pattern}\$@${replace}@" "$file" > "$tmp"
+      $user cp "$tmp" "$file"
+      rm -f "$tmp"
     fi
   elif ! grep -Eq "^${replace}\$" "$file"; then
     warn "Neither '$pattern' nor '$replace' were found in $file."
