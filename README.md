@@ -74,6 +74,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   └── default.shortcuts        ---
 │   └── vscode                       ---
 │       └── keybindings.json         ---
+├── install                          --- pieces of the install script (lib, features, variants)
 ├── install.sh                       --- dotfiles install script
 └── root                             ---
     ├── etc                          ---
@@ -99,7 +100,9 @@ This repository contains configuration files for my linux workspace. The followi
 ```
 
 ## Installation
-These dotfiles are designed to work for Arch Linux (or other Arch-based distributions). Essential packages and applications can be installed using the `install.sh` script as a user. This script attempts to setup the following:
+`install.sh` is the single entry point. Choose a platform with `--variant` (`coder` (default), `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it runs `--variant coder --all`. Each variant lives in `install/variants/`, and each feature in `install/features/`.
+
+The `arch` variant is designed to work for Arch Linux (or other Arch-based distributions). Essential packages and applications can be installed using `./install.sh --variant arch` as a user. This variant attempts to setup the following:
  - yay
  - zshell (theme, completions, font)
  - tmux

@@ -21,7 +21,7 @@
     * Set up dotfiles:
         * cd && git clone https://github.com/ProfessorLinstar/dotfiles
         * cd dotfiles
-        * ./install.sh -evlt
+        * ./install.sh --variant portable --all
     * Set up github (optional):
         * git config --global credential.helper store
         * git config --global user.email \<email\>

@@ -272,7 +272,7 @@ Run the suite:
 bash ~/dotfiles/tests/claude-pr-statusline/run.sh
 ```
 
-Lives outside `.claude/` so `light-install.sh` doesn't symlink it. Each case runs in an isolated `$HOME`, mocks `gh` via a fixture file, and uses real `git` against a throwaway repo. Use `KEEP_SANDBOX=1` to preserve the sandbox on failure; `UPDATE_SNAPSHOTS=1` to refresh expected outputs; or filter by case-name fragment (e.g. `run.sh 03 hook` runs case 03 and any whose name contains "hook").
+Lives outside `.claude/` so `install.sh` doesn't symlink it. Each case runs in an isolated `$HOME`, mocks `gh` via a fixture file, and uses real `git` against a throwaway repo. Use `KEEP_SANDBOX=1` to preserve the sandbox on failure; `UPDATE_SNAPSHOTS=1` to refresh expected outputs; or filter by case-name fragment (e.g. `run.sh 03 hook` runs case 03 and any whose name contains "hook").
 
 Helpers / mocks:
 
@@ -331,4 +331,4 @@ Coverage matrix (26 cases):
 | `dotfiles/.claude/commands/cleanup-pr-state.md` | Slash command |
 | `dotfiles/tests/claude-pr-statusline/` | Test harness (lives outside `.claude/`) |
 | `dotfiles/dump/claude/settings.json` | Hook + statusline + permission config (deep-merged on install) |
-| `dotfiles/light-install.sh` | Symlinks scripts/commands into `~/.claude/`, merges settings |
+| `dotfiles/install.sh` (`--claude`) | Symlinks scripts/commands into `~/.claude/`, merges settings |
