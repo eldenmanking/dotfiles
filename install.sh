@@ -162,6 +162,7 @@ run_features() {
 main() {
   f_with_args parse_args variant flags all dry_run help -- "$@"
   readonly DRY_RUN="$_dry_run"
+
   exit_with_usage_unless_runnable "$_variant" "$_flags" "$_all" "$_help"
 
   f_with_args resolve_features enabled -- "$_variant" "$_flags" "$_all"
