@@ -2,6 +2,7 @@
 VARIANT_DESCRIPTION="Arch Linux (or Arch-based) desktop with pacman/yay packages, gnome and dconf"
 VARIANT_FEATURES="pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info"
 VARIANT_ALL_EXCLUDE="terminal"
+LINK_INCLUDE_PATHS=("${LINK_COMMON_PATHS[@]}" "${LINK_DESKTOP_PATHS[@]}")
 
 # 'terminal' is intentionally left skipped: pacman + yay together cover
 # all packages the --terminal flag would install.

@@ -17,30 +17,14 @@ BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
 LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 
-DEFAULT_VARIANT="coder"
 DRY_RUN=false
+VARIANT_NAME=""
+ENABLED=" "
 
 for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh; do
   # shellcheck source=/dev/null
   source "$f"
 done
-
-# Exclude paths beginning with these prefixes when linking.
-# Each entry is matched against `find` output exactly, or as a directory prefix.
-EXCLUDE_PATHS=(
-  "./.git"                          # dotfiles git repository information
-  "./dump"                          # manually loaded configuration files
-  "./.gitignore"
-  "./install.sh"                    # this script!
-  "./install"                       # the pieces of this script!
-  "./README.md"                     # dotfiles readme
-  "./.backup"                       # temporary backup file of modified files
-  "./Sessionx.vim"                  # vim Obsession session file
-  "./.claude/settings.local.json"   # needs to be merged with user settings, rather than replacing it
-  "./.claude/CLAUDE.md"             # needs to be merged with user CLAUDE.md, rather than replacing it
-  "./tests"                         # dotfiles tests
-  "./docs"                          # dotfile docs
-)
 
 available_variants() {
   local f names=""
@@ -51,36 +35,32 @@ available_variants() {
   printf '%s' "$names"
 }
 
-feature_enabled() {
-  case " $ENABLED " in
-    *" $1 "*) return 0 ;;
-    *)        return 1 ;;
-  esac
+variant_file() {
+  printf '%s/variants/%s.sh' "$INSTALL_DIR" "$1"
 }
 
-is_variant_feature() {
-  case " $VARIANT_FEATURES " in
-    *" $1 "*) return 0 ;;
-    *)        return 1 ;;
-  esac
+feature_enabled() {
+  list_contains "$ENABLED" "$1"
 }
 
 usage() {
   local f
   cat <<EOF
-Usage: $(basename "$0") [--variant NAME] [OPTIONS]
+Usage: $(basename "$0") --variant NAME [OPTIONS]
 
 dotfiles installation and configuration script. All operations are idempotent.
-With no arguments, runs '--variant $DEFAULT_VARIANT --all'. See README.md for more information.
+Run '$(basename "$0") --variant NAME --help' to list the options of a variant.
+See README.md for more information.
 
-Variants (default: $DEFAULT_VARIANT):
+Variants:
 EOF
   for f in $(available_variants); do
-    printf '  %-10s %s\n' "$f" "$(. "$INSTALL_DIR/variants/$f.sh" && printf '%s' "$VARIANT_DESCRIPTION")"
+    printf '  %-10s %s\n' "$f" "$(. "$(variant_file "$f")" && printf '%s' "$VARIANT_DESCRIPTION")"
   done
+  [[ -n "$VARIANT_NAME" ]] || return 0
   cat <<EOF
 
-Options for variant '$VARIANT':
+Options for variant '$VARIANT_NAME':
   --variant NAME   select the variant
   --all            install all options${VARIANT_ALL_EXCLUDE:+ (except: $VARIANT_ALL_EXCLUDE)}
 EOF
@@ -93,84 +73,115 @@ EOF
 EOF
 }
 
-# --- Flag parsing ---
-if [[ $# -eq 0 ]]; then
-  set -- --all
-fi
+usage_error() {
+  warn "$1"
+  usage >&2
+  exit 1
+}
 
-# First pass: the variant decides which feature flags are valid.
-VARIANT="$DEFAULT_VARIANT"
-WANT_HELP=false
-args=("$@")
-i=0
-while [[ $i -lt ${#args[@]} ]]; do
-  case "${args[$i]}" in
-    --variant)   i=$((i + 1)); VARIANT="${args[$i]:-}" ;;
-    --variant=*) VARIANT="${args[$i]#--variant=}" ;;
-    --help|-h)   WANT_HELP=true ;;
-  esac
-  i=$((i + 1))
-done
+parse_args() {
+  f_begin "$FUNCNAME" variant flags all dry_run help
+  local variant="" flags=" " all=false dry_run=false help=false
 
-[[ -f "$INSTALL_DIR/variants/$VARIANT.sh" ]] \
-  || error "Unknown variant '$VARIANT'. Available variants: $(available_variants)"
-# shellcheck source=/dev/null
-source "$INSTALL_DIR/variants/$VARIANT.sh"
+  [[ $# -gt 0 ]] || help=true
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --variant)
+        [[ $# -ge 2 ]] || usage_error "--variant requires a value"
+        variant="$2"
+        shift 2
+        ;;
+      --variant=*) variant="${1#--variant=}"; shift ;;
+      --all)       all=true; shift ;;
+      --dry-run)   dry_run=true; shift ;;
+      --help|-h)   help=true; shift ;;
+      --?*)        flags+="${1#--} "; shift ;;
+      *)           usage_error "Unexpected argument: $1" ;;
+    esac
+  done
 
-if $WANT_HELP; then
-  usage
-  exit 0
-fi
+  f_parse_args_variant="$variant"
+  f_parse_args_flags="$flags"
+  f_parse_args_all="$all"
+  f_parse_args_dry_run="$dry_run"
+  f_parse_args_help="$help"
+  f_end "$FUNCNAME" variant flags all dry_run help
+}
 
-# Second pass: feature flags. Order of ENABLED is irrelevant; VARIANT_FEATURES determines run order.
-ENABLED=" "
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --variant)   shift 2 ;;
-    --variant=*) shift ;;
-    --all)
-      for k in $VARIANT_FEATURES; do
-        case " $VARIANT_ALL_EXCLUDE " in
-          *" $k "*) ;;
-          *)        ENABLED+="$k " ;;
-        esac
-      done
-      shift
-      ;;
-    --dry-run) DRY_RUN=true; shift ;;
-    --*)
-      key="${1#--}"
-      if ! is_variant_feature "$key"; then
-        warn "Unknown option for variant '$VARIANT': $1"
-        usage
-        exit 1
-      fi
-      ENABLED+="$key "
-      shift
-      ;;
-    *) usage; exit 1 ;;
-  esac
-done
-
-if [[ "$ENABLED" == " " ]]; then
-  usage
-  exit 0
-fi
-
-# Ensure dotfiles dir exists and switch to it (no subshell, so cwd persists).
-[[ -d "$DOTFILES_ROOT" ]] || error "dotfiles must be at $DOTFILES_ROOT."
-cd "$DOTFILES_ROOT"
-
-# --- Main ---
-info "Beginning dotfiles installation (variant: $VARIANT)..."
-
-for feature in $VARIANT_FEATURES; do
-  feature_enabled "$feature" || continue
-  if $DRY_RUN && ! feature_supports_dry_run "$feature"; then
-    info "[dry-run] would run feature: $feature"
-    continue
+load_variant() {
+  local name="$1" help="$2"
+  if [[ -z "$name" ]]; then
+    $help || usage_error "--variant is required"
+    usage
+    exit 0
   fi
-  "$(feature_function "$feature")"
-done
+  [[ -f "$(variant_file "$name")" ]] \
+    || usage_error "Unknown variant '$name'. Available variants: $(available_variants)"
+  # shellcheck source=/dev/null
+  source "$(variant_file "$name")"
+  VARIANT_NAME="$name"
+}
 
-info "dotfiles installation complete."
+exit_with_usage_if_nothing_to_do() {
+  local help="$1" flags="$2" all="$3"
+  if $help || { [[ "$flags" == " " ]] && ! $all; }; then
+    usage
+    exit 0
+  fi
+}
+
+resolve_features() {
+  f_begin "$FUNCNAME" enabled
+  local flags="$1" all="$2" enabled=" " k
+
+  for k in $flags; do
+    list_contains "$VARIANT_FEATURES" "$k" \
+      || usage_error "Unknown option for variant '$VARIANT_NAME': --$k"
+  done
+  for k in $VARIANT_FEATURES; do
+    if list_contains "$flags" "$k" || { $all && ! list_contains "$VARIANT_ALL_EXCLUDE" "$k"; }; then
+      enabled+="$k "
+    fi
+  done
+
+  f_resolve_features_enabled="$enabled"
+  f_end "$FUNCNAME" enabled
+}
+
+enter_dotfiles_root() {
+  # Ensure dotfiles dir exists and switch to it (no subshell, so cwd persists).
+  [[ -d "$DOTFILES_ROOT" ]] || error "dotfiles must be at $DOTFILES_ROOT."
+  cd "$DOTFILES_ROOT"
+}
+
+run_features() {
+  local feature
+  info "Beginning dotfiles installation (variant: $VARIANT_NAME)..."
+  for feature in $VARIANT_FEATURES; do
+    feature_enabled "$feature" || continue
+    if $DRY_RUN && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
+      info "[dry-run] would run feature: $feature"
+      continue
+    fi
+    "$(feature_function "$feature")"
+  done
+  info "dotfiles installation complete."
+}
+
+main() {
+  f_prepare_args parse_args variant flags all dry_run help
+  parse_args "$@"
+  DRY_RUN="$f_parse_args_dry_run"
+
+  load_variant "$f_parse_args_variant" "$f_parse_args_help"
+  exit_with_usage_if_nothing_to_do "$f_parse_args_help" "$f_parse_args_flags" "$f_parse_args_all"
+
+  f_prepare_args resolve_features enabled
+  resolve_features "$f_parse_args_flags" "$f_parse_args_all"
+  ENABLED="$f_resolve_features_enabled"
+
+  enter_dotfiles_root
+  run_features
+}
+
+main "$@"

@@ -15,14 +15,15 @@ source ~/dotfiles/.config/zsh/settings.zsh
 EOF
 )
 
+  f_prepare_args detect_shell_rc name rc_file
   detect_shell_rc
 
   local content="$all_shell_config"
-  if [[ "$SHELL_NAME" == zsh ]]; then
+  if [[ "$f_detect_shell_rc_name" == zsh ]]; then
     content+=$'\n'"$zsh_shell_config"
   fi
 
-  upsert_block "$RC_FILE" shell "$content"
+  upsert_block "$f_detect_shell_rc_rc_file" shell "$content"
 }
 
 # TODO(andywang): add comment
@@ -43,8 +44,9 @@ install_starship_binary() {
 feature_starship() {
   install_starship_binary "$LOCAL_BIN"
 
+  f_prepare_args detect_shell_rc name rc_file
   detect_shell_rc
-  upsert_block "$RC_FILE" starship "eval \"\$(starship init $SHELL_NAME)\""
+  upsert_block "$f_detect_shell_rc_rc_file" starship "eval \"\$(starship init $f_detect_shell_rc_name)\""
 }
 
 # --- Zsh plugins ---
