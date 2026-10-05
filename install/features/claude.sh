@@ -2,7 +2,6 @@
 
 # --- Link Claude scripts/commands directories ---
 configure_claude_dirs() {
-  local dry_run="$1"
   # Symlink individual files within scripts/ and commands/ so that
   # environment-specific files in ~/.claude/{scripts,commands} are preserved.
   local dirs=(scripts commands)
@@ -22,7 +21,7 @@ configure_claude_dirs() {
       [[ -e "$src_file" ]] || continue
       local filename
       filename="$(basename "$src_file")"
-      make_symlink "$dry_run" "$src_file" "$dst_dir/$filename"
+      make_symlink "$src_file" "$dst_dir/$filename"
     done
 
     # Clean up broken symlinks that point into dotfiles (e.g. deleted commands)
@@ -43,7 +42,7 @@ configure_claude_dirs() {
     local src="$DOTFILES_ROOT/.claude/$file"
     local dst="$HOME/.claude/$file"
     if [[ -f "$src" ]]; then
-      make_symlink "$dry_run" "$src" "$dst"
+      make_symlink "$src" "$dst"
     fi
   done
 }
@@ -210,7 +209,6 @@ configure_claude_md() {
 # --- Configure Claude Code (orchestrator) ---
 feature_claude() {
   configure_claude_md
-  local dry_run="$3"
-  configure_claude_dirs "$dry_run"
+  configure_claude_dirs
   configure_claude_settings
 }

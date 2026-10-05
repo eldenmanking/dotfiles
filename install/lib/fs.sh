@@ -1,9 +1,9 @@
 # Filesystem helpers: symlinks and managed blocks.
 
 # Create a symlink at $target pointing to $src, backing up any existing file
-# or stale symlink. Fourth arg is an optional sudo-style prefix.
+# or stale symlink. Third arg is an optional sudo-style prefix.
 make_symlink() {
-  local dry_run="$1" src="$2" target="$3" sudo_cmd="${4:-}"
+  local src="$1" target="$2" sudo_cmd="${3:-}"
 
   if [[ ! -e "$src" ]]; then
     warn "Source does not exist, skipping: $src"
@@ -15,19 +15,19 @@ make_symlink() {
     return
   fi
 
-  run "$dry_run" $sudo_cmd mkdir -pv "$(dirname "$target")"
+  run $sudo_cmd mkdir -pv "$(dirname "$target")"
 
   # Back up anything in the way (regular file OR symlink pointing elsewhere).
   if [[ -e "$target" || -L "$target" ]]; then
-    run "$dry_run" mkdir -pv "$(dirname "$BACKUPS_ROOT$target")"
+    run mkdir -pv "$(dirname "$BACKUPS_ROOT$target")"
     if has_tty; then
-      run_tty "$dry_run" $sudo_cmd mv -vi "$target" "$BACKUPS_ROOT$target"
+      run_tty $sudo_cmd mv -vi "$target" "$BACKUPS_ROOT$target"
     else
-      run "$dry_run" $sudo_cmd mv -v "$target" "$BACKUPS_ROOT$target"
+      run $sudo_cmd mv -v "$target" "$BACKUPS_ROOT$target"
     fi
   fi
 
-  run "$dry_run" $sudo_cmd ln -snfv "$src" "$target"
+  run $sudo_cmd ln -snfv "$src" "$target"
 }
 
 # --- Managed block helper ---
