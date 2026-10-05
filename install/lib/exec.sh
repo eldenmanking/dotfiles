@@ -3,15 +3,15 @@
 # Detect whether a controlling terminal is actually usable (open succeeds).
 # `[[ -r /dev/tty ]]` is unreliable: the file exists in non-interactive
 # environments but fails to open with ENXIO.
-if (: < /dev/tty) 2>/dev/null; then
-  HAS_TTY=true
-else
-  HAS_TTY=false
-fi
+has_tty() {
+  (: < /dev/tty) 2>/dev/null
+}
 
 # Execute a command, or just announce it under --dry-run.
 run() {
-  if $DRY_RUN; then
+  local dry_run="$1"
+  shift
+  if $dry_run; then
     printf '\033[36m[dry-run]\033[0m %s\n' "$*"
   else
     "$@"
@@ -22,10 +22,12 @@ run() {
 # Used for commands like `pacman` that may prompt for confirmation; falls
 # back to inherited stdin in non-interactive contexts (CI, nested scripts).
 run_tty() {
-  if $HAS_TTY; then
-    run "$@" < /dev/tty
+  local dry_run="$1"
+  shift
+  if has_tty; then
+    run "$dry_run" "$@" < /dev/tty
   else
-    run "$@"
+    run "$dry_run" "$@"
   fi
 }
 
@@ -40,7 +42,7 @@ confirm() {
 # Replace ^pattern$ with replace in file (with backup) after user confirmation.
 # Fourth arg is an optional sudo-style prefix for the sed call.
 confirmsed() {
-  local file="$1" pattern="$2" replace="$3" user="${4:-}"
+  local dry_run="$1" file="$2" pattern="$3" replace="$4" user="${5:-}"
 
   if [[ ! -f "$file" ]]; then
     warn "$file does not exist."
@@ -48,7 +50,7 @@ confirmsed() {
   fi
 
   if grep -Eq "^${pattern}\$" "$file"; then
-    if $DRY_RUN; then
+    if $dry_run; then
       info "[dry-run] would replace '$pattern' with '$replace' in $file"
       return
     fi
