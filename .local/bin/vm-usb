@@ -6,56 +6,115 @@ PATTERN="${1:-logitech}"   # text to match in lsusb output (case-insensitive)
 VM="${2:-win11}"           # libvirt VM name; list with: flatpak run --command=virsh org.gnome.Boxes list --all
 VIRSH="flatpak run --command=virsh org.gnome.Boxes"
 
-$VIRSH domstate "$VM" 2>/dev/null | grep -q running || { echo "'$VM' isn't running. Start it in Boxes first."; exit 1; }
+DEVS=()     # lsusb lines matching $PATTERN
+TODO=()     # lsusb lines for devices not yet attached to $VM
+ATTACHED=() # "bus dev" pairs currently attached to $VM; detached on exit
 
-mapfile -t DEVS < <(lsusb | grep -i -- "$PATTERN")
-[ ${#DEVS[@]} -eq 0 ] && { echo "No USB devices match '$PATTERN'."; exit 1; }
-
-xml() { printf "<hostdev mode='subsystem' type='usb' managed='yes'><source><address bus='%d' device='%d'/></source></hostdev>" "$((10#$1))" "$((10#$2))"; }
-
-ATTACHED=()
-cleanup() {
-  [ ${#ATTACHED[@]} -eq 0 ] && return
-  echo "Detaching..."
-  for a in "${ATTACHED[@]}"; do
-    xml ${a% *} ${a#* } | $VIRSH detach-device "$VM" /dev/stdin
-  done
-  ATTACHED=()
+# Prints a message to stderr and exits with status 1.
+#   $@: message
+die() {
+  echo "$@" >&2
+  exit 1
 }
-trap cleanup EXIT
-trap 'exit 130' INT TERM
 
-LIVE=$($VIRSH dumpxml "$VM")
-TODO=()
-for line in "${DEVS[@]}"; do
-  bus=$(awk '{print $2}' <<<"$line")
-  dev=$(awk '{print $4}' <<<"$line" | tr -d :)
-  if grep -q "bus='$((10#$bus))' device='$((10#$dev))'" <<<"$LIVE"; then
-    ATTACHED+=("$bus $dev")
-  else
-    TODO+=("$line")
-  fi
-done
+# Exits unless $VM is running.
+require_vm_running() {
+  $VIRSH domstate "$VM" 2>/dev/null | grep -q running || die "'$VM' isn't running. Start it in Boxes first."
+}
 
-if [ ${#TODO[@]} -eq 0 ]; then
-  echo "All matching devices are already attached to '$VM':"; printf '  %s\n' "${DEVS[@]}"
-  exit 0
-fi
+# Fills DEVS with the lsusb lines matching $PATTERN, exiting if there are none.
+find_devices() {
+  mapfile -t DEVS < <(lsusb | grep -i -- "$PATTERN")
+  [ ${#DEVS[@]} -gt 0 ] || die "No USB devices match '$PATTERN'."
+}
 
-[ ${#ATTACHED[@]} -gt 0 ] && echo "Already attached (will be detached at the end): ${#ATTACHED[@]} device(s)"
-echo "To attach:"; printf '  %s\n' "${TODO[@]}"
-read -rp "Attach these to '$VM'? [y/N] " ok </dev/tty
-[[ $ok =~ ^[Yy]$ ]] || exit 0
+# Prints the "bus dev" pair (zero-padded, as shown by lsusb) for an lsusb line.
+#   $1: lsusb line, e.g. "Bus 001 Device 004: ID 046d:c52b Logitech, Inc. Unifying Receiver"
+bus_dev() {
+  local _ bus dev
+  read -r _ bus _ dev _ <<<"$1"
+  echo "$bus ${dev%:}"
+}
 
-for line in "${TODO[@]}"; do
-  bus=$(awk '{print $2}' <<<"$line")
-  dev=$(awk '{print $4}' <<<"$line" | tr -d :)
+# Prints the libvirt <hostdev> XML for a USB device.
+#   $1: bus number
+#   $2: device number
+xml() {
+  printf "<hostdev mode='subsystem' type='usb' managed='yes'><source><address bus='%d' device='%d'/></source></hostdev>" \
+    "$((10#$1))" "$((10#$2))"
+}
+
+# Splits DEVS into devices already attached to $VM (added to ATTACHED) and devices still to attach (added to TODO).
+partition_devices() {
+  local live line bus dev
+  live=$($VIRSH dumpxml "$VM")
+  for line in "${DEVS[@]}"; do
+    read -r bus dev <<<"$(bus_dev "$line")"
+    if grep -q "bus='$((10#$bus))' device='$((10#$dev))'" <<<"$live"; then
+      ATTACHED+=("$bus $dev")
+    else
+      TODO+=("$line")
+    fi
+  done
+}
+
+# Asks the user a yes/no question on the terminal, returning 0 only for "y" or "Y".
+#   $1: prompt
+confirm() {
+  local ok
+  read -rp "$1 [y/N] " ok </dev/tty
+  [[ $ok =~ ^[Yy]$ ]]
+}
+
+# Attaches a USB device to $VM, recording it in ATTACHED on success. The device node is temporarily chowned to $USER
+# so the session libvirtd can open it, then restored to its original owner.
+#   $1: lsusb line for the device
+attach_device() {
+  local bus dev node orig
+  read -r bus dev <<<"$(bus_dev "$1")"
   node="/dev/bus/usb/$bus/$dev"
   orig=$(stat -c '%u:%g' "$node")
   sudo chown "$USER" "$node"
   xml "$bus" "$dev" | $VIRSH attach-device "$VM" /dev/stdin && ATTACHED+=("$bus $dev")
   sudo chown "$orig" "$node"
-done
+}
 
-[ ${#ATTACHED[@]} -eq 0 ] && { echo "Nothing was attached."; exit 1; }
-read -rp "Devices attached. Press Enter to detach them... " </dev/tty
+# Detaches every device in ATTACHED from $VM and clears the list. Runs on exit.
+detach_all() {
+  [ ${#ATTACHED[@]} -eq 0 ] && return
+  echo "Detaching..."
+  local a
+  for a in "${ATTACHED[@]}"; do
+    xml ${a% *} ${a#* } | $VIRSH detach-device "$VM" /dev/stdin
+  done
+  ATTACHED=()
+}
+
+main() {
+  require_vm_running
+  find_devices
+
+  trap detach_all EXIT
+  trap 'exit 130' INT TERM
+
+  partition_devices
+
+  if [ ${#TODO[@]} -eq 0 ]; then
+    echo "All matching devices are already attached to '$VM':"; printf '  %s\n' "${DEVS[@]}"
+    exit 0
+  fi
+
+  [ ${#ATTACHED[@]} -gt 0 ] && echo "Already attached (will be detached at the end): ${#ATTACHED[@]} device(s)"
+  echo "To attach:"; printf '  %s\n' "${TODO[@]}"
+  confirm "Attach these to '$VM'?" || exit 0
+
+  local line
+  for line in "${TODO[@]}"; do
+    attach_device "$line"
+  done
+
+  [ ${#ATTACHED[@]} -gt 0 ] || die "Nothing was attached."
+  read -rp "Devices attached. Press Enter to detach them... " </dev/tty
+}
+
+main
