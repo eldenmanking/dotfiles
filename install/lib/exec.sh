@@ -1,13 +1,11 @@
-# TODO(andywang): add comment
+# Command execution helpers that honor DRY_RUN.
 
 # Detect whether a controlling terminal is actually usable (open succeeds).
 # `[[ -r /dev/tty ]]` is unreliable: the file exists in non-interactive
 # environments but fails to open with ENXIO.
-if (: < /dev/tty) 2>/dev/null; then
-  HAS_TTY=true
-else
-  HAS_TTY=false
-fi
+has_tty() {
+  (: < /dev/tty) 2>/dev/null
+}
 
 # Execute a command, or just announce it under --dry-run.
 run() {
@@ -22,7 +20,7 @@ run() {
 # Used for commands like `pacman` that may prompt for confirmation; falls
 # back to inherited stdin in non-interactive contexts (CI, nested scripts).
 run_tty() {
-  if $HAS_TTY; then
+  if has_tty; then
     run "$@" < /dev/tty
   else
     run "$@"
@@ -38,7 +36,7 @@ confirm() {
 }
 
 # Replace ^pattern$ with replace in file (with backup) after user confirmation.
-# Fourth arg is an optional sudo-style prefix for the sed call.
+# Fourth arg is an optional sudo-style prefix for the copy.
 confirmsed() {
   local file="$1" pattern="$2" replace="$3" user="${4:-}"
 

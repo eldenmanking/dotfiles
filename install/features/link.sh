@@ -1,54 +1,62 @@
-# TODO(andywang): add comment
+# Feature: symlink dotfiles into place.
+
+# Paths linked by every variant. Directories link every file under them.
+LINK_COMMON_PATHS=(
+  .tmux.conf
+  .tmux/resurrect/saferestore.sh
+  .config/nvim
+  .config/starship.toml
+  .local/bin/vis
+  .local/bin/clip
+)
+
+# Extra paths linked on full desktop installs (e.g. arch).
+LINK_DESKTOP_PATHS=(
+  .bash_profile
+  .bashrc
+  .profile
+  .zprofile
+  .zshrc
+  .p10k.zsh
+  .vimrc
+  .ideavimrc
+  .ocamlformat
+  .pylintrc
+  .claude/commands
+  .claude/scripts
+  .config/alacritty
+  .config/git
+  .config/lvim
+  .config/sh
+  .config/yapf
+  .config/zsh
+  .local/bin/squidpdf
+  .local/share
+  root/etc
+  root/usr
+)
+
+# Link one repo-relative file: root/* goes to /, everything else to $HOME.
+link_dotfile() {
+  local rel="$1"
+  if [[ "$rel" == root/* ]]; then
+    make_symlink "$DOTFILES_ROOT/$rel" "/${rel#root/}" sudo
+  else
+    make_symlink "$DOTFILES_ROOT/$rel" "$HOME/$rel"
+  fi
+}
 
 feature_link() {
-  local dotfile rel target user src
-  while IFS= read -r -d '' dotfile; do
-    if should_exclude "$dotfile"; then
+  local variant="$1" link_paths entry file
+  f_with_args variant_config link_paths -- "$variant"
+  link_paths="$_link_paths"
+  for entry in $link_paths; do
+    if [[ ! -e "$DOTFILES_ROOT/$entry" ]]; then
+      warn "Source does not exist, skipping: $DOTFILES_ROOT/$entry"
       continue
     fi
-
-    rel="${dotfile#./}"
-    if [[ "$rel" == root/* ]]; then
-      target="/${rel#root/}"
-      user="sudo"
-    else
-      target="$HOME/$rel"
-      user=""
-    fi
-    src="$DOTFILES_ROOT/$rel"
-    make_symlink "$src" "$target" "$user"
-  done < <(find . -type f -print0)
-}
-
-# --- Link configs ---
-feature_link_config() {
-  local paths=(
-    .tmux.conf
-    .tmux/resurrect/saferestore.sh
-    .config/nvim/core/autocommands.vim
-    .config/nvim/core/commands.vim
-    .config/nvim/core/filetypes.vim
-    .config/nvim/core/mappings.vim
-    .config/nvim/core/options.vim
-    .config/nvim/core/plugins.vim
-    .config/nvim/core/plugmaps.vim
-    .config/nvim/init.vim
-    .config/starship.toml
-  )
-
-  for rel in "${paths[@]}"; do
-    make_symlink "$DOTFILES_ROOT/$rel" "$HOME/$rel"
-  done
-}
-
-# --- Link executables ---
-feature_link_bin() {
-  local paths=(
-    .local/bin/vis
-    .local/bin/clip
-  )
-
-  for rel in "${paths[@]}"; do
-    make_symlink "$DOTFILES_ROOT/$rel" "$HOME/$rel"
+    while IFS= read -r -d '' file; do
+      link_dotfile "${file#./}"
+    done < <(cd "$DOTFILES_ROOT" && find "./$entry" -type f -print0)
   done
 }
