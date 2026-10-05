@@ -1,18 +1,19 @@
-# TODO(andywang): add comment
+# Platform and shell detection.
 
 # --- Platform detection ---
 detect_os_arch() {
-  OS="$(uname -s)"
-  ARCH="$(uname -m)"
-  case "$OS" in
-    Linux)  OS=linux ;;
-    Darwin) OS=macos ;;
-    *)      error "Unsupported OS: $OS" ;;
+  local os arch
+  os="$(uname -s)"
+  arch="$(uname -m)"
+  case "$os" in
+    Linux)  _os=linux ;;
+    Darwin) _os=macos ;;
+    *)      error "Unsupported OS: $os" ;;
   esac
-  case "$ARCH" in
-    x86_64)        ARCH=x86_64 ;;
-    aarch64|arm64) ARCH=arm64 ;;
-    *)             error "Unsupported architecture: $ARCH" ;;
+  case "$arch" in
+    x86_64)        _arch=x86_64 ;;
+    aarch64|arm64) _arch=arm64 ;;
+    *)             error "Unsupported architecture: $arch" ;;
   esac
 }
 
@@ -35,13 +36,14 @@ github_release_url() {
     | cut -d'"' -f4
 }
 
-# Resolve the login shell's name and rc file into globals SHELL_NAME / RC_FILE.
+# Resolve the login shell into _name and _rc_file.
 detect_shell_rc() {
-  SHELL_NAME="$(basename "$SHELL")"
-  case "$SHELL_NAME" in
-    zsh)  RC_FILE="$HOME/.zshrc" ;;
-    bash) RC_FILE="$HOME/.bashrc" ;;
-    *)    warn "Unrecognized shell '$SHELL_NAME', defaulting to bash/.bashrc"
-          SHELL_NAME=bash; RC_FILE="$HOME/.bashrc" ;;
+  local name
+  name="$(basename "$SHELL")"
+  case "$name" in
+    zsh)  _name=zsh;  _rc_file="$HOME/.zshrc" ;;
+    bash) _name=bash; _rc_file="$HOME/.bashrc" ;;
+    *)    warn "Unrecognized shell '$name', defaulting to bash/.bashrc"
+          _name=bash; _rc_file="$HOME/.bashrc" ;;
   esac
 }

@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Feature: Claude Code config (CLAUDE.md, scripts, commands, settings).
 
 # --- Link Claude scripts/commands directories ---
 configure_claude_dirs() {
