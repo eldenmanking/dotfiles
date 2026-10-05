@@ -34,3 +34,14 @@ DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
 }
+
+# TODO(andywang): add comment
+variant_exists() {
+  [[ -n "$1" ]] && declare -F "variant_$1" >/dev/null
+}
+
+# TODO(andywang): add comment
+variant_config() {
+  variant_exists "$1" || error "Unknown variant '$1'"
+  "variant_$1"
+}

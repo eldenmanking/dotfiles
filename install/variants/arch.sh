@@ -1,11 +1,13 @@
 # TODO(andywang): add comment
-VARIANT_DESCRIPTION="Arch Linux (or Arch-based) desktop with pacman/yay packages, gnome and dconf"
-VARIANT_FEATURES="pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info"
-VARIANT_ALL_EXCLUDE="terminal"
-LINK_INCLUDE_PATHS=("${LINK_COMMON_PATHS[@]}" "${LINK_DESKTOP_PATHS[@]}")
-
-# 'terminal' is intentionally left skipped: pacman + yay together cover
-# all packages the --terminal flag would install.
+variant_arch() {
+  f_arg_description="Arch Linux (or Arch-based) desktop with pacman/yay packages, gnome and dconf"
+  f_arg_features="pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info"
+  # 'terminal' is intentionally left skipped: pacman + yay together cover
+  # all packages the --terminal flag would install.
+  f_arg_all_exclude="terminal"
+  f_arg_link_paths="${LINK_COMMON_PATHS[*]} ${LINK_DESKTOP_PATHS[*]}"
+  f_arg_git_fsmonitor=true
+}
 
 TERMINAL_YAY=()
 

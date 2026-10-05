@@ -1,5 +1,8 @@
 # TODO(andywang): add comment
-VARIANT_DESCRIPTION="Portable terminal setup (e.g. Windows WSL, macOS): no package manager or root required"
-VARIANT_FEATURES="binaries link zsh shell starship tmux gitconfig"
-VARIANT_ALL_EXCLUDE=""
-LINK_INCLUDE_PATHS=("${LINK_COMMON_PATHS[@]}")
+variant_portable() {
+  f_arg_description="Portable terminal setup (e.g. Windows WSL, macOS): no package manager or root required"
+  f_arg_features="binaries link zsh shell starship tmux gitconfig"
+  f_arg_all_exclude=""
+  f_arg_link_paths="${LINK_COMMON_PATHS[*]}"
+  f_arg_git_fsmonitor=true
+}

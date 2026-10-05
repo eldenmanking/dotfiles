@@ -17,11 +17,7 @@ BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
 LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 
-DRY_RUN=false
-VARIANT_NAME=""
-ENABLED=" "
-
-for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh; do
+for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/variants/*.sh; do
   # shellcheck source=/dev/null
   source "$f"
 done
@@ -35,16 +31,8 @@ available_variants() {
   printf '%s' "$names"
 }
 
-variant_file() {
-  printf '%s/variants/%s.sh' "$INSTALL_DIR" "$1"
-}
-
-feature_enabled() {
-  list_contains "$ENABLED" "$1"
-}
-
 usage() {
-  local f
+  local variant="$1" v features all_exclude
   cat <<EOF
 Usage: $(basename "$0") --variant NAME [OPTIONS]
 
@@ -54,18 +42,23 @@ See README.md for more information.
 
 Variants:
 EOF
-  for f in $(available_variants); do
-    printf '  %-10s %s\n' "$f" "$(. "$(variant_file "$f")" && printf '%s' "$VARIANT_DESCRIPTION")"
+  for v in $(available_variants); do
+    f_with_args variant_config description -- "$v"
+    printf '  %-10s %s\n' "$v" "$f_arg_description"
   done
-  [[ -n "$VARIANT_NAME" ]] || return 0
+  variant_exists "$variant" || return 0
+
+  f_with_args variant_config features all_exclude -- "$variant"
+  features="$f_arg_features"
+  all_exclude="$f_arg_all_exclude"
   cat <<EOF
 
-Options for variant '$VARIANT_NAME':
+Options for variant '$variant':
   --variant NAME   select the variant
-  --all            install all options${VARIANT_ALL_EXCLUDE:+ (except: $VARIANT_ALL_EXCLUDE)}
+  --all            install all options${all_exclude:+ (except: $all_exclude)}
 EOF
-  for f in $VARIANT_FEATURES; do
-    printf '  --%-14s %s\n' "$f" "$(feature_description "$f")"
+  for v in $features; do
+    printf '  --%-14s %s\n' "$v" "$(feature_description "$v")"
   done
   cat <<EOF
   --dry-run        print what would happen without making changes
@@ -74,8 +67,9 @@ EOF
 }
 
 usage_error() {
-  warn "$1"
-  usage >&2
+  local message="$1" variant="${2:-}"
+  warn "$message"
+  usage "$variant" >&2
   exit 1
 }
 
@@ -106,37 +100,34 @@ parse_args() {
   f_arg_help="$help"
 }
 
-load_variant() {
-  local name="$1" help="$2"
-  if [[ -z "$name" ]]; then
+exit_with_usage_unless_runnable() {
+  local variant="$1" flags="$2" all="$3" help="$4"
+  if [[ -z "$variant" ]]; then
     $help || usage_error "--variant is required"
-    usage
+    usage ""
     exit 0
   fi
-  [[ -f "$(variant_file "$name")" ]] \
-    || usage_error "Unknown variant '$name'. Available variants: $(available_variants)"
-  # shellcheck source=/dev/null
-  source "$(variant_file "$name")"
-  VARIANT_NAME="$name"
-}
-
-exit_with_usage_if_nothing_to_do() {
-  local help="$1" flags="$2" all="$3"
+  variant_exists "$variant" \
+    || usage_error "Unknown variant '$variant'. Available variants: $(available_variants)"
   if $help || { [[ "$flags" == " " ]] && ! $all; }; then
-    usage
+    usage "$variant"
     exit 0
   fi
 }
 
 resolve_features() {
-  local flags="$1" all="$2" enabled=" " k
+  local variant="$1" flags="$2" all="$3" features all_exclude enabled=" " k
+
+  f_with_args variant_config features all_exclude -- "$variant"
+  features="$f_arg_features"
+  all_exclude="$f_arg_all_exclude"
 
   for k in $flags; do
-    list_contains "$VARIANT_FEATURES" "$k" \
-      || usage_error "Unknown option for variant '$VARIANT_NAME': --$k"
+    list_contains "$features" "$k" \
+      || usage_error "Unknown option for variant '$variant': --$k" "$variant"
   done
-  for k in $VARIANT_FEATURES; do
-    if list_contains "$flags" "$k" || { $all && ! list_contains "$VARIANT_ALL_EXCLUDE" "$k"; }; then
+  for k in $features; do
+    if list_contains "$flags" "$k" || { $all && ! list_contains "$all_exclude" "$k"; }; then
       enabled+="$k "
     fi
   done
@@ -151,31 +142,35 @@ enter_dotfiles_root() {
 }
 
 run_features() {
-  local feature
-  info "Beginning dotfiles installation (variant: $VARIANT_NAME)..."
-  for feature in $VARIANT_FEATURES; do
-    feature_enabled "$feature" || continue
+  local variant="$1" enabled="$2" features feature
+
+  f_with_args variant_config features -- "$variant"
+  features="$f_arg_features"
+
+  info "Beginning dotfiles installation (variant: $variant)..."
+  for feature in $features; do
+    list_contains "$enabled" "$feature" || continue
     if $DRY_RUN && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
       info "[dry-run] would run feature: $feature"
       continue
     fi
-    "$(feature_function "$feature")"
+    "$(feature_function "$feature")" "$variant" "$enabled"
   done
   info "dotfiles installation complete."
 }
 
 main() {
-  f_with_args parse_args variant flags all dry_run help -- "$@"
-  DRY_RUN="$f_arg_dry_run"
+  local variant="$1" flags="$2" all="$3" help="$4" enabled
 
-  load_variant "$f_arg_variant" "$f_arg_help"
-  exit_with_usage_if_nothing_to_do "$f_arg_help" "$f_arg_flags" "$f_arg_all"
+  exit_with_usage_unless_runnable "$variant" "$flags" "$all" "$help"
 
-  f_with_args resolve_features enabled -- "$f_arg_flags" "$f_arg_all"
-  ENABLED="$f_arg_enabled"
+  f_with_args resolve_features enabled -- "$variant" "$flags" "$all"
+  enabled="$f_arg_enabled"
 
   enter_dotfiles_root
-  run_features
+  run_features "$variant" "$enabled"
 }
 
-main "$@"
+f_with_args parse_args variant flags all dry_run help -- "$@"
+readonly DRY_RUN="$f_arg_dry_run"
+main "$f_arg_variant" "$f_arg_flags" "$f_arg_all" "$f_arg_help"
