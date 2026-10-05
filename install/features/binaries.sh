@@ -8,7 +8,7 @@ install_neovim() {
   fi
 
   f_with_args detect_os_arch os arch
-  local os="$f_detect_os_arch_os" arch="$f_detect_os_arch_arch"
+  local os="$f_arg_os" arch="$f_arg_arch"
 
   # Use direct GitHub release URL (no API call needed, avoids rate limits).
   # Format: https://github.com/neovim/neovim/releases/latest/download/nvim-<os>-<arch>.tar.gz
