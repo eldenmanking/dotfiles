@@ -24,12 +24,13 @@ feature_description() {
     tre)         echo "build and install tre (tree alternative) from source" ;;
     claude)      echo "configure CLAUDE.md, hooks, scripts, and commands" ;;
     gitconfig)   echo "set up default global git config" ;;
+    xclip)       echo "install xclip to ~/.local/bin via a temporary arch distrobox" ;;
     *)           echo "" ;;
   esac
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info xclip "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
