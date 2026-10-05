@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Command execution helpers that honor dry_run.
 
 # Detect whether a controlling terminal is actually usable (open succeeds).
 # `[[ -r /dev/tty ]]` is unreliable: the file exists in non-interactive
@@ -40,7 +40,7 @@ confirm() {
 }
 
 # Replace ^pattern$ with replace in file (with backup) after user confirmation.
-# Fourth arg is an optional sudo-style prefix for the sed call.
+# Fifth arg is an optional sudo-style prefix for the copy.
 confirmsed() {
   local dry_run="$1" file="$2" pattern="$3" replace="$4" user="${5:-}"
 

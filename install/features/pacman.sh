@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Features: pacman/yay package installs and printer setup (arch).
 
 # Pacman package list
 TERMINAL_PACMAN=(
@@ -124,7 +124,7 @@ feature_yay() {
   run_tty "$dry_run" yay --answerclean None --answerdiff None --needed -Sq "${GNOME_YAY[@]}"
 }
 
-# TODO(andywang): update comment
+# Install only the terminal packages, unless --pacman already covers them.
 feature_terminal() {
   local enabled="$2" dry_run="$3"
   if ! list_contains "$enabled" pacman; then

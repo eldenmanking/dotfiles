@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Coder workspaces.
 variant_coder() {
   _description="Coder workspaces: lightweight, rootless-friendly terminal setup (formerly light-install.sh)"
   _features="binaries link zsh shell starship tmux gng tre claude gitconfig"

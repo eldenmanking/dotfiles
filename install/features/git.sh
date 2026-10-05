@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Feature: global git config.
 
 # --- Git config ---
 feature_gitconfig() {

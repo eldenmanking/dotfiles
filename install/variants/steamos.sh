@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# SteamOS.
 variant_steamos() {
   _description="SteamOS (placeholder: work in progress)"
   _features="link zsh shell starship tmux gitconfig"

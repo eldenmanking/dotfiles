@@ -1,8 +1,8 @@
-# TODO(andywang): add comment
+# Helpers for functions that return values through _<name> output variables.
 
 F_NULL='<<null>>'
 
-# TODO(andywang): add comment
+# Reset each named output to F_NULL.
 f_prepare_args() {
   local out
   for out in "$@"; do
@@ -10,7 +10,7 @@ f_prepare_args() {
   done
 }
 
-# TODO(andywang): add comment
+# Error if any named output was not set by function fn.
 f_end() {
   local fn="$1" out var
   shift
@@ -22,7 +22,8 @@ f_end() {
   done
 }
 
-# TODO(andywang): add comment
+# f_with_args <fn> <output>... [-- <arg>...]
+# Prepare the outputs, call fn with the args, then check every output was set.
 f_with_args() {
   local fn="$1" outs=""
   shift
@@ -37,7 +38,7 @@ f_with_args() {
   f_end "$fn" $outs
 }
 
-# TODO(andywang): add comment
+# Return 0 if space-separated list $1 contains word $2.
 list_contains() {
   case " $1 " in
     *" $2 "*) return 0 ;;

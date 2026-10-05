@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Feature and variant registry helpers.
 
 feature_description() {
   case "$1" in
@@ -28,19 +28,19 @@ feature_description() {
   esac
 }
 
-# TODO(andywang): add comment
+# Features that honor --dry-run; others are only announced.
 DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
 }
 
-# TODO(andywang): add comment
+# Return 0 if a variant_<name> function is defined.
 variant_exists() {
   [[ -n "$1" ]] && declare -F "variant_$1" >/dev/null
 }
 
-# TODO(andywang): add comment
+# Call variant_<name>, which sets the variant's _* config outputs.
 variant_config() {
   variant_exists "$1" || error "Unknown variant '$1'"
   "variant_$1"

@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Arch Linux desktop.
 variant_arch() {
   _description="Arch Linux (or Arch-based) desktop with pacman/yay packages, gnome and dconf"
   _features="pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info"

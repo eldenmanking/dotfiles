@@ -1,7 +1,7 @@
-# TODO(andywang): add comment
+# Filesystem helpers: symlinks and managed blocks.
 
 # Create a symlink at $target pointing to $src, backing up any existing file
-# or stale symlink. Third arg is an optional sudo-style prefix.
+# or stale symlink. Fourth arg is an optional sudo-style prefix.
 make_symlink() {
   local dry_run="$1" src="$2" target="$3" sudo_cmd="${4:-}"
 
