@@ -4,10 +4,9 @@ F_NULL='<<null>>'
 
 # TODO(andywang): add comment
 f_prepare_args() {
-  local fn="$1" out
-  shift
+  local out
   for out in "$@"; do
-    printf -v "f_${fn}_${out}" '%s' "$F_NULL"
+    printf -v "f_arg_${out}" '%s' "$F_NULL"
   done
 }
 
@@ -16,7 +15,7 @@ f_end() {
   local fn="$1" out var
   shift
   for out in "$@"; do
-    var="f_${fn}_${out}"
+    var="f_arg_${out}"
     if [[ -z "${!var+x}" || "${!var}" == "$F_NULL" ]]; then
       error "$fn: output '$var' was not initialized"
     fi
@@ -33,7 +32,7 @@ f_with_args() {
   done
   [[ $# -gt 0 ]] && shift
   [[ -n "$outs" ]] || error "f_with_args $fn: no outputs given"
-  f_prepare_args "$fn" $outs
+  f_prepare_args $outs
   "$fn" "$@"
   f_end "$fn" $outs
 }

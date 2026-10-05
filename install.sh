@@ -99,11 +99,11 @@ parse_args() {
     esac
   done
 
-  f_parse_args_variant="$variant"
-  f_parse_args_flags="$flags"
-  f_parse_args_all="$all"
-  f_parse_args_dry_run="$dry_run"
-  f_parse_args_help="$help"
+  f_arg_variant="$variant"
+  f_arg_flags="$flags"
+  f_arg_all="$all"
+  f_arg_dry_run="$dry_run"
+  f_arg_help="$help"
 }
 
 load_variant() {
@@ -141,7 +141,7 @@ resolve_features() {
     fi
   done
 
-  f_resolve_features_enabled="$enabled"
+  f_arg_enabled="$enabled"
 }
 
 enter_dotfiles_root() {
@@ -166,13 +166,13 @@ run_features() {
 
 main() {
   f_with_args parse_args variant flags all dry_run help -- "$@"
-  DRY_RUN="$f_parse_args_dry_run"
+  DRY_RUN="$f_arg_dry_run"
 
-  load_variant "$f_parse_args_variant" "$f_parse_args_help"
-  exit_with_usage_if_nothing_to_do "$f_parse_args_help" "$f_parse_args_flags" "$f_parse_args_all"
+  load_variant "$f_arg_variant" "$f_arg_help"
+  exit_with_usage_if_nothing_to_do "$f_arg_help" "$f_arg_flags" "$f_arg_all"
 
-  f_with_args resolve_features enabled -- "$f_parse_args_flags" "$f_parse_args_all"
-  ENABLED="$f_resolve_features_enabled"
+  f_with_args resolve_features enabled -- "$f_arg_flags" "$f_arg_all"
+  ENABLED="$f_arg_enabled"
 
   enter_dotfiles_root
   run_features
