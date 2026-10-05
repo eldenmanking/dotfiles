@@ -18,11 +18,11 @@ EOF
   f_with_args detect_shell_rc name rc_file
 
   local content="$all_shell_config"
-  if [[ "$f_arg_name" == zsh ]]; then
+  if [[ "$_name" == zsh ]]; then
     content+=$'\n'"$zsh_shell_config"
   fi
 
-  upsert_block "$f_arg_rc_file" shell "$content"
+  upsert_block "$_rc_file" shell "$content"
 }
 
 # TODO(andywang): add comment
@@ -45,7 +45,7 @@ feature_starship() {
   install_starship_binary "$dry_run" "$LOCAL_BIN"
 
   f_with_args detect_shell_rc name rc_file
-  upsert_block "$f_arg_rc_file" starship "eval \"\$(starship init $f_arg_name)\""
+  upsert_block "$_rc_file" starship "eval \"\$(starship init $_name)\""
 }
 
 # --- Zsh plugins ---

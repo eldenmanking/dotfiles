@@ -9,7 +9,7 @@ feature_gitconfig() {
   fi
 
   f_with_args variant_config git_fsmonitor -- "$variant"
-  git_fsmonitor="$f_arg_git_fsmonitor"
+  git_fsmonitor="$_git_fsmonitor"
 
   info "Configuring global git settings..."
   run "$dry_run" git config --global core.excludesFile "$DOTFILES_ROOT/.config/git/ignore"
