@@ -7,8 +7,7 @@ install_neovim() {
     return
   fi
 
-  f_prepare_args detect_os_arch os arch
-  detect_os_arch
+  f_with_args detect_os_arch os arch
   local os="$f_detect_os_arch_os" arch="$f_detect_os_arch_arch"
 
   # Use direct GitHub release URL (no API call needed, avoids rate limits).

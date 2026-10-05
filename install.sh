@@ -80,7 +80,6 @@ usage_error() {
 }
 
 parse_args() {
-  f_begin "$FUNCNAME" variant flags all dry_run help
   local variant="" flags=" " all=false dry_run=false help=false
 
   [[ $# -gt 0 ]] || help=true
@@ -105,7 +104,6 @@ parse_args() {
   f_parse_args_all="$all"
   f_parse_args_dry_run="$dry_run"
   f_parse_args_help="$help"
-  f_end "$FUNCNAME" variant flags all dry_run help
 }
 
 load_variant() {
@@ -131,7 +129,6 @@ exit_with_usage_if_nothing_to_do() {
 }
 
 resolve_features() {
-  f_begin "$FUNCNAME" enabled
   local flags="$1" all="$2" enabled=" " k
 
   for k in $flags; do
@@ -145,7 +142,6 @@ resolve_features() {
   done
 
   f_resolve_features_enabled="$enabled"
-  f_end "$FUNCNAME" enabled
 }
 
 enter_dotfiles_root() {
@@ -169,15 +165,13 @@ run_features() {
 }
 
 main() {
-  f_prepare_args parse_args variant flags all dry_run help
-  parse_args "$@"
+  f_with_args parse_args variant flags all dry_run help -- "$@"
   DRY_RUN="$f_parse_args_dry_run"
 
   load_variant "$f_parse_args_variant" "$f_parse_args_help"
   exit_with_usage_if_nothing_to_do "$f_parse_args_help" "$f_parse_args_flags" "$f_parse_args_all"
 
-  f_prepare_args resolve_features enabled
-  resolve_features "$f_parse_args_flags" "$f_parse_args_all"
+  f_with_args resolve_features enabled -- "$f_parse_args_flags" "$f_parse_args_all"
   ENABLED="$f_resolve_features_enabled"
 
   enter_dotfiles_root
