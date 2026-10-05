@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Portable terminal setup (e.g. WSL, macOS).
 variant_portable() {
   _description="Portable terminal setup (e.g. Windows WSL, macOS): no package manager or root required"
   _features="binaries link zsh shell starship tmux gitconfig"

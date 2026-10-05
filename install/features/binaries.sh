@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Features: install binaries into ~/.local without a package manager.
 
 # --- Install neovim ---
 install_neovim() {

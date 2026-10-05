@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Features: shell rc blocks, starship prompt and zsh plugins.
 
 # --- Shell keybindings ---
 feature_shell() {
@@ -25,7 +25,7 @@ EOF
   upsert_block "$_rc_file" shell "$content"
 }
 
-# TODO(andywang): add comment
+# Install starship if missing, optionally into bin_dir.
 install_starship_binary() {
   local dry_run="$1" bin_dir="${2:-}"
   if command -v starship &>/dev/null; then

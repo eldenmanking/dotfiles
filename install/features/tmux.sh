@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Feature: tmux plugin manager and plugins.
 
 # --- Tmux plugins ---
 feature_tmux() {

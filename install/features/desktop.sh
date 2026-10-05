@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Features: desktop setup (fonts, logiops, services, dconf, xdg).
 
 feature_font() {
   local dry_run="$3"

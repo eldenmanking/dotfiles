@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Platform and shell detection.
 
 # --- Platform detection ---
 detect_os_arch() {
@@ -36,7 +36,7 @@ github_release_url() {
     | cut -d'"' -f4
 }
 
-# TODO(andywang): update comment
+# Resolve the login shell into _name and _rc_file.
 detect_shell_rc() {
   local name
   name="$(basename "$SHELL")"

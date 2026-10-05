@@ -1,6 +1,6 @@
-# TODO(andywang): add comment
+# Feature: symlink dotfiles into place.
 
-# TODO(andywang): add comment
+# Paths linked by every variant. Directories link every file under them.
 LINK_COMMON_PATHS=(
   .tmux.conf
   .tmux/resurrect/saferestore.sh
@@ -10,7 +10,7 @@ LINK_COMMON_PATHS=(
   .local/bin/clip
 )
 
-# TODO(andywang): add comment
+# Extra paths linked on full desktop installs (e.g. arch).
 LINK_DESKTOP_PATHS=(
   .bash_profile
   .bashrc
@@ -36,7 +36,7 @@ LINK_DESKTOP_PATHS=(
   root/usr
 )
 
-# TODO(andywang): add comment
+# Link one repo-relative file: root/* goes to /, everything else to $HOME.
 link_dotfile() {
   local dry_run="$1" rel="$2"
   if [[ "$rel" == root/* ]]; then
