@@ -12,21 +12,6 @@ f_prepare_args() {
 }
 
 # TODO(andywang): add comment
-f_begin() {
-  local fn="$1" out var
-  shift
-  for out in "$@"; do
-    var="f_${fn}_${out}"
-    if [[ -z "${!var+x}" ]]; then
-      error "$fn: output '$var' was not prepared (call 'f_prepare_args $fn $*' first)"
-    fi
-    if [[ "${!var}" != "$F_NULL" ]]; then
-      error "$fn: output '$var' is already initialized (call 'f_prepare_args $fn $*' first)"
-    fi
-  done
-}
-
-# TODO(andywang): add comment
 f_end() {
   local fn="$1" out var
   shift
@@ -36,6 +21,21 @@ f_end() {
       error "$fn: output '$var' was not initialized"
     fi
   done
+}
+
+# TODO(andywang): add comment
+f_with_args() {
+  local fn="$1" outs=""
+  shift
+  while [[ $# -gt 0 && "$1" != "--" ]]; do
+    outs+="${outs:+ }$1"
+    shift
+  done
+  [[ $# -gt 0 ]] && shift
+  [[ -n "$outs" ]] || error "f_with_args $fn: no outputs given"
+  f_prepare_args "$fn" $outs
+  "$fn" "$@"
+  f_end "$fn" $outs
 }
 
 # TODO(andywang): add comment

@@ -2,7 +2,6 @@
 
 # --- Platform detection ---
 detect_os_arch() {
-  f_begin "$FUNCNAME" os arch
   local os arch
   os="$(uname -s)"
   arch="$(uname -m)"
@@ -16,7 +15,6 @@ detect_os_arch() {
     aarch64|arm64) f_detect_os_arch_arch=arm64 ;;
     *)             error "Unsupported architecture: $arch" ;;
   esac
-  f_end "$FUNCNAME" os arch
 }
 
 # Fetch the browser_download_url for a GitHub release asset matching a pattern.
@@ -40,7 +38,6 @@ github_release_url() {
 
 # TODO(andywang): update comment
 detect_shell_rc() {
-  f_begin "$FUNCNAME" name rc_file
   local name
   name="$(basename "$SHELL")"
   case "$name" in
@@ -49,5 +46,4 @@ detect_shell_rc() {
     *)    warn "Unrecognized shell '$name', defaulting to bash/.bashrc"
           f_detect_shell_rc_name=bash; f_detect_shell_rc_rc_file="$HOME/.bashrc" ;;
   esac
-  f_end "$FUNCNAME" name rc_file
 }
