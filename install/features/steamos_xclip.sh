@@ -1,7 +1,7 @@
 # TODO(andywang): add comment
 
 # --- Install xclip ---
-feature_xclip() {
+feature_steamos_xclip() {
   local container="tmp-arch"
 
   if command -v xclip &>/dev/null; then
