@@ -46,6 +46,7 @@ feature_link_bin() {
   local paths=(
     .local/bin/vis
     .local/bin/clip
+    .local/bin/vm-usb
   )
 
   for rel in "${paths[@]}"; do

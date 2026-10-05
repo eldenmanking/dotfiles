@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+# TODO(andywang): add comment
+
+PATTERN="${1:-logitech}"   # text to match in lsusb output (case-insensitive)
+VM="${2:-win11}"           # libvirt VM name; list with: flatpak run --command=virsh org.gnome.Boxes list --all
+VIRSH="flatpak run --command=virsh org.gnome.Boxes"
+
+$VIRSH domstate "$VM" 2>/dev/null | grep -q running || { echo "'$VM' isn't running. Start it in Boxes first."; exit 1; }
+
+mapfile -t DEVS < <(lsusb | grep -i -- "$PATTERN")
+[ ${#DEVS[@]} -eq 0 ] && { echo "No USB devices match '$PATTERN'."; exit 1; }
+
+xml() { printf "<hostdev mode='subsystem' type='usb' managed='yes'><source><address bus='%d' device='%d'/></source></hostdev>" "$((10#$1))" "$((10#$2))"; }
+
+ATTACHED=()
+cleanup() {
+  [ ${#ATTACHED[@]} -eq 0 ] && return
+  echo "Detaching..."
+  for a in "${ATTACHED[@]}"; do
+    xml ${a% *} ${a#* } | $VIRSH detach-device "$VM" /dev/stdin
+  done
+  ATTACHED=()
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+LIVE=$($VIRSH dumpxml "$VM")
+TODO=()
+for line in "${DEVS[@]}"; do
+  bus=$(awk '{print $2}' <<<"$line")
+  dev=$(awk '{print $4}' <<<"$line" | tr -d :)
+  if grep -q "bus='$((10#$bus))' device='$((10#$dev))'" <<<"$LIVE"; then
+    ATTACHED+=("$bus $dev")
+  else
+    TODO+=("$line")
+  fi
+done
+
+if [ ${#TODO[@]} -eq 0 ]; then
+  echo "All matching devices are already attached to '$VM':"; printf '  %s\n' "${DEVS[@]}"
+  exit 0
+fi
+
+[ ${#ATTACHED[@]} -gt 0 ] && echo "Already attached (will be detached at the end): ${#ATTACHED[@]} device(s)"
+echo "To attach:"; printf '  %s\n' "${TODO[@]}"
+read -rp "Attach these to '$VM'? [y/N] " ok </dev/tty
+[[ $ok =~ ^[Yy]$ ]] || exit 0
+
+for line in "${TODO[@]}"; do
+  bus=$(awk '{print $2}' <<<"$line")
+  dev=$(awk '{print $4}' <<<"$line" | tr -d :)
+  node="/dev/bus/usb/$bus/$dev"
+  orig=$(stat -c '%u:%g' "$node")
+  sudo chown "$USER" "$node"
+  xml "$bus" "$dev" | $VIRSH attach-device "$VM" /dev/stdin && ATTACHED+=("$bus $dev")
+  sudo chown "$orig" "$node"
+done
+
+[ ${#ATTACHED[@]} -eq 0 ] && { echo "Nothing was attached."; exit 1; }
+read -rp "Devices attached. Press Enter to detach them... " </dev/tty
