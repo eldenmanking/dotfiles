@@ -44,13 +44,13 @@ Variants:
 EOF
   for v in $(available_variants); do
     f_with_args variant_config description -- "$v"
-    printf '  %-10s %s\n' "$v" "$f_arg_description"
+    printf '  %-10s %s\n' "$v" "$_description"
   done
   variant_exists "$variant" || return 0
 
   f_with_args variant_config features all_exclude -- "$variant"
-  features="$f_arg_features"
-  all_exclude="$f_arg_all_exclude"
+  features="$_features"
+  all_exclude="$_all_exclude"
   cat <<EOF
 
 Options for variant '$variant':
@@ -93,11 +93,11 @@ parse_args() {
     esac
   done
 
-  f_arg_variant="$variant"
-  f_arg_flags="$flags"
-  f_arg_all="$all"
-  f_arg_dry_run="$dry_run"
-  f_arg_help="$help"
+  _variant="$variant"
+  _flags="$flags"
+  _all="$all"
+  _dry_run="$dry_run"
+  _help="$help"
 }
 
 exit_with_usage_unless_runnable() {
@@ -119,8 +119,8 @@ resolve_features() {
   local variant="$1" flags="$2" all="$3" features all_exclude enabled=" " k
 
   f_with_args variant_config features all_exclude -- "$variant"
-  features="$f_arg_features"
-  all_exclude="$f_arg_all_exclude"
+  features="$_features"
+  all_exclude="$_all_exclude"
 
   for k in $flags; do
     list_contains "$features" "$k" \
@@ -132,7 +132,7 @@ resolve_features() {
     fi
   done
 
-  f_arg_enabled="$enabled"
+  _enabled="$enabled"
 }
 
 enter_dotfiles_root() {
@@ -145,7 +145,7 @@ run_features() {
   local variant="$1" enabled="$2" dry_run="$3" features feature
 
   f_with_args variant_config features -- "$variant"
-  features="$f_arg_features"
+  features="$_features"
 
   info "Beginning dotfiles installation (variant: $variant)..."
   for feature in $features; do
@@ -160,16 +160,12 @@ run_features() {
 }
 
 main() {
-  local variant="$1" flags="$2" all="$3" help="$4" dry_run="$5" enabled
+  f_with_args parse_args variant flags all dry_run help -- "$@"
+  exit_with_usage_unless_runnable "$_variant" "$_flags" "$_all" "$_help"
 
-  exit_with_usage_unless_runnable "$variant" "$flags" "$all" "$help"
-
-  f_with_args resolve_features enabled -- "$variant" "$flags" "$all"
-  enabled="$f_arg_enabled"
-
+  f_with_args resolve_features enabled -- "$_variant" "$_flags" "$_all"
   enter_dotfiles_root
-  run_features "$variant" "$enabled" "$dry_run"
+  run_features "$_variant" "$_enabled" "$_dry_run"
 }
 
-f_with_args parse_args variant flags all dry_run help -- "$@"
-main "$f_arg_variant" "$f_arg_flags" "$f_arg_all" "$f_arg_help" "$f_arg_dry_run"
+main "$@"

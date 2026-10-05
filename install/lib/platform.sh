@@ -6,13 +6,13 @@ detect_os_arch() {
   os="$(uname -s)"
   arch="$(uname -m)"
   case "$os" in
-    Linux)  f_arg_os=linux ;;
-    Darwin) f_arg_os=macos ;;
+    Linux)  _os=linux ;;
+    Darwin) _os=macos ;;
     *)      error "Unsupported OS: $os" ;;
   esac
   case "$arch" in
-    x86_64)        f_arg_arch=x86_64 ;;
-    aarch64|arm64) f_arg_arch=arm64 ;;
+    x86_64)        _arch=x86_64 ;;
+    aarch64|arm64) _arch=arm64 ;;
     *)             error "Unsupported architecture: $arch" ;;
   esac
 }
@@ -41,9 +41,9 @@ detect_shell_rc() {
   local name
   name="$(basename "$SHELL")"
   case "$name" in
-    zsh)  f_arg_name=zsh;  f_arg_rc_file="$HOME/.zshrc" ;;
-    bash) f_arg_name=bash; f_arg_rc_file="$HOME/.bashrc" ;;
+    zsh)  _name=zsh;  _rc_file="$HOME/.zshrc" ;;
+    bash) _name=bash; _rc_file="$HOME/.bashrc" ;;
     *)    warn "Unrecognized shell '$name', defaulting to bash/.bashrc"
-          f_arg_name=bash; f_arg_rc_file="$HOME/.bashrc" ;;
+          _name=bash; _rc_file="$HOME/.bashrc" ;;
   esac
 }

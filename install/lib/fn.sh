@@ -6,7 +6,7 @@ F_NULL='<<null>>'
 f_prepare_args() {
   local out
   for out in "$@"; do
-    printf -v "f_arg_${out}" '%s' "$F_NULL"
+    printf -v "_${out}" '%s' "$F_NULL"
   done
 }
 
@@ -15,7 +15,7 @@ f_end() {
   local fn="$1" out var
   shift
   for out in "$@"; do
-    var="f_arg_${out}"
+    var="_${out}"
     if [[ -z "${!var+x}" || "${!var}" == "$F_NULL" ]]; then
       error "$fn: output '$var' was not initialized"
     fi
