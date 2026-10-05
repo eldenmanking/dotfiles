@@ -24,7 +24,7 @@ feature_description() {
     tre)         echo "build and install tre (tree alternative) from source" ;;
     claude)      echo "configure CLAUDE.md, hooks, scripts, and commands" ;;
     gitconfig)   echo "set up default global git config" ;;
-    steamos_xclip) echo "install xclip to ~/.local/bin via a temporary arch distrobox" ;;
+    steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of a temporary arch distrobox" ;;
     *)           echo "" ;;
   esac
 }

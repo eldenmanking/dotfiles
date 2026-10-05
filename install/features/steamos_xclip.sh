@@ -20,10 +20,17 @@ feature_steamos_xclip() {
     run distrobox create -Y -n "$container" -i archlinux:latest
   fi
 
-  info "Installing xclip in '$container'..."
-  run_tty distrobox enter "$container" -- sudo pacman -S --needed --noconfirm xclip
+  info "Installing xclip in '$container' and copying it to $LOCAL_BIN..."
+  run_tty distrobox enter "$container" -- bash -c "
+    sudo pacman -Sy --noconfirm --needed xclip &&
+    mkdir -p '$LOCAL_BIN' &&
+    cp /usr/bin/xclip '$LOCAL_BIN/xclip'
+  "
 
-  run mkdir -pv "$LOCAL_BIN"
-  info "Exporting xclip to $LOCAL_BIN..."
-  run distrobox enter "$container" -- distrobox-export --bin /usr/bin/xclip --export-path "$LOCAL_BIN"
+  info "Removing distrobox '$container'..."
+  run distrobox rm -f "$container"
+
+  if ! $DRY_RUN && ldd "$LOCAL_BIN/xclip" | grep -q "not found"; then
+    warn "xclip is missing shared libraries on this host (see 'ldd $LOCAL_BIN/xclip')."
+  fi
 }
