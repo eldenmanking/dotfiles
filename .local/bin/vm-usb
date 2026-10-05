@@ -2,60 +2,74 @@
 
 # TODO(andywang): add comment
 
-PATTERN="${1:-logitech}"   # text to match in lsusb output (case-insensitive)
-VM="${2:-win11}"           # libvirt VM name; list with: flatpak run --command=virsh org.gnome.Boxes list --all
+LIB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../install/lib"
+# shellcheck source=../../install/lib/output.sh
+source "$LIB_DIR/output.sh"
+# shellcheck source=../../install/lib/fn.sh
+source "$LIB_DIR/fn.sh"
+
 VIRSH="flatpak run --command=virsh org.gnome.Boxes"
 
-DEVS=()     # lsusb lines matching $PATTERN
-TODO=()     # lsusb lines for devices not yet attached to $VM
-ATTACHED=() # "bus dev" pairs currently attached to $VM; detached on exit
+# Space-separated "bus:dev" ids currently attached to the VM. Global so the EXIT trap can detach them.
+ATTACHED=""
 
-# Prints a message to stderr and exits with status 1.
-#   $@: message
-die() {
-  echo "$@" >&2
-  exit 1
+# Reads the positional arguments into _pattern and _vm, falling back to defaults.
+#   $1: text to match in lsusb output (case-insensitive), default "logitech"
+#   $2: libvirt VM name, default "win11"; list with: flatpak run --command=virsh org.gnome.Boxes list --all
+parse_args() {
+  _pattern="${1:-logitech}"
+  _vm="${2:-win11}"
 }
 
-# Exits unless $VM is running.
+# Exits unless the VM is running.
+#   $1: VM name
 require_vm_running() {
-  $VIRSH domstate "$VM" 2>/dev/null | grep -q running || die "'$VM' isn't running. Start it in Boxes first."
+  local vm="$1"
+  $VIRSH domstate "$vm" 2>/dev/null | grep -q running || error "'$vm' isn't running. Start it in Boxes first."
 }
 
-# Fills DEVS with the lsusb lines matching $PATTERN, exiting if there are none.
+# Sets _ids to the space-separated "bus:dev" ids (zero-padded, as lsusb prints them) of the USB devices whose lsusb line
+# matches a pattern, exiting if there are none.
+#   $1: case-insensitive pattern
 find_devices() {
-  mapfile -t DEVS < <(lsusb | grep -i -- "$PATTERN")
-  [ ${#DEVS[@]} -gt 0 ] || die "No USB devices match '$PATTERN'."
+  local pattern="$1" ids
+  ids="$(lsusb | grep -i -- "$pattern" | awk '{ sub(/:$/, "", $4); printf "%s%s:%s", sep, $2, $4; sep = " " }')"
+  [[ -n "$ids" ]] || error "No USB devices match '$pattern'."
+  _ids="$ids"
 }
 
-# Prints the "bus dev" pair (zero-padded, as shown by lsusb) for an lsusb line.
-#   $1: lsusb line, e.g. "Bus 001 Device 004: ID 046d:c52b Logitech, Inc. Unifying Receiver"
-bus_dev() {
-  local _ bus dev
-  read -r _ bus _ dev _ <<<"$1"
-  echo "$bus ${dev%:}"
+# Prints the lsusb line for each device, indented.
+#   $@: "bus:dev" ids
+describe() {
+  local id
+  for id in "$@"; do
+    printf '  %s\n' "$(lsusb -s "$id")"
+  done
 }
 
 # Prints the libvirt <hostdev> XML for a USB device.
-#   $1: bus number
-#   $2: device number
+#   $1: "bus:dev" id
 xml() {
+  local bus="${1%:*}" dev="${1#*:}"
   printf "<hostdev mode='subsystem' type='usb' managed='yes'><source><address bus='%d' device='%d'/></source></hostdev>" \
-    "$((10#$1))" "$((10#$2))"
+    "$((10#$bus))" "$((10#$dev))"
 }
 
-# Splits DEVS into devices already attached to $VM (added to ATTACHED) and devices still to attach (added to TODO).
+# Splits devices into those already attached to the VM (_attached) and those still to attach (_pending).
+#   $1: VM name
+#   $2: space-separated "bus:dev" ids
 partition_devices() {
-  local live line bus dev
-  live=$($VIRSH dumpxml "$VM")
-  for line in "${DEVS[@]}"; do
-    read -r bus dev <<<"$(bus_dev "$line")"
-    if grep -q "bus='$((10#$bus))' device='$((10#$dev))'" <<<"$live"; then
-      ATTACHED+=("$bus $dev")
+  local vm="$1" ids="$2" live id attached="" pending=""
+  live="$($VIRSH dumpxml "$vm")"
+  for id in $ids; do
+    if grep -q "bus='$((10#${id%:*}))' device='$((10#${id#*:}))'" <<<"$live"; then
+      attached+="${attached:+ }$id"
     else
-      TODO+=("$line")
+      pending+="${pending:+ }$id"
     fi
   done
+  _attached="$attached"
+  _pending="$pending"
 }
 
 # Asks the user a yes/no question on the terminal, returning 0 only for "y" or "Y".
@@ -66,55 +80,61 @@ confirm() {
   [[ $ok =~ ^[Yy]$ ]]
 }
 
-# Attaches a USB device to $VM, recording it in ATTACHED on success. The device node is temporarily chowned to $USER
-# so the session libvirtd can open it, then restored to its original owner.
-#   $1: lsusb line for the device
+# Attaches a USB device to the VM, returning non-zero on failure. The device node is temporarily chowned to $USER so
+# the session libvirtd can open it, then restored to its original owner.
+#   $1: VM name
+#   $2: "bus:dev" id
 attach_device() {
-  local bus dev node orig
-  read -r bus dev <<<"$(bus_dev "$1")"
-  node="/dev/bus/usb/$bus/$dev"
-  orig=$(stat -c '%u:%g' "$node")
+  local vm="$1" id="$2" node orig status
+  node="/dev/bus/usb/${id%:*}/${id#*:}"
+  orig="$(stat -c '%u:%g' "$node")"
   sudo chown "$USER" "$node"
-  xml "$bus" "$dev" | $VIRSH attach-device "$VM" /dev/stdin && ATTACHED+=("$bus $dev")
+  xml "$id" | $VIRSH attach-device "$vm" /dev/stdin
+  status=$?
   sudo chown "$orig" "$node"
+  return $status
 }
 
-# Detaches every device in ATTACHED from $VM and clears the list. Runs on exit.
+# Detaches every device in ATTACHED from the VM and clears the list. Runs on exit.
+#   $1: VM name
 detach_all() {
-  [ ${#ATTACHED[@]} -eq 0 ] && return
+  local vm="$1" id
+  [[ -n "$ATTACHED" ]] || return 0
   echo "Detaching..."
-  local a
-  for a in "${ATTACHED[@]}"; do
-    xml ${a% *} ${a#* } | $VIRSH detach-device "$VM" /dev/stdin
+  for id in $ATTACHED; do
+    xml "$id" | $VIRSH detach-device "$vm" /dev/stdin
   done
-  ATTACHED=()
+  ATTACHED=""
 }
 
 main() {
-  require_vm_running
-  find_devices
+  local vm id
+  f_with_args parse_args pattern vm -- "$@"
+  vm="$_vm"
 
-  trap detach_all EXIT
+  require_vm_running "$vm"
+  f_with_args find_devices ids -- "$_pattern"
+  f_with_args partition_devices attached pending -- "$vm" "$_ids"
+
+  ATTACHED="$_attached"
+  trap "detach_all $(printf %q "$vm")" EXIT
   trap 'exit 130' INT TERM
 
-  partition_devices
-
-  if [ ${#TODO[@]} -eq 0 ]; then
-    echo "All matching devices are already attached to '$VM':"; printf '  %s\n' "${DEVS[@]}"
+  if [[ -z "$_pending" ]]; then
+    echo "All matching devices are already attached to '$vm':"; describe $_ids
     exit 0
   fi
 
-  [ ${#ATTACHED[@]} -gt 0 ] && echo "Already attached (will be detached at the end): ${#ATTACHED[@]} device(s)"
-  echo "To attach:"; printf '  %s\n' "${TODO[@]}"
-  confirm "Attach these to '$VM'?" || exit 0
+  [[ -n "$ATTACHED" ]] && echo "Already attached (will be detached at the end): $(wc -w <<<"$ATTACHED") device(s)"
+  echo "To attach:"; describe $_pending
+  confirm "Attach these to '$vm'?" || exit 0
 
-  local line
-  for line in "${TODO[@]}"; do
-    attach_device "$line"
+  for id in $_pending; do
+    attach_device "$vm" "$id" && ATTACHED+="${ATTACHED:+ }$id"
   done
 
-  [ ${#ATTACHED[@]} -gt 0 ] || die "Nothing was attached."
+  [[ -n "$ATTACHED" ]] || error "Nothing was attached."
   read -rp "Devices attached. Press Enter to detach them... " </dev/tty
 }
 
-main
+main "$@"
