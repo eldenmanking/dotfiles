@@ -43,11 +43,12 @@ feature_yay() {
 # Install only the terminal subset of packages. Skips work already covered by
 # feature_pacman / feature_yay when those flags were also given.
 feature_terminal() {
-  if ! feature_enabled pacman; then
+  local enabled="$2"
+  if ! list_contains "$enabled" pacman; then
     info "Installing pacman packages for terminal..."
     run_tty sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"
   fi
-  if ! feature_enabled yay && [[ ${#TERMINAL_YAY[@]} -gt 0 ]]; then
+  if ! list_contains "$enabled" yay && [[ ${#TERMINAL_YAY[@]} -gt 0 ]]; then
     ensure_yay
     info "Installing yay packages for terminal..."
     run_tty yay --answerclean None --answerdiff None --needed -Sq "${TERMINAL_YAY[@]}"

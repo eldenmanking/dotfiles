@@ -47,8 +47,10 @@ link_dotfile() {
 }
 
 feature_link() {
-  local entry file
-  for entry in "${LINK_INCLUDE_PATHS[@]}"; do
+  local variant="$1" link_paths entry file
+  f_with_args variant_config link_paths -- "$variant"
+  link_paths="$f_arg_link_paths"
+  for entry in $link_paths; do
     if [[ ! -e "$DOTFILES_ROOT/$entry" ]]; then
       warn "Source does not exist, skipping: $DOTFILES_ROOT/$entry"
       continue
