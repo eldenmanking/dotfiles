@@ -2,18 +2,21 @@
 
 # --- Platform detection ---
 detect_os_arch() {
-  OS="$(uname -s)"
-  ARCH="$(uname -m)"
-  case "$OS" in
-    Linux)  OS=linux ;;
-    Darwin) OS=macos ;;
-    *)      error "Unsupported OS: $OS" ;;
+  f_begin "$FUNCNAME" os arch
+  local os arch
+  os="$(uname -s)"
+  arch="$(uname -m)"
+  case "$os" in
+    Linux)  f_detect_os_arch_os=linux ;;
+    Darwin) f_detect_os_arch_os=macos ;;
+    *)      error "Unsupported OS: $os" ;;
   esac
-  case "$ARCH" in
-    x86_64)        ARCH=x86_64 ;;
-    aarch64|arm64) ARCH=arm64 ;;
-    *)             error "Unsupported architecture: $ARCH" ;;
+  case "$arch" in
+    x86_64)        f_detect_os_arch_arch=x86_64 ;;
+    aarch64|arm64) f_detect_os_arch_arch=arm64 ;;
+    *)             error "Unsupported architecture: $arch" ;;
   esac
+  f_end "$FUNCNAME" os arch
 }
 
 # Fetch the browser_download_url for a GitHub release asset matching a pattern.
@@ -35,13 +38,16 @@ github_release_url() {
     | cut -d'"' -f4
 }
 
-# Resolve the login shell's name and rc file into globals SHELL_NAME / RC_FILE.
+# TODO(andywang): update comment
 detect_shell_rc() {
-  SHELL_NAME="$(basename "$SHELL")"
-  case "$SHELL_NAME" in
-    zsh)  RC_FILE="$HOME/.zshrc" ;;
-    bash) RC_FILE="$HOME/.bashrc" ;;
-    *)    warn "Unrecognized shell '$SHELL_NAME', defaulting to bash/.bashrc"
-          SHELL_NAME=bash; RC_FILE="$HOME/.bashrc" ;;
+  f_begin "$FUNCNAME" name rc_file
+  local name
+  name="$(basename "$SHELL")"
+  case "$name" in
+    zsh)  f_detect_shell_rc_name=zsh;  f_detect_shell_rc_rc_file="$HOME/.zshrc" ;;
+    bash) f_detect_shell_rc_name=bash; f_detect_shell_rc_rc_file="$HOME/.bashrc" ;;
+    *)    warn "Unrecognized shell '$name', defaulting to bash/.bashrc"
+          f_detect_shell_rc_name=bash; f_detect_shell_rc_rc_file="$HOME/.bashrc" ;;
   esac
+  f_end "$FUNCNAME" name rc_file
 }

@@ -30,16 +30,6 @@ make_symlink() {
   run $sudo_cmd ln -snfv "$src" "$target"
 }
 
-# Return 0 if the given find path matches any entry in EXCLUDE_PATHS, either
-# exactly or as a directory prefix.
-should_exclude() {
-  local path="$1" ex
-  for ex in "${EXCLUDE_PATHS[@]}"; do
-    [[ "$path" == "$ex" || "$path" == "$ex"/* ]] && return 0
-  done
-  return 1
-}
-
 # --- Managed block helper ---
 # Idempotently insert or update a named block of lines in a file. Each block is
 # delimited by markers unique to <name>:
