@@ -31,6 +31,7 @@ LINK_DESKTOP_PATHS=(
   .config/yapf
   .config/zsh
   .local/bin/squidpdf
+  .local/bin/vm-usb
   .local/share
   root/etc
   root/usr
