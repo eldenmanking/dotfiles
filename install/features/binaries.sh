@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Features: install binaries into ~/.local without a package manager.
 
 # --- Install neovim ---
 install_neovim() {
@@ -7,17 +7,18 @@ install_neovim() {
     return
   fi
 
-  detect_os_arch
+  f_with_args detect_os_arch os arch
+  local os="$_os" arch="$_arch"
 
   # Use direct GitHub release URL (no API call needed, avoids rate limits).
   # Format: https://github.com/neovim/neovim/releases/latest/download/nvim-<os>-<arch>.tar.gz
   local asset_name
-  case "${OS}-${ARCH}" in
+  case "${os}-${arch}" in
     linux-x86_64)  asset_name="nvim-linux-x86_64.tar.gz" ;;
     linux-arm64)   asset_name="nvim-linux-arm64.tar.gz" ;;
     macos-arm64)   asset_name="nvim-macos-arm64.tar.gz" ;;
     macos-x86_64)  asset_name="nvim-macos-x86_64.tar.gz" ;;
-    *)             error "No neovim binary available for ${OS}-${ARCH}" ;;
+    *)             error "No neovim binary available for ${os}-${arch}" ;;
   esac
 
   local download_url="https://github.com/neovim/neovim/releases/latest/download/${asset_name}"
@@ -28,9 +29,9 @@ install_neovim() {
   info "Downloading neovim from $download_url ..."
   if ! curl -fSL -o "$tmp/nvim.tar.gz" "$download_url"; then
     warn "Direct download failed, trying GitHub API fallback..."
-    local api_pattern="nvim-${OS}.*(${ARCH}|64)\\.tar\\.gz\""
+    local api_pattern="nvim-${os}.*(${arch}|64)\\.tar\\.gz\""
     download_url="$(github_release_url neovim/neovim "$api_pattern")"
-    [[ -n "$download_url" ]] || error "Could not find neovim release for ${OS}-${ARCH}"
+    [[ -n "$download_url" ]] || error "Could not find neovim release for ${os}-${arch}"
     curl -fSL -o "$tmp/nvim.tar.gz" "$download_url"
   fi
 

@@ -100,7 +100,7 @@ This repository contains configuration files for my linux workspace. The followi
 ```
 
 ## Installation
-`install.sh` is the single entry point. Choose a platform with `--variant` (`coder` (default), `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it runs `--variant coder --all`. Each variant lives in `install/variants/`, and each feature in `install/features/`.
+`install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`.
 
 The `arch` variant is designed to work for Arch Linux (or other Arch-based distributions). Essential packages and applications can be installed using `./install.sh --variant arch` as a user. This variant attempts to setup the following:
  - yay

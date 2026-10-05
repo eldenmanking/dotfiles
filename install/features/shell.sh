@@ -1,4 +1,4 @@
-# TODO(andywang): add comment
+# Features: shell rc blocks, starship prompt and zsh plugins.
 
 # --- Shell keybindings ---
 feature_shell() {
@@ -15,17 +15,17 @@ source ~/dotfiles/.config/zsh/settings.zsh
 EOF
 )
 
-  detect_shell_rc
+  f_with_args detect_shell_rc name rc_file
 
   local content="$all_shell_config"
-  if [[ "$SHELL_NAME" == zsh ]]; then
+  if [[ "$_name" == zsh ]]; then
     content+=$'\n'"$zsh_shell_config"
   fi
 
-  upsert_block "$RC_FILE" shell "$content"
+  upsert_block "$_rc_file" shell "$content"
 }
 
-# TODO(andywang): add comment
+# Install starship if missing, optionally into bin_dir.
 install_starship_binary() {
   local bin_dir="${1:-}"
   if command -v starship &>/dev/null; then
@@ -43,8 +43,8 @@ install_starship_binary() {
 feature_starship() {
   install_starship_binary "$LOCAL_BIN"
 
-  detect_shell_rc
-  upsert_block "$RC_FILE" starship "eval \"\$(starship init $SHELL_NAME)\""
+  f_with_args detect_shell_rc name rc_file
+  upsert_block "$_rc_file" starship "eval \"\$(starship init $_name)\""
 }
 
 # --- Zsh plugins ---

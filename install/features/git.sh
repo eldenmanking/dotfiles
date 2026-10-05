@@ -1,15 +1,19 @@
-# TODO(andywang): add comment
+# Feature: global git config.
 
 # --- Git config ---
 feature_gitconfig() {
+  local variant="$1" git_fsmonitor
   if ! command -v git &>/dev/null; then
     warn "git command not found, skipping git config setup."
     return
   fi
 
+  f_with_args variant_config git_fsmonitor -- "$variant"
+  git_fsmonitor="$_git_fsmonitor"
+
   info "Configuring global git settings..."
   run git config --global core.excludesFile "$DOTFILES_ROOT/.config/git/ignore"
-  if [[ "${GIT_FSMONITOR:-true}" == true ]]; then
+  if [[ "$git_fsmonitor" == true ]]; then
     run git config --global core.fsmonitor true
   fi
   run git config --global core.untrackedCache true
