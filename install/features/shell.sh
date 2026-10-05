@@ -27,12 +27,12 @@ EOF
 
 # TODO(andywang): add comment
 install_starship_binary() {
-  local bin_dir="${1:-}"
+  local dry_run="$1" bin_dir="${2:-}"
   if command -v starship &>/dev/null; then
     info "starship already available: $(command -v starship)"
     return
   fi
-  if $DRY_RUN; then
+  if $dry_run; then
     info "[dry-run] would install starship"
     return
   fi
@@ -41,7 +41,8 @@ install_starship_binary() {
 
 # --- Starship prompt ---
 feature_starship() {
-  install_starship_binary "$LOCAL_BIN"
+  local dry_run="$3"
+  install_starship_binary "$dry_run" "$LOCAL_BIN"
 
   f_with_args detect_shell_rc name rc_file
   upsert_block "$f_arg_rc_file" starship "eval \"\$(starship init $f_arg_name)\""

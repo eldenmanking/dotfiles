@@ -142,7 +142,7 @@ enter_dotfiles_root() {
 }
 
 run_features() {
-  local variant="$1" enabled="$2" features feature
+  local variant="$1" enabled="$2" dry_run="$3" features feature
 
   f_with_args variant_config features -- "$variant"
   features="$f_arg_features"
@@ -150,17 +150,17 @@ run_features() {
   info "Beginning dotfiles installation (variant: $variant)..."
   for feature in $features; do
     list_contains "$enabled" "$feature" || continue
-    if $DRY_RUN && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
+    if $dry_run && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
       info "[dry-run] would run feature: $feature"
       continue
     fi
-    "$(feature_function "$feature")" "$variant" "$enabled"
+    "$(feature_function "$feature")" "$variant" "$enabled" "$dry_run"
   done
   info "dotfiles installation complete."
 }
 
 main() {
-  local variant="$1" flags="$2" all="$3" help="$4" enabled
+  local variant="$1" flags="$2" all="$3" help="$4" dry_run="$5" enabled
 
   exit_with_usage_unless_runnable "$variant" "$flags" "$all" "$help"
 
@@ -168,9 +168,8 @@ main() {
   enabled="$f_arg_enabled"
 
   enter_dotfiles_root
-  run_features "$variant" "$enabled"
+  run_features "$variant" "$enabled" "$dry_run"
 }
 
 f_with_args parse_args variant flags all dry_run help -- "$@"
-readonly DRY_RUN="$f_arg_dry_run"
-main "$f_arg_variant" "$f_arg_flags" "$f_arg_all" "$f_arg_help"
+main "$f_arg_variant" "$f_arg_flags" "$f_arg_all" "$f_arg_help" "$f_arg_dry_run"

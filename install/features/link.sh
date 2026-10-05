@@ -38,16 +38,16 @@ LINK_DESKTOP_PATHS=(
 
 # TODO(andywang): add comment
 link_dotfile() {
-  local rel="$1"
+  local dry_run="$1" rel="$2"
   if [[ "$rel" == root/* ]]; then
-    make_symlink "$DOTFILES_ROOT/$rel" "/${rel#root/}" sudo
+    make_symlink "$dry_run" "$DOTFILES_ROOT/$rel" "/${rel#root/}" sudo
   else
-    make_symlink "$DOTFILES_ROOT/$rel" "$HOME/$rel"
+    make_symlink "$dry_run" "$DOTFILES_ROOT/$rel" "$HOME/$rel"
   fi
 }
 
 feature_link() {
-  local variant="$1" link_paths entry file
+  local variant="$1" dry_run="$3" link_paths entry file
   f_with_args variant_config link_paths -- "$variant"
   link_paths="$f_arg_link_paths"
   for entry in $link_paths; do
@@ -56,7 +56,7 @@ feature_link() {
       continue
     fi
     while IFS= read -r -d '' file; do
-      link_dotfile "${file#./}"
+      link_dotfile "$dry_run" "${file#./}"
     done < <(cd "$DOTFILES_ROOT" && find "./$entry" -type f -print0)
   done
 }
