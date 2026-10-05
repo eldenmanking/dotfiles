@@ -87,13 +87,12 @@ GNOME_YAY=(
 
 # Install yay if it's not already on the system.
 ensure_yay() {
-  local dry_run="$1"
   if command -v yay &>/dev/null; then
     return
   fi
   info "Installing yay..."
-  run "$dry_run" sudo pacman --needed -S git base-devel
-  if $dry_run; then
+  run sudo pacman --needed -S git base-devel
+  if $DRY_RUN; then
     info "[dry-run] would clone and build yay from AUR"
     return
   fi
@@ -108,37 +107,34 @@ ensure_yay() {
 }
 
 feature_pacman() {
-  local dry_run="$3"
   info "Installing pacman packages for terminal..."
-  run_tty "$dry_run" sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"
+  run_tty sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"
   info "Installing pacman packages for gnome..."
-  run_tty "$dry_run" sudo pacman --needed -Sq "${GNOME_PACMAN[@]}"
+  run_tty sudo pacman --needed -Sq "${GNOME_PACMAN[@]}"
   info "Installing pacman packages for latex..."
-  run_tty "$dry_run" sudo pacman --needed -Sq "${LATEX_PACMAN[@]}"
+  run_tty sudo pacman --needed -Sq "${LATEX_PACMAN[@]}"
 }
 
 feature_yay() {
-  local dry_run="$3"
-  ensure_yay "$dry_run"
+  ensure_yay
   info "Installing yay packages for gnome..."
-  run_tty "$dry_run" yay --answerclean None --answerdiff None --needed -Sq "${GNOME_YAY[@]}"
+  run_tty yay --answerclean None --answerdiff None --needed -Sq "${GNOME_YAY[@]}"
 }
 
 # Install only the terminal packages, unless --pacman already covers them.
 feature_terminal() {
-  local enabled="$2" dry_run="$3"
+  local enabled="$2"
   if ! list_contains "$enabled" pacman; then
     info "Installing pacman packages for terminal..."
-    run_tty "$dry_run" sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"
+    run_tty sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"
   fi
 
-  install_starship_binary "$dry_run"
+  install_starship_binary
 }
 
 feature_printer() {
-  local dry_run="$3"
   info "Installing pacman packages for printer..."
-  run_tty "$dry_run" sudo pacman --needed -Sq "${PRINTER_PACMAN[@]}"
-  run "$dry_run" sudo systemctl enable --now cups
+  run_tty sudo pacman --needed -Sq "${PRINTER_PACMAN[@]}"
+  run sudo systemctl enable --now cups
   info "Note: to install HP printer drivers, use 'hp-setup -i'."
 }

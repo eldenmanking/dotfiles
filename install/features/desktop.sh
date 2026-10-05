@@ -1,8 +1,7 @@
 # Features: desktop setup (fonts, logiops, services, dconf, xdg).
 
 feature_font() {
-  local dry_run="$3"
-  if $dry_run; then
+  if $DRY_RUN; then
     info "[dry-run] would install JetBrainsMono"
     return
   fi
@@ -17,11 +16,10 @@ feature_font() {
 }
 
 feature_logiops() {
-  local dry_run="$3"
   if ! systemctl list-unit-files | grep -q "logid.service"; then
     info "Installing PixlOne/logiops..."
-    run "$dry_run" sudo pacman --needed -S cmake libevdev libconfig pkgconf
-    if $dry_run; then
+    run sudo pacman --needed -S cmake libevdev libconfig pkgconf
+    if $DRY_RUN; then
       info "[dry-run] would build and install PixlOne/logiops from source"
     else
       (
@@ -38,28 +36,25 @@ feature_logiops() {
 
   if [[ "$(systemctl is-active logid.service 2>/dev/null || true)" != "active" ]]; then
     info "Enabling logid.service..."
-    run "$dry_run" sudo systemctl enable --now logid.service
+    run sudo systemctl enable --now logid.service
   fi
 }
 
 feature_services() {
-  local dry_run="$3"
-  run "$dry_run" systemctl enable --now auto-suspend.timer
-  run "$dry_run" systemctl enable --now bluetooth.service
+  run systemctl enable --now auto-suspend.timer
+  run systemctl enable --now bluetooth.service
 }
 
 feature_manual() {
-  local dry_run="$3"
-  confirmsed "$dry_run" /etc/bluetooth/main.conf "#AutoEnable=false" "AutoEnable=true" sudo
+  confirmsed /etc/bluetooth/main.conf "#AutoEnable=false" "AutoEnable=true" sudo
 }
 
 feature_dconf() {
-  local dry_run="$3"
   local dump_file="$DOTFILES_ROOT/dump/dconf/arch.dconf"
 
   info "Backing up current dconf configuration..."
-  run "$dry_run" mkdir -pv "$(dirname "$BACKUPS_ROOT$dump_file")"
-  if $dry_run; then
+  run mkdir -pv "$(dirname "$BACKUPS_ROOT$dump_file")"
+  if $DRY_RUN; then
     info "[dry-run] would dump dconf to $BACKUPS_ROOT$dump_file"
     info "[dry-run] would load dconf from $dump_file"
     return
@@ -76,19 +71,18 @@ feature_dconf() {
 }
 
 feature_xdg() {
-  local dry_run="$3"
   info "Running xdg-user-dirs-update..."
-  run "$dry_run" xdg-user-dirs-update
+  run xdg-user-dirs-update
 
   info "Setting default applications with xdg-mime..."
-  run "$dry_run" xdg-mime default okularApplication_pdf.desktop application/pdf
-  run "$dry_run" xdg-mime default org.gnome.gThumb.desktop      image/gif
-  run "$dry_run" xdg-mime default org.gnome.gThumb.desktop      image/jpeg
-  run "$dry_run" xdg-mime default org.gnome.gThumb.desktop      image/png
-  run "$dry_run" xdg-mime default org.gnome.gThumb.desktop      image/webp
-  run "$dry_run" xdg-mime default org.gnome.Totem.desktop       audio/mpeg
-  run "$dry_run" xdg-mime default org.gnome.Totem.desktop       audio/mp4
-  run "$dry_run" xdg-mime default nvim.desktop                  text/plain
+  run xdg-mime default okularApplication_pdf.desktop application/pdf
+  run xdg-mime default org.gnome.gThumb.desktop      image/gif
+  run xdg-mime default org.gnome.gThumb.desktop      image/jpeg
+  run xdg-mime default org.gnome.gThumb.desktop      image/png
+  run xdg-mime default org.gnome.gThumb.desktop      image/webp
+  run xdg-mime default org.gnome.Totem.desktop       audio/mpeg
+  run xdg-mime default org.gnome.Totem.desktop       audio/mp4
+  run xdg-mime default nvim.desktop                  text/plain
 
   info "xdg update complete."
 }

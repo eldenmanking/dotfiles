@@ -142,7 +142,7 @@ enter_dotfiles_root() {
 }
 
 run_features() {
-  local variant="$1" enabled="$2" dry_run="$3" features feature
+  local variant="$1" enabled="$2" features feature
 
   f_with_args variant_config features -- "$variant"
   features="$_features"
@@ -150,22 +150,23 @@ run_features() {
   info "Beginning dotfiles installation (variant: $variant)..."
   for feature in $features; do
     list_contains "$enabled" "$feature" || continue
-    if $dry_run && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
+    if $DRY_RUN && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
       info "[dry-run] would run feature: $feature"
       continue
     fi
-    "$(feature_function "$feature")" "$variant" "$enabled" "$dry_run"
+    "$(feature_function "$feature")" "$variant" "$enabled"
   done
   info "dotfiles installation complete."
 }
 
 main() {
   f_with_args parse_args variant flags all dry_run help -- "$@"
+  readonly DRY_RUN="$_dry_run"
   exit_with_usage_unless_runnable "$_variant" "$_flags" "$_all" "$_help"
 
   f_with_args resolve_features enabled -- "$_variant" "$_flags" "$_all"
   enter_dotfiles_root
-  run_features "$_variant" "$_enabled" "$_dry_run"
+  run_features "$_variant" "$_enabled"
 }
 
 main "$@"

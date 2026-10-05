@@ -1,4 +1,4 @@
-# Command execution helpers that honor dry_run.
+# Command execution helpers that honor DRY_RUN.
 
 # Detect whether a controlling terminal is actually usable (open succeeds).
 # `[[ -r /dev/tty ]]` is unreliable: the file exists in non-interactive
@@ -9,9 +9,7 @@ has_tty() {
 
 # Execute a command, or just announce it under --dry-run.
 run() {
-  local dry_run="$1"
-  shift
-  if $dry_run; then
+  if $DRY_RUN; then
     printf '\033[36m[dry-run]\033[0m %s\n' "$*"
   else
     "$@"
@@ -22,12 +20,10 @@ run() {
 # Used for commands like `pacman` that may prompt for confirmation; falls
 # back to inherited stdin in non-interactive contexts (CI, nested scripts).
 run_tty() {
-  local dry_run="$1"
-  shift
   if has_tty; then
-    run "$dry_run" "$@" < /dev/tty
+    run "$@" < /dev/tty
   else
-    run "$dry_run" "$@"
+    run "$@"
   fi
 }
 
@@ -40,9 +36,9 @@ confirm() {
 }
 
 # Replace ^pattern$ with replace in file (with backup) after user confirmation.
-# Fifth arg is an optional sudo-style prefix for the copy.
+# Fourth arg is an optional sudo-style prefix for the copy.
 confirmsed() {
-  local dry_run="$1" file="$2" pattern="$3" replace="$4" user="${5:-}"
+  local file="$1" pattern="$2" replace="$3" user="${4:-}"
 
   if [[ ! -f "$file" ]]; then
     warn "$file does not exist."
@@ -50,7 +46,7 @@ confirmsed() {
   fi
 
   if grep -Eq "^${pattern}\$" "$file"; then
-    if $dry_run; then
+    if $DRY_RUN; then
       info "[dry-run] would replace '$pattern' with '$replace' in $file"
       return
     fi

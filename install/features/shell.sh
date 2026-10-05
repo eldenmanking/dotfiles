@@ -27,12 +27,12 @@ EOF
 
 # Install starship if missing, optionally into bin_dir.
 install_starship_binary() {
-  local dry_run="$1" bin_dir="${2:-}"
+  local bin_dir="${1:-}"
   if command -v starship &>/dev/null; then
     info "starship already available: $(command -v starship)"
     return
   fi
-  if $dry_run; then
+  if $DRY_RUN; then
     info "[dry-run] would install starship"
     return
   fi
@@ -41,8 +41,7 @@ install_starship_binary() {
 
 # --- Starship prompt ---
 feature_starship() {
-  local dry_run="$3"
-  install_starship_binary "$dry_run" "$LOCAL_BIN"
+  install_starship_binary "$LOCAL_BIN"
 
   f_with_args detect_shell_rc name rc_file
   upsert_block "$_rc_file" starship "eval \"\$(starship init $_name)\""
