@@ -24,13 +24,14 @@ feature_description() {
     tre)         echo "build and install tre (tree alternative) from source" ;;
     claude)      echo "configure CLAUDE.md, hooks, scripts, and commands" ;;
     gitconfig)   echo "set up default global git config" ;;
+    flatpak)     echo "install flatpak apps from flathub (per-user)" ;;
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of a temporary arch distrobox" ;;
     *)           echo "" ;;
   esac
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip flatpak "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
