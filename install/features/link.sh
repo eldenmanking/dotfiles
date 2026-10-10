@@ -49,7 +49,7 @@ link_dotfile() {
 
 feature_link() {
   local variant="$1" link_paths entry file
-  f_with_args variant_config link_paths -- "$variant"
+  f_write_args variant_config _link_paths -- "$variant"
   link_paths="$_link_paths"
   for entry in $link_paths; do
     if [[ ! -e "$DOTFILES_ROOT/$entry" ]]; then
