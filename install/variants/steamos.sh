@@ -7,5 +7,4 @@ variant_steamos() {
   _git_fsmonitor=true
 }
 
-# TODO(andywang): update comment
-# TODO(andywang): add steamos-specific features (e.g. read-only rootfs handling, pacman/flatpak packages)
+# TODO(andywang): add steamos-specific features (e.g. read-only rootfs handling, pacman packages)
