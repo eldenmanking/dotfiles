@@ -109,12 +109,12 @@ detach_all() {
 
 main() {
   local vm id
-  f_with_args parse_args pattern vm -- "$@"
+  f_write_args parse_args _pattern _vm -- "$@"
   vm="$_vm"
 
   require_vm_running "$vm"
-  f_with_args find_devices ids -- "$_pattern"
-  f_with_args partition_devices attached pending -- "$vm" "$_ids"
+  f_write_args find_devices _ids -- "$_pattern"
+  f_write_args partition_devices _attached _pending -- "$vm" "$_ids"
 
   ATTACHED="$_attached"
   trap "detach_all $(printf %q "$vm")" EXIT

@@ -15,7 +15,7 @@ source ~/dotfiles/.config/zsh/settings.zsh
 EOF
 )
 
-  f_with_args detect_shell_rc name rc_file
+  f_write_args detect_shell_rc _name _rc_file
 
   local content="$all_shell_config"
   if [[ "$_name" == zsh ]]; then
@@ -43,7 +43,7 @@ install_starship_binary() {
 feature_starship() {
   install_starship_binary "$LOCAL_BIN"
 
-  f_with_args detect_shell_rc name rc_file
+  f_write_args detect_shell_rc _name _rc_file
   upsert_block "$_rc_file" starship "eval \"\$(starship init $_name)\""
 }
 

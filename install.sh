@@ -43,12 +43,12 @@ See README.md for more information.
 Variants:
 EOF
   for v in $(available_variants); do
-    f_with_args variant_config description -- "$v"
+    f_write_args variant_config _description -- "$v"
     printf '  %-10s %s\n' "$v" "$_description"
   done
   variant_exists "$variant" || return 0
 
-  f_with_args variant_config features all_exclude -- "$variant"
+  f_write_args variant_config _features _all_exclude -- "$variant"
   features="$_features"
   all_exclude="$_all_exclude"
   cat <<EOF
@@ -118,7 +118,7 @@ exit_with_usage_unless_runnable() {
 resolve_features() {
   local variant="$1" flags="$2" all="$3" features all_exclude enabled=" " k
 
-  f_with_args variant_config features all_exclude -- "$variant"
+  f_write_args variant_config _features _all_exclude -- "$variant"
   features="$_features"
   all_exclude="$_all_exclude"
 
@@ -144,7 +144,7 @@ enter_dotfiles_root() {
 run_features() {
   local variant="$1" enabled="$2" features feature
 
-  f_with_args variant_config features -- "$variant"
+  f_write_args variant_config _features -- "$variant"
   features="$_features"
 
   info "Beginning dotfiles installation (variant: $variant)..."
@@ -160,12 +160,12 @@ run_features() {
 }
 
 main() {
-  f_with_args parse_args variant flags all dry_run help -- "$@"
+  f_write_args parse_args _variant _flags _all _dry_run _help -- "$@"
   readonly DRY_RUN="$_dry_run"
 
   exit_with_usage_unless_runnable "$_variant" "$_flags" "$_all" "$_help"
 
-  f_with_args resolve_features enabled -- "$_variant" "$_flags" "$_all"
+  f_write_args resolve_features _enabled -- "$_variant" "$_flags" "$_all"
   enter_dotfiles_root
   run_features "$_variant" "$_enabled"
 }

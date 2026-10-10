@@ -8,7 +8,7 @@ feature_gitconfig() {
     return
   fi
 
-  f_with_args variant_config git_fsmonitor -- "$variant"
+  f_write_args variant_config _git_fsmonitor -- "$variant"
   git_fsmonitor="$_git_fsmonitor"
 
   info "Configuring global git settings..."
