@@ -13,7 +13,7 @@ augroup filetype_indentation
   au!
   autocmd FileType cs,py,java set tabstop=4 | set shiftwidth=4
   autocmd FileType ocaml set textwidth=80 | set colorcolumn=80
-  autocmd FileType md set textwidth=0 | set colorcolumn=0
+  autocmd FileType md set textwidth=0 | set colorcolumn=0 | set shiftwidth=2
 augroup end
 
 " Spelling
