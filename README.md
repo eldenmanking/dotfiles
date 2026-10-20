@@ -32,6 +32,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── yapf                         ---
 │   │   └── style                    --- yapf python formatter global configuration file
 │   └── zsh                          ---
+│       ├── external.zsh             --- setup for external packages (e.g. opam)
 │       ├── keybindings.zsh          --- default zsh keybindings
 │       └── settings.zsh             ---
 ├── .gitignore                       ---

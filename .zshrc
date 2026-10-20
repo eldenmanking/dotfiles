@@ -31,14 +31,7 @@ source ~/dotfiles/.config/sh/env.sh
 # zsh config
 source ~/dotfiles/.config/zsh/keybindings.zsh
 source ~/dotfiles/.config/zsh/settings.zsh
-
-
-################################################################################
-# External packages
-################################################################################
-
-# opam configuration
-[[ ! -r $HOME/.opam/opam-init/init.zsh ]] || source $HOME/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
+source ~/dotfiles/.config/zsh/external.zsh
 
 ################################################################################
 # Starship prompt

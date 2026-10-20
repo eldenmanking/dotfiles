@@ -12,6 +12,7 @@ EOF
 # zsh config
 source ~/dotfiles/.config/zsh/keybindings.zsh
 source ~/dotfiles/.config/zsh/settings.zsh
+source ~/dotfiles/.config/zsh/external.zsh
 EOF
 )
 
