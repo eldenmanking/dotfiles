@@ -35,7 +35,7 @@ endif
 lua << EOF
 
 vim.g.clipboard = {
-  name = 'dotfiles clip',
+  name = 'dotfilesClip',
   copy = {
     ['+'] = { 'clip' },
   },
