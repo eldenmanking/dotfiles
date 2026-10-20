@@ -4,8 +4,7 @@
 # Program: nvim_obsession.sh
 # Description: tmux-resurrect strategy that restores nvim with its vim-obsession
 #              session. Uses the saved "-S <file>" argument if it is an absolute
-#              path (see vis), otherwise the closest Session.vim at or above the
-#              pane's directory, since nvim may have changed cwd since starting.
+#              path (see vis), otherwise Session.vim in the pane's directory.
 # Location: ~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh
 ################################################################################
 
@@ -24,15 +23,9 @@ session_from_command() {
 }
 
 session_from_directory() {
-  local dir="$DIRECTORY"
-  while [[ "$dir" == /* ]]; do
-    if [[ -f "$dir/Session.vim" ]]; then
-      echo "$dir/Session.vim"
-      return
-    fi
-    [[ "$dir" == / ]] && return
-    dir="$(dirname "$dir")"
-  done
+  if [[ "$DIRECTORY" == /* && -f "$DIRECTORY/Session.vim" ]]; then
+    echo "${DIRECTORY%/}/Session.vim"
+  fi
 }
 
 main() {
