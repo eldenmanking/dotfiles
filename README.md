@@ -96,7 +96,7 @@ This repository contains configuration files for my linux workspace. The followi
         │       ├── auto-suspend     --- suspends computer if battery is low
         │       ├── cmus-reload      --- repopulates cmus library and playlists
         │       ├── colortest        --- prints 256 terminal colors
-        │       └── vis              --- execute "vi -S" in closest parent directory
+        │       └── vis              --- resume or start an obsession session in cwd
         └── share                    ---
             └── kbd                  ---
                 └── keymaps          ---
