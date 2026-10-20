@@ -65,6 +65,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── bootloader.md                ---
 │   ├── framework16-sleep.md         --- Framework 16 sleep battery drain diagnosis and fix
 │   ├── mac-os-setup.md              ---
+│   ├── steamos-setup.md             --- SteamOS install, Steam settings, encryption and Windows VMs
 │   ├── windows-setup.md             ---
 │   └── wsl-setup.md                 ---
 ├── dump                             --- exported configuration settings
@@ -85,33 +86,54 @@ This repository contains configuration files for my linux workspace. The followi
 │           └── settings.json        ---
 ├── install                          --- pieces of the install script (lib, features, variants)
 ├── install.sh                       --- dotfiles install script
-└── root                             ---
-    ├── etc                          ---
-    │   ├── logid.cfg                --- logid configuration file for Logitech peripherals
-    │   ├── modprobe.d               ---
-    │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
-    │   ├── systemd                  ---
-    │   │   └── system               ---
-    │   │       ├── auto-suspend.serv--- laptop auto-suspend service to prevent death
-    │   │       └── auto-suspend.time--- auto-suspend timer to check if battery is low
-    │   ├── udev                     ---
-    │   │   └── rules.d              ---
-    │   │       └── 90-touchpad-nowak--- stop I2C devices (Framework 16 touchpad) from waking the laptop (copied, not linked)
-    │   └── vconsole.conf            --- Linux virtual console configuration file
-    └── usr                          ---
-        ├── local                    ---
-        │   └── bin                  ---
-        │       ├── auto-suspend     --- suspends computer if battery is low
-        │       ├── cmus-reload      --- repopulates cmus library and playlists
-        │       └── colortest        --- prints 256 terminal colors
-        └── share                    ---
-            └── kbd                  ---
-                └── keymaps          ---
-                    └── us-caps.map  --- keymap for linux console remapping caps to escape
+├── root                             ---
+│   ├── etc                          ---
+│   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals
+│   │   ├── modprobe.d               ---
+│   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
+│   │   ├── systemd                  ---
+│   │   │   └── system               ---
+│   │   │       ├── auto-suspend.serv--- laptop auto-suspend service to prevent death
+│   │   │       └── auto-suspend.time--- auto-suspend timer to check if battery is low
+│   │   ├── udev                     ---
+│   │   │   └── rules.d              ---
+│   │   │       └── 90-touchpad-nowak--- stop I2C devices (Framework 16 touchpad) from waking the laptop (copied, not linked)
+│   │   └── vconsole.conf            --- Linux virtual console configuration file
+│   └── usr                          ---
+│       ├── local                    ---
+│       │   └── bin                  ---
+│       │       ├── auto-suspend     --- suspends computer if battery is low
+│       │       ├── cmus-reload      --- repopulates cmus library and playlists
+│       │       └── colortest        --- prints 256 terminal colors
+│       └── share                    ---
+│           └── kbd                  ---
+│               └── keymaps          ---
+│                   └── us-caps.map  --- keymap for linux console remapping caps to escape
+└── steamos                          --- webterm and home-units (formerly the steamos-config repo)
+    ├── .gitignore                   ---
+    ├── LICENSE                      --- MIT license for this directory
+    ├── README.md                    --- webterm and home-units documentation
+    ├── bin                          ---
+    │   ├── home-units-start         --- starts units in an encrypted home once dirlock unlocks it
+    │   ├── webterm-index            --- builds ttyd's page with the tab-key script appended
+    │   ├── webterm-shell            --- login shell ttyd runs for each connection
+    │   └── webterm-ttyd             --- runs ttyd with the built page, if any
+    ├── systemd                      ---
+    │   ├── home-units.keep.conf     --- SteamOS keep list so home-units survives updates
+    │   ├── home-units.service       --- system-wide user unit installed into /etc/systemd/user
+    │   ├── webterm-ttyd.service.temp--- ttyd on a private UNIX socket
+    │   ├── webterm.service.template --- systemd-socket-proxyd, exits when idle
+    │   └── webterm.socket           --- listens on 127.0.0.1:3000
+    ├── test                         ---
+    │   └── smoke.py                 --- smoke test for the ttyd and socket proxy chain
+    └── web                          ---
+        └── tab-keys.html            --- passes browser tab shortcuts through xterm.js
 ```
 
 ## Installation
 `install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`.
+
+The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [steamos/README.md](steamos/README.md) and [docs/steamos-setup.md](docs/steamos-setup.md).
 
 Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell startup file subblocks only source files under `.config/sh` and `.config/zsh`, which the linked startup files (e.g. on `arch`) source too. Edit the files outside the section freely.
 

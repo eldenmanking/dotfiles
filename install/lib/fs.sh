@@ -179,3 +179,43 @@ upsert_sources() {
   done
   upsert_block "$file" "$name" "$content"
 }
+
+# --- File writing and downloads (honor DRY_RUN) ---
+
+# Write stdin to $dest, or just announce it under --dry-run.
+write_file() {
+  local dest="$1"
+  if $DRY_RUN; then
+    info "[dry-run] would write $dest"
+    cat >/dev/null
+  else
+    cat >"$dest"
+  fi
+}
+
+# Print $template with each __KEY__ replaced by VALUE, for each KEY=VALUE arg.
+render_template() {
+  local template="$1" pair args=()
+  shift
+  for pair in "$@"; do
+    args+=(-e "s|__${pair%%=*}__|${pair#*=}|g")
+  done
+  sed "${args[@]}" "$template"
+}
+
+# Return 0 if $file exists and has SHA-256 $sha256.
+sha256_matches() {
+  local file="$1" sha256="$2"
+  [[ -f "$file" ]] && echo "$sha256  $file" | sha256sum -c --status
+}
+
+# Download $url to $out and check it against $sha256 ($name is for messages).
+download_verified() {
+  local url="$1" sha256="$2" out="$3" name="$4"
+  if $DRY_RUN; then
+    info "[dry-run] would download $url"
+    return
+  fi
+  curl -fsSL -o "$out" "$url" || return 1
+  sha256_matches "$out" "$sha256" || { warn "$name checksum mismatch"; return 1; }
+}

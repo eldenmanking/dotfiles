@@ -39,6 +39,19 @@ byte-for-byte copy avoids the problem.
 
 4. Boot the target machine from the USB drive and follow the installer.
 
+## Steam settings
+
+In Steam, under **Settings > In Game**:
+
+- Change the main menu shortcut key to <kbd>Win</kbd>+<kbd>Tab</kbd>.
+- Change the quick access shortcut key to <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd>.
+
+## dotfiles
+
+Clone this repo to `~/dotfiles` and run `~/dotfiles/install.sh --variant steamos --all`.
+This includes webterm, a browser shell on localhost; see
+[steamos/README.md](../steamos/README.md).
+
 ## Disk encryption
 
 SteamOS does not support full disk encryption, so don't treat the machine as

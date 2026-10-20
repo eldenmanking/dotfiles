@@ -63,3 +63,12 @@ confirmsed() {
     warn "Neither '$pattern' nor '$replace' were found in $file."
   fi
 }
+
+# Error unless every given command is available.
+require_commands() {
+  local cmd missing=""
+  for cmd in "$@"; do
+    command -v "$cmd" >/dev/null || missing+="${missing:+ }$cmd"
+  done
+  [[ -z "$missing" ]] || error "missing commands: $missing"
+}

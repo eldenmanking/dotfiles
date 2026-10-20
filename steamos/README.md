@@ -1,4 +1,8 @@
-# steamos-config: webterm
+# webterm
+
+This directory was the separate `steamos-config` repo. It holds webterm and
+`home-units.service`, which the `steamos` variant of `~/dotfiles/install.sh`
+installs with its `webterm` and `home_units` features.
 
 ## What it is
 
@@ -52,48 +56,41 @@ All of these come with a stock SteamOS or Arch install:
 ## Quick start
 
 ```sh
-git clone https://github.com/eldenmanking/steamos-config.git ~/git/steamos-config
-cd ~/git/steamos-config
-./install.sh --all                 # font + ttyd, install the units, enable the socket
-./install.sh --all --no-font       # skip installing JetBrainsMono Nerd Font
-./install.sh --all --no-service    # just download ttyd (and the font)
-./install.sh --all --no-home-units # skip the sudo step for encrypted homes
+~/dotfiles/install.sh --variant steamos --font --webterm --home_units
+~/dotfiles/install.sh --variant steamos --webterm   # just ttyd and the units
 ```
+
+`--all` installs these along with the rest of the `steamos` variant.
 
 When it finishes, it prints your URL, which looks like
 `http://localhost:3000/<token>/`. Bookmark it. The token is explained in
-[Security](#security).
-
-If the repo is private, cloning needs your GitHub credentials (for example
-an SSH URL). To update, `git pull` and run `./install.sh --all` again.
+[Security](#security). To update, `git pull` in `~/dotfiles` and run the
+installer again.
 
 What gets installed:
 
 - **Font** (`--font`): installs JetBrainsMono Nerd Font
-  (Nerd Fonts v3.4.0, the same release your dotfiles use) into
+  (Nerd Fonts v3.4.0) into
   `~/.local/share/fonts/JetBrainsMonoNerdFont/`, after checking its SHA-256.
   It does nothing if `fc-list` already lists the font.
-- **ttyd** (`--ttyd`): downloads ttyd 1.7.7 to `bin/ttyd`
-  (git ignores it) and checks it against a pinned SHA-256.
-- **Units** (`--webterm`): they go into `~/.config/systemd/user/`. Everything stays in
-  your home directory, so SteamOS updates don't remove it. With an encrypted
-  home directory, also see [Encrypted home directory](#encrypted-home-directory-dirlock).
+- **ttyd and units** (`--webterm`): downloads ttyd 1.7.7 to `steamos/bin/ttyd`
+  (git ignores it), checks it against a pinned SHA-256, and installs the units
+  into `~/.config/systemd/user/`. Everything stays in your home directory, so
+  SteamOS updates don't remove it.
+- **home-units** (`--home_units`): only with an encrypted home directory; see
+  [Encrypted home directory](#encrypted-home-directory-dirlock).
 
-Each part is a feature, so you can install, remove or preview just one:
+`--dry-run` prints what would change. To remove webterm:
 
 ```sh
-./install.sh --help
-./install.sh --webterm             # just the units; also restarts it if running
-./install.sh --uninstall --webterm
-./install.sh --all --dry-run       # print what would change
+systemctl --user disable --now webterm.socket
+systemctl --user stop webterm.service webterm-ttyd.service
+rm -f ~/.config/systemd/user/webterm{.socket,.service,-ttyd.service}
+rm -rf ~/.local/state/webterm
+systemctl --user daemon-reload
 ```
 
-### Steam shortcut keys
-
-In Steam, under **Settings > In Game**:
-
-- Change the main menu shortcut key to <kbd>Win</kbd>+<kbd>Tab</kbd>.
-- Change the quick access shortcut key to <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd>.
+Your URL token stays in `~/.config/webterm/env`.
 
 ## Configuration
 
@@ -102,7 +99,7 @@ In Steam, under **Settings > In Game**:
 | Idle timeout | `WEBTERM_IDLE` in `webterm.service`                       | `30s`              |
 | Font         | `WEBTERM_FONT` in `webterm-ttyd.service` or the env file  | JetBrainsMono Nerd Font Mono |
 | URL token    | `WEBTERM_TOKEN` in `~/.config/webterm/env`                | random, 32 hex     |
-| Port         | `ListenStream` in `systemd/webterm.socket`                | `127.0.0.1:3000`   |
+| Port         | `ListenStream` in `steamos/systemd/webterm.socket`        | `127.0.0.1:3000`   |
 
 Change the environment settings with a drop-in, for example:
 
@@ -110,13 +107,13 @@ Change the environment settings with a drop-in, for example:
 systemctl --user edit webterm.service       # [Service] Environment=WEBTERM_IDLE=5min
 ```
 
-To change the port, edit `systemd/webterm.socket`. After any change, apply it
+To change the port, edit `steamos/systemd/webterm.socket`. After any change, apply it
 as described in [Applying changes](#applying-changes).
 
 ## Applying changes
 
 ```sh
-./install.sh --webterm
+~/dotfiles/install.sh --variant steamos --webterm
 ```
 
 You don't need to close the browser. The script:
@@ -148,8 +145,8 @@ How it works:
 - ttyd's `-t key=value` passes any option straight to xterm.js, so the unit
   runs `-t "fontFamily=${WEBTERM_FONT}"`. No custom build is needed.
 - The page only names the font. The browser draws it from fonts installed
-  on the machine it runs on, which is the Deck here. That's why `install.sh`
-  installs the font. Flatpak browsers (the default on SteamOS) should also
+  on the machine it runs on, which is the Deck here. That's why the `font`
+  feature installs it. Flatpak browsers (the default on SteamOS) should also
   see `~/.local/share/fonts`.
 - If the browser was already open when the font was installed, restart it.
   Until then it uses the next font in the list.
@@ -159,7 +156,7 @@ Open tabs switch fonts when they reconnect:
 
 ```sh
 echo 'WEBTERM_FONT=JetBrainsMonoNL Nerd Font Mono, monospace' >> ~/.config/webterm/env
-./install.sh --webterm
+~/dotfiles/install.sh --variant steamos --webterm
 ```
 
 The value can be any CSS font list without an `=`. Run
@@ -183,21 +180,20 @@ still goes to the shell.
 How it works:
 
 - ttyd has no option for this, but `-I` serves a custom `index.html`. The
-  repo keeps only the script to add, `web/tab-keys.html`. It listens for
+  repo keeps only the script to add, `steamos/web/tab-keys.html`. It listens for
   keys before xterm.js does and stops them from reaching it, without
   cancelling the browser's own handling.
 - The stock page bundles ttyd's browser client, which must match the ttyd
-  binary. So when the units are installed (`./install.sh --webterm`, also
-  part of `--all`), `bin/webterm-index` starts a throwaway ttyd on a
+  binary. So when the units are installed (`--webterm`), `steamos/bin/webterm-index` starts a throwaway ttyd on a
   temporary UNIX socket, fetches its page, appends the script and writes
-  `~/.local/state/webterm/index-<sha256 of bin/ttyd>.html`.
-- `webterm-ttyd.service` runs ttyd through `bin/webterm-ttyd`, which hashes
-  `bin/ttyd` on every start and adds `-I` only if a page for that hash exists. If not, ttyd serves its stock
+  `~/.local/state/webterm/index-<sha256 of steamos/bin/ttyd>.html`.
+- `webterm-ttyd.service` runs ttyd through `steamos/bin/webterm-ttyd`, which hashes
+  `steamos/bin/ttyd` on every start and adds `-I` only if a page for that hash exists. If not, ttyd serves its stock
   page: the terminal works, but without the tab shortcuts in fullscreen.
   `journalctl --user -u webterm-ttyd.service` then shows a warning, and
-  `./install.sh --webterm` builds the page again.
+  `~/dotfiles/install.sh --variant steamos --webterm` builds the page again.
 
-After changing `web/tab-keys.html`, apply it as described in
+After changing `steamos/web/tab-keys.html`, apply it as described in
 [Applying changes](#applying-changes) and reload open tabs.
 
 ## Encrypted home directory (dirlock)
@@ -210,35 +206,36 @@ directory, so it can't see `~/.config/systemd/user` and skips
 
 `home-units.service` fixes this for every unit in your home directory, not
 just webterm, in Game Mode and Desktop Mode. It is the one piece installed
-outside your home directory, so it must be installed as root. `install.sh --all`
-installs it for you (asking for your sudo password) when your home directory
-is encrypted, and reinstalls it when the repo has a newer version, unless
-you pass `--no-home-units`. To do it by hand:
+outside your home directory, so `--home_units` installs it with sudo. It does
+so only when your home directory is encrypted, and reinstalls it when the repo
+has a newer version. It also removes the files the standalone steamos-config
+repo used to install under the old names. To remove it:
 
 ```sh
-sudo ./install.sh --home-units
-sudo ./install.sh --uninstall --home-units
+sudo systemctl --global disable home-units.service
+sudo rm -f /etc/systemd/user/home-units.service /etc/atomic-update.conf.d/dotfiles.conf
+sudo rm -rf /etc/dotfiles
 ```
 
 What it installs:
 
-Everything this repo adds to `/etc` is named after it (`steamos-config`),
+Everything this adds to `/etc` is named after the repo (`dotfiles`),
 except the unit itself, which must sit where systemd looks for units:
 
 - `/etc/systemd/user/home-units.service`, enabled for all users. Each user
   manager sees it while the home directory is still locked. It runs
-  `/etc/steamos-config/home-units-start` (from `bin/home-units-start`), which
+  `/etc/dotfiles/home-units-start` (from `steamos/bin/home-units-start`), which
   waits until `~/.config` is readable and runs `systemctl --user daemon-reload`.
   Then, for each `~/.config/systemd/user/<target>.wants/` (and `.requires/`)
   whose target is already up, it starts the units linked there. Nothing else is started, so
   SteamOS's own units that already ran aren't run again. A target that isn't
   up yet, like `graphical-session.target` before Desktop Mode, starts its units
   itself later.
-- `/etc/atomic-update.conf.d/steamos-config.conf`, a keep list. Since SteamOS
+- `/etc/atomic-update.conf.d/dotfiles.conf`, a keep list. Since SteamOS
   3.6 an update drops every change in `/etc` that isn't on a keep list (into
   `/etc/previous`). The default list, `/usr/lib/rauc/atomic-update-keep.conf`,
   covers `/etc/systemd/system` but not `/etc/systemd/user`, so this one names
-  the unit, its enablement symlink and `/etc/steamos-config/home-units-start`.
+  the unit, its enablement symlink and `/etc/dotfiles/home-units-start`.
 
 Which units it starts is up to you: `systemctl --user enable foo.service`
 adds a link under the target named in the unit's `WantedBy=`, and
@@ -272,7 +269,7 @@ can do anything you can.
 ## Keeping work with tmux
 
 Bare shells are disposable. A bare shell ends when you close its tab, when
-webterm stops on idle, and when you run `./install.sh --webterm`.
+webterm stops on idle, and when you run `~/dotfiles/install.sh --variant steamos --webterm`.
 
 To keep something running, start `tmux` in the terminal. The tmux server
 survives all three, and you reattach with `tmux attach` on your next visit.
@@ -286,16 +283,13 @@ them. tmux detaches and keeps running.
 When the service next starts, systemd logs a "left-over process" notice about
 the tmux server. That's expected.
 
-## Upgrading from the Node.js version
-
-Re-run `./install.sh --all`. The unit names stay the same, so it overwrites the old
-units. You can then delete the leftover `node_modules/` folder.
-
 ## Testing
 
 ```sh
-python3 test/smoke.py
+python3 steamos/test/smoke.py
 ```
+
+It needs `steamos/bin/ttyd`, which `--webterm` downloads.
 
 The test needs no running systemd. `systemd-socket-activate` stands in for
 `webterm.socket`, and the real ttyd and `systemd-socket-proxyd` do the rest.
@@ -303,7 +297,7 @@ It checks that:
 
 - the page is only served under the token,
 - a cross-origin WebSocket is rejected,
-- the page is the stock page with `web/tab-keys.html` appended,
+- the page is the stock page with `steamos/web/tab-keys.html` appended,
 - a shell command round-trips, and
 - the proxy exits once idle.
 
@@ -317,5 +311,5 @@ scope for now.
 
 ## License
 
-MIT. See [LICENSE](LICENSE). ttyd is MIT-licensed by its authors and is
+The files in this directory are MIT-licensed. See [LICENSE](LICENSE). ttyd is MIT-licensed by its authors and is
 downloaded from its GitHub releases, not stored in this repo.

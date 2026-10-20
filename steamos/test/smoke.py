@@ -113,7 +113,7 @@ class WS:
 def main():
     ttyd = os.path.join(REPO, "bin", "ttyd")
     if not os.access(ttyd, os.X_OK):
-        subprocess.run([os.path.join(REPO, "install.sh"), "--ttyd"], check=True)
+        fail(f"{ttyd} not found; run ~/dotfiles/install.sh --variant steamos --webterm first")
     if not shutil.which("systemd-socket-activate"):
         fail("systemd-socket-activate not found")
 

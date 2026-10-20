@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run by home-units.service. Installed to /etc/steamos-config/home-units-start,
+# Run by home-units.service. Installed to /etc/dotfiles/home-units-start,
 # outside the encrypted home. Waits for dirlock to unlock the home directory,
 # reloads the user manager so it sees ~/.config/systemd/user, then starts
 # exactly the units enabled there. Nothing else is started, so units that

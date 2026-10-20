@@ -1,6 +1,3 @@
 bin/ttyd
 bin/ttyd.*
-*.log
-.DS_Store
 __pycache__/
-node_modules/

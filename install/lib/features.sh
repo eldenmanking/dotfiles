@@ -6,7 +6,7 @@ feature_description() {
     pacman)      echo "install pacman packages" ;;
     yay)         echo "install yay packages" ;;
     terminal)    echo "install terminal packages" ;;
-    font)        echo "install jetbrains mono font" ;;
+    font)        echo "install JetBrainsMono Nerd Font to ~/.local/share/fonts" ;;
     printer)     echo "install and set up HP printer drivers" ;;
     logiops)     echo "install and configure logitech software" ;;
     link)        echo "symlink the variant's dotfiles into ~ (root/ into /)" ;;
@@ -27,12 +27,14 @@ feature_description() {
     flatpak)     echo "install flatpak apps from flathub (per-user)" ;;
     udev)        echo "copy root/etc/udev rules into /etc (not symlinked) and reload udev" ;;
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of a temporary arch distrobox" ;;
+    webterm)     echo "download ttyd and install the webterm systemd user units (browser shell on localhost)" ;;
+    home_units)  echo "install home-units.service into /etc (sudo, only if the home is encrypted with dirlock)" ;;
     *)           echo "" ;;
   esac
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip flatpak udev "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip flatpak udev webterm home_units "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
