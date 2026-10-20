@@ -5,6 +5,8 @@ This repository contains configuration files for my linux workspace. The followi
 . (~/dotfiles)
 ├── .bash_profile                    --- bash login interactive startup file
 ├── .bashrc                          --- bash non-login interactive startup file
+├── .claude                          ---
+│   └── CLAUDE.md                    --- Claude Code instructions for working in this repo
 ├── .config                          ---
 │   ├── alacritty                    ---
 │   │   └── alacritty.toml           --- alacritty terminal emulator configuration file

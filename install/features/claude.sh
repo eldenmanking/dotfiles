@@ -3,21 +3,26 @@
 TOOLS_DEFAULT_REPO="https://github.com/eldenmanking/tools.git"
 
 # --- Resolve which tools repo instance to use ---
-# Sets TOOLS_REPO, TOOLS_DIR and TOOLS_REF. DOTFILES_TOOLS_{REPO,DIR,REF} in the environment win over the same
-# variables set in the config file ($DOTFILES_TOOLS_CONFIG, default ~/.config/dotfiles/tools.conf).
+# Outputs _repo, _dir and _ref. DOTFILES_TOOLS_{REPO,DIR,REF} in the environment win over the same variables set in
+# the config file ($DOTFILES_TOOLS_CONFIG, default ~/.config/dotfiles/tools.conf).
 load_tools_config() {
   local conf="${DOTFILES_TOOLS_CONFIG:-$HOME/.config/dotfiles/tools.conf}"
-  local env_repo="${DOTFILES_TOOLS_REPO:-}" env_dir="${DOTFILES_TOOLS_DIR:-}" env_ref="${DOTFILES_TOOLS_REF:-}"
+  local file_repo="" file_dir="" file_ref="" dir
 
   if [[ -f "$conf" ]]; then
-    # shellcheck source=/dev/null
-    source "$conf"
+    # Source in a subshell so the config file can't change this shell's state.
+    { IFS= read -r file_repo; IFS= read -r file_dir; IFS= read -r file_ref; } < <(
+      unset DOTFILES_TOOLS_REPO DOTFILES_TOOLS_DIR DOTFILES_TOOLS_REF
+      # shellcheck source=/dev/null
+      source "$conf"
+      printf '%s\n%s\n%s\n' "${DOTFILES_TOOLS_REPO:-}" "${DOTFILES_TOOLS_DIR:-}" "${DOTFILES_TOOLS_REF:-}"
+    )
   fi
 
-  TOOLS_REPO="${env_repo:-${DOTFILES_TOOLS_REPO:-$TOOLS_DEFAULT_REPO}}"
-  TOOLS_DIR="${env_dir:-${DOTFILES_TOOLS_DIR:-$HOME/tools}}"
-  TOOLS_REF="${env_ref:-${DOTFILES_TOOLS_REF:-}}"
-  TOOLS_DIR="${TOOLS_DIR/#\~/$HOME}"
+  dir="${DOTFILES_TOOLS_DIR:-${file_dir:-$HOME/tools}}"
+  _repo="${DOTFILES_TOOLS_REPO:-${file_repo:-$TOOLS_DEFAULT_REPO}}"
+  _dir="${dir/#\~/$HOME}"
+  _ref="${DOTFILES_TOOLS_REF:-$file_ref}"
 }
 
 # Print a git remote URL as host/path so https and ssh forms of the same repo compare equal.
@@ -29,38 +34,40 @@ normalize_git_url() {
 }
 
 # --- Clone or update the tools repo ---
-# A TOOLS_DIR that exists but isn't a git checkout is used as-is, so a local copy can stand in for the repo.
+# A tools_dir that exists but isn't a git checkout is used as-is, so a local copy can stand in for the repo.
 sync_tools_repo() {
-  if [[ -d "$TOOLS_DIR/.git" ]]; then
+  local tools_repo="$1" tools_dir="$2" tools_ref="$3"
+  if [[ -d "$tools_dir/.git" ]]; then
     local origin
-    origin="$(git -C "$TOOLS_DIR" remote get-url origin 2>/dev/null || true)"
-    if [[ "$(normalize_git_url "$origin")" != "$(normalize_git_url "$TOOLS_REPO")" ]]; then
-      warn "$TOOLS_DIR tracks '$origin', not '$TOOLS_REPO'; using it without updating"
+    origin="$(git -C "$tools_dir" remote get-url origin 2>/dev/null || true)"
+    if [[ "$(normalize_git_url "$origin")" != "$(normalize_git_url "$tools_repo")" ]]; then
+      warn "$tools_dir tracks '$origin', not '$tools_repo'; using it without updating"
       return
     fi
-    info "Updating tools repo at $TOOLS_DIR"
-    if [[ -n "$TOOLS_REF" ]]; then
-      git -C "$TOOLS_DIR" fetch --quiet origin "$TOOLS_REF" \
-        && git -C "$TOOLS_DIR" checkout --quiet "$TOOLS_REF" \
-        || warn "Failed to check out '$TOOLS_REF' in $TOOLS_DIR"
+    info "Updating tools repo at $tools_dir"
+    if [[ -n "$tools_ref" ]]; then
+      git -C "$tools_dir" fetch --quiet origin "$tools_ref" \
+        && git -C "$tools_dir" checkout --quiet "$tools_ref" \
+        || warn "Failed to check out '$tools_ref' in $tools_dir"
     fi
-    git -C "$TOOLS_DIR" pull --quiet --ff-only 2>/dev/null \
-      || warn "Could not fast-forward $TOOLS_DIR; using it as-is"
-  elif [[ -d "$TOOLS_DIR" ]]; then
-    info "Using tools directory $TOOLS_DIR as-is (not a git checkout)"
+    git -C "$tools_dir" pull --quiet --ff-only 2>/dev/null \
+      || warn "Could not fast-forward $tools_dir; using it as-is"
+  elif [[ -d "$tools_dir" ]]; then
+    info "Using tools directory $tools_dir as-is (not a git checkout)"
   else
-    info "Cloning $TOOLS_REPO into $TOOLS_DIR"
-    git clone --quiet ${TOOLS_REF:+--branch "$TOOLS_REF"} "$TOOLS_REPO" "$TOOLS_DIR" \
-      || error "Failed to clone $TOOLS_REPO"
+    info "Cloning $tools_repo into $tools_dir"
+    git clone --quiet ${tools_ref:+--branch "$tools_ref"} "$tools_repo" "$tools_dir" \
+      || error "Failed to clone $tools_repo"
   fi
 }
 
 # --- Link Claude scripts and skills ---
 configure_claude_dirs() {
+  local tools_dir="$1"
   # Symlink each entry within scripts/ and skills/ so that environment-specific entries in ~/.claude are preserved.
   local dirs=(scripts skills) dir
   for dir in "${dirs[@]}"; do
-    local src_dir="$TOOLS_DIR/claude/$dir"
+    local src_dir="$tools_dir/claude/$dir"
     local dst_dir="$HOME/.claude/$dir"
     [[ -d "$src_dir" ]] || continue
 
@@ -84,7 +91,7 @@ configure_claude_dirs() {
     for link in "$HOME/.claude/$dir"/*; do
       [[ -L "$link" && ! -e "$link" ]] || continue
       target="$(readlink "$link")"
-      if [[ "$target" == "$TOOLS_DIR/claude/"* || "$target" == "$DOTFILES_ROOT/.claude/"* ]]; then
+      if [[ "$target" == "$tools_dir/claude/"* || "$target" == "$DOTFILES_ROOT/.claude/"* ]]; then
         info "Removing stale symlink: $link -> $target"
         rm "$link"
       fi
@@ -94,7 +101,8 @@ configure_claude_dirs() {
 
 # --- Merge hooks and permissions into ~/.claude/settings.json ---
 configure_claude_settings() {
-  local src="$TOOLS_DIR/claude/settings.json"
+  local tools_dir="$1"
+  local src="$tools_dir/claude/settings.json"
   local dst="$HOME/.claude/settings.json"
 
   if [[ ! -f "$src" ]]; then
@@ -162,7 +170,8 @@ else:
 
 # --- Merge CLAUDE.md block ---
 configure_claude_md() {
-  local src="$TOOLS_DIR/claude/CLAUDE.md"
+  local tools_dir="$1"
+  local src="$tools_dir/claude/CLAUDE.md"
   local dst="$HOME/git/.claude/CLAUDE.md"
   local marker_start="# Added by dotfiles"
   local marker_end="# /Added by dotfiles"
@@ -236,9 +245,9 @@ configure_claude_md() {
 
 # --- Configure Claude Code (orchestrator) ---
 feature_claude() {
-  load_tools_config
-  sync_tools_repo
-  configure_claude_md
-  configure_claude_dirs
-  configure_claude_settings
+  f_write_args load_tools_config _repo _dir _ref
+  sync_tools_repo "$_repo" "$_dir" "$_ref"
+  configure_claude_md "$_dir"
+  configure_claude_dirs "$_dir"
+  configure_claude_settings "$_dir"
 }
