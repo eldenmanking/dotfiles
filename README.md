@@ -144,6 +144,20 @@ To enable `sudo`, use the command `visudo` and uncomment `%wheel AL=(ALL:ALL) NO
 #### Printer Installation
 Included in the `install.sh` script are packages for HP printers--in particular, the `hplip` package is used to install drivers for specific HP printers, whereas `cups` and `system-config-printer` are more general. To install the drivers for a physically connected printer, execute `hp-setup -i` in the terminal (`-i` for CLI interactive mode) and follow the prompts. See this [Stack Exchange post](https://unix.stackexchange.com/questions/359531/installing-hp-printer-driver-for-arch-linux) for more information.
 
+#### Claude Code
+The `--claude` feature installs Claude Code configuration from a separate tools repo, by default [eldenmanking/tools](https://github.com/eldenmanking/tools) cloned to `~/tools`. It inserts the repo's `claude/CLAUDE.md` into `~/git/.claude/CLAUDE.md`, symlinks each entry of `claude/skills` and `claude/scripts` into `~/.claude`, and deep-merges `claude/settings.json` into `~/.claude/settings.json`. An existing checkout is fast-forwarded on each run.
+
+To use a different instance of the tools repo (e.g. a fork, branch, or local copy), set any of the following in the environment or in `~/.config/dotfiles/tools.conf` (the environment wins; set `DOTFILES_TOOLS_CONFIG` to read a different file):
+ - `DOTFILES_TOOLS_REPO`: git URL to clone (default `https://github.com/eldenmanking/tools.git`)
+ - `DOTFILES_TOOLS_DIR`: checkout location (default `~/tools`); a directory that exists but isn't a git checkout is used as-is
+ - `DOTFILES_TOOLS_REF`: branch or tag to check out (default: the repo's default branch)
+
+```bash
+# ~/.config/dotfiles/tools.conf
+DOTFILES_TOOLS_REPO=git@github.com:someone/tools.git
+DOTFILES_TOOLS_DIR=~/git/tools
+```
+
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.
 

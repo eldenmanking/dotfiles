@@ -1,55 +1,100 @@
-# Feature: Claude Code config (CLAUDE.md, scripts, commands, settings).
+# Feature: Claude Code config (CLAUDE.md, skills, scripts, settings) from the tools repo.
 
-# --- Link Claude scripts/commands directories ---
+TOOLS_DEFAULT_REPO="https://github.com/eldenmanking/tools.git"
+
+# --- Resolve which tools repo instance to use ---
+# Sets TOOLS_REPO, TOOLS_DIR and TOOLS_REF. DOTFILES_TOOLS_{REPO,DIR,REF} in the environment win over the same
+# variables set in the config file ($DOTFILES_TOOLS_CONFIG, default ~/.config/dotfiles/tools.conf).
+load_tools_config() {
+  local conf="${DOTFILES_TOOLS_CONFIG:-$HOME/.config/dotfiles/tools.conf}"
+  local env_repo="${DOTFILES_TOOLS_REPO:-}" env_dir="${DOTFILES_TOOLS_DIR:-}" env_ref="${DOTFILES_TOOLS_REF:-}"
+
+  if [[ -f "$conf" ]]; then
+    # shellcheck source=/dev/null
+    source "$conf"
+  fi
+
+  TOOLS_REPO="${env_repo:-${DOTFILES_TOOLS_REPO:-$TOOLS_DEFAULT_REPO}}"
+  TOOLS_DIR="${env_dir:-${DOTFILES_TOOLS_DIR:-$HOME/tools}}"
+  TOOLS_REF="${env_ref:-${DOTFILES_TOOLS_REF:-}}"
+  TOOLS_DIR="${TOOLS_DIR/#\~/$HOME}"
+}
+
+# Print a git remote URL as host/path so https and ssh forms of the same repo compare equal.
+normalize_git_url() {
+  local url="${1%.git}"
+  url="${url#*://}"
+  url="${url#*@}"
+  printf '%s' "${url/://}"
+}
+
+# --- Clone or update the tools repo ---
+# A TOOLS_DIR that exists but isn't a git checkout is used as-is, so a local copy can stand in for the repo.
+sync_tools_repo() {
+  if [[ -d "$TOOLS_DIR/.git" ]]; then
+    local origin
+    origin="$(git -C "$TOOLS_DIR" remote get-url origin 2>/dev/null || true)"
+    if [[ "$(normalize_git_url "$origin")" != "$(normalize_git_url "$TOOLS_REPO")" ]]; then
+      warn "$TOOLS_DIR tracks '$origin', not '$TOOLS_REPO'; using it without updating"
+      return
+    fi
+    info "Updating tools repo at $TOOLS_DIR"
+    if [[ -n "$TOOLS_REF" ]]; then
+      git -C "$TOOLS_DIR" fetch --quiet origin "$TOOLS_REF" \
+        && git -C "$TOOLS_DIR" checkout --quiet "$TOOLS_REF" \
+        || warn "Failed to check out '$TOOLS_REF' in $TOOLS_DIR"
+    fi
+    git -C "$TOOLS_DIR" pull --quiet --ff-only 2>/dev/null \
+      || warn "Could not fast-forward $TOOLS_DIR; using it as-is"
+  elif [[ -d "$TOOLS_DIR" ]]; then
+    info "Using tools directory $TOOLS_DIR as-is (not a git checkout)"
+  else
+    info "Cloning $TOOLS_REPO into $TOOLS_DIR"
+    git clone --quiet ${TOOLS_REF:+--branch "$TOOLS_REF"} "$TOOLS_REPO" "$TOOLS_DIR" \
+      || error "Failed to clone $TOOLS_REPO"
+  fi
+}
+
+# --- Link Claude scripts and skills ---
 configure_claude_dirs() {
-  # Symlink individual files within scripts/ and commands/ so that
-  # environment-specific files in ~/.claude/{scripts,commands} are preserved.
-  local dirs=(scripts commands)
+  # Symlink each entry within scripts/ and skills/ so that environment-specific entries in ~/.claude are preserved.
+  local dirs=(scripts skills) dir
   for dir in "${dirs[@]}"; do
-    local src_dir="$DOTFILES_ROOT/.claude/$dir"
+    local src_dir="$TOOLS_DIR/claude/$dir"
     local dst_dir="$HOME/.claude/$dir"
     [[ -d "$src_dir" ]] || continue
 
-    # Migrate from old directory-level symlink to per-file symlinks
+    # Migrate from old directory-level symlink to per-entry symlinks
     if [[ -L "$dst_dir" ]]; then
       info "Replacing directory symlink $dst_dir with real directory"
       rm "$dst_dir"
     fi
     mkdir -p "$dst_dir"
 
-    for src_file in "$src_dir"/*; do
-      [[ -e "$src_file" ]] || continue
-      local filename
-      filename="$(basename "$src_file")"
-      make_symlink "$src_file" "$dst_dir/$filename"
+    local src
+    for src in "$src_dir"/*; do
+      [[ -e "$src" ]] || continue
+      make_symlink "$src" "$dst_dir/$(basename "$src")"
     done
+  done
 
-    # Clean up broken symlinks that point into dotfiles (e.g. deleted commands)
-    for link in "$dst_dir"/*; do
-      [[ -L "$link" ]] || continue
-      local target
+  # Clean up broken symlinks into the tools repo (e.g. deleted skills) or the old dotfiles/.claude location.
+  local link target
+  for dir in scripts skills commands; do
+    for link in "$HOME/.claude/$dir"/*; do
+      [[ -L "$link" && ! -e "$link" ]] || continue
       target="$(readlink "$link")"
-      if [[ "$target" == "$src_dir"/* ]] && [[ ! -e "$link" ]]; then
+      if [[ "$target" == "$TOOLS_DIR/claude/"* || "$target" == "$DOTFILES_ROOT/.claude/"* ]]; then
         info "Removing stale symlink: $link -> $target"
         rm "$link"
       fi
     done
   done
-
-  # Symlink individual files
-  local files=(settings.local.json)
-  for file in "${files[@]}"; do
-    local src="$DOTFILES_ROOT/.claude/$file"
-    local dst="$HOME/.claude/$file"
-    if [[ -f "$src" ]]; then
-      make_symlink "$src" "$dst"
-    fi
-  done
 }
 
 # --- Merge hooks and permissions into ~/.claude/settings.json ---
 configure_claude_settings() {
-  local src="$DOTFILES_ROOT/dump/claude/settings.json"
+  local src="$TOOLS_DIR/claude/settings.json"
   local dst="$HOME/.claude/settings.json"
 
   if [[ ! -f "$src" ]]; then
@@ -117,7 +162,7 @@ else:
 
 # --- Merge CLAUDE.md block ---
 configure_claude_md() {
-  local src="$DOTFILES_ROOT/.claude/CLAUDE.md"
+  local src="$TOOLS_DIR/claude/CLAUDE.md"
   local dst="$HOME/git/.claude/CLAUDE.md"
   local marker_start="# Added by dotfiles"
   local marker_end="# /Added by dotfiles"
@@ -129,26 +174,9 @@ configure_claude_md() {
 
   mkdir -p "$(dirname "$dst")"
 
-  # Extract just the marked block from the dotfiles CLAUDE.md (inclusive of markers).
-  local block
-  block="$(awk -v ms="$marker_start" -v me="$marker_end" '
-    $0==ms { found=1 }
-    found  { print }
-    $0==me { found=0 }
-  ' "$src")"
-
-  if [[ -z "$block" ]]; then
-    warn "No '$marker_start' ... '$marker_end' block found in $src"
-    return
-  fi
-
-  # Content between the markers (without the markers themselves), for comparison.
-  local src_content
-  src_content="$(awk -v ms="$marker_start" -v me="$marker_end" '
-    $0==me { found=0 }
-    found  { print }
-    $0==ms { found=1 }
-  ' "$src")"
+  local src_content block
+  src_content="$(cat "$src")"
+  block="$(printf '%s\n%s\n%s' "$marker_start" "$src_content" "$marker_end")"
 
   # If markers already exist, check whether the content needs updating.
   if [[ -f "$dst" ]] && grep -qF "$marker_start" "$dst"; then
@@ -208,6 +236,8 @@ configure_claude_md() {
 
 # --- Configure Claude Code (orchestrator) ---
 feature_claude() {
+  load_tools_config
+  sync_tools_repo
   configure_claude_md
   configure_claude_dirs
   configure_claude_settings
