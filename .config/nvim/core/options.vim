@@ -31,3 +31,17 @@ if !has('nvim')
   silent execute '!mkdir -p ~/.vim/undodir'
   set undodir=~/.vim/undodir
 endif
+
+lua << EOF
+
+vim.g.clipboard = {
+  name = 'dotfiles clip',
+  copy = {
+    ['+'] = { 'clip' },
+  },
+  paste = {
+    ['+'] = { 'true' },
+  },
+}
+
+EOF
