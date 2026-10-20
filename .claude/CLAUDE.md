@@ -1,4 +1,4 @@
-# Added by dotfiles
+# Managed by dotfiles
 ## Git
 - Use `git -c commit.gpgsign=false ...` when making commits
 - When making branches, name then "andywang/..." where ... is the intended change
@@ -51,4 +51,4 @@
 ## Formatting
 - Don't manually wrap markdown unless existing code already does it
 - Wrap comments with a text width of 120 characters
-# /Added by dotfiles
+# /Managed by dotfiles
