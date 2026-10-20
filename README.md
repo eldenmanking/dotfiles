@@ -10,16 +10,6 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   └── alacritty.toml           --- alacritty terminal emulator configuration file
 │   ├── git                          ---
 │   │   └── ignore                   --- default ignored git files
-│   ├── lvim                         ---
-│   │   ├── .luarc.json              ---
-│   │   ├── config.lua               --- Lunarvim main configuration file
-│   │   ├── lua                      ---
-│   │   │   └── core                 ---
-│   │   │       ├── mappings.lua     --- Lunarvim-specific mappings
-│   │   │       └── options.lua      --- Lunarvim options and plugins
-│   │   └── spell                    --- Lunarvim spelling files
-│   │       ├── en.utf-8.add         ---
-│   │       └── en.utf-8.add.spl     ---
 │   ├── nvim                         ---
 │   │   ├── core                     ---
 │   │   │   ├── autocommands.vim     --- global autocommands
@@ -28,7 +18,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   ├── mappings.vim         --- 
 │   │   │   ├── options.vim          ---
 │   │   │   ├── plugins.vim          --- default neovim plugins and settings
-│   │   │   └── plugmaps.vim         --- mappings for neovim/lunarvim plugins
+│   │   │   └── plugmaps.vim         --- mappings for neovim plugins
 │   │   └── init.vim                 --- Neovim main configuration file (sources 'core')
 │   ├── sh                           ---
 │   │   └── aliases.sh               --- default shell aliases
@@ -110,7 +100,7 @@ The `arch` variant is designed to work for Arch Linux (or other Arch-based distr
  - yay
  - zshell (theme, completions, font)
  - tmux
- - Lunarvim
+ - Neovim
  - LaTeX
  - Gnome (desktop environment, display manager, theme)
  - dconf configuration
@@ -149,8 +139,6 @@ I try to avoid modifying plugin files directly, but the following have been chan
 
  - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_session.sh**: `nvim -S` changed to `vis`
    - `vis` attempts to execute `vi -S` in the closest parent directory that contains a `Session.vim` file. When tmux is resurrected, the cwd of the pane may not be the same as the Session.vim file, so `nvim -S` may not work.
- - **~/.local/share/lunarvim/site/pack/packer/opt/vimtex/autoload/vimtex/syntax/core.vim**: `48-57` removed from `set iskeyword`, so `nvim -S` may not work.
-   - Prevents numbers from being recognized as keywords in LaTeX macros when determining syntax highlighting.
  - **/etc/bluetooth/main.conf**: `#Autoenable=false` changed to `Autoenable=true`
    - Allows bluetooth to start automatically on boot and after suspend. `main.conf` must be a normal file, rather than a symlink.
 
@@ -193,6 +181,3 @@ The following is a list of packages that are not included in the base installer 
  - lilypond: a CLI sheet music typesetter.
  - visual-studio-code-bin (AUR): Microsoft VSCode for Arch (supports liveshare)
  - lmms: electronic music editor
-
-#### Using LunarVim
-LunarVim has not been in development for some time. Use [Neovim v0.10.4](https://github.com/neovim/neovim/releases/tag/v0.10.4) for best results.

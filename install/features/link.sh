@@ -26,7 +26,6 @@ LINK_DESKTOP_PATHS=(
   .claude/scripts
   .config/alacritty
   .config/git
-  .config/lvim
   .config/sh
   .config/yapf
   .config/zsh
