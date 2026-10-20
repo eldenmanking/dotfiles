@@ -1,7 +1,7 @@
 # dotfiles
 Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and installs tools. `README.md` has the annotated file tree, the variants and the install flow; read it before changing structure, and keep its tree in sync when adding, moving or removing files.
 
-`.claude/` holds Claude Code config for working on this repo only (this file, plus any repo-specific skills or settings). Machine-wide config (the global CLAUDE.md, skills, hook scripts, settings) lives in the separate tools repo (eldenmanking/tools), which the `claude` feature installs into `~/.claude`.
+`.claude/` holds Claude Code config for working on this repo only (this file, plus any repo-specific skills or settings). Machine-wide config (the global CLAUDE.md, skills, hook scripts, settings) lives in separate tools repos (by default eldenmanking/tools; see `DOTFILES_TOOLS` in `README.md`), which the `claude` feature installs into `~/.claude`.
 
 ## install.sh layout
 - `install/lib/`: shared helpers (`fn.sh` output variables, `exec.sh` dry-run aware execution, `fs.sh` symlinks and managed blocks).
