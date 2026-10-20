@@ -100,11 +100,11 @@ Your URL token stays in `~/.config/webterm/token`.
 | Shell        | `SHELL` in the env file                                   | your login shell   |
 | Font         | `WEBTERM_FONT` in `webterm-ttyd.service` or the env file  | JetBrainsMono Nerd Font Mono |
 | URL token    | `WEBTERM_TOKEN` in `~/.config/webterm/token`              | random, 32 hex     |
+| Port         | `ListenStream` in `steamos/systemd/webterm.socket`        | `127.0.0.1:3000`   |
 
 The env file, `~/.config/webterm/env`, is linked from `~/dotfiles/.config/webterm/env` by the `link` feature, so
-settings there are kept in git. The token gets its own unlinked file (mode 600) so it never lands in the repo; an
-existing token in an older env file is moved there by `--webterm`, so the URL stays the same.
-| Port         | `ListenStream` in `steamos/systemd/webterm.socket`        | `127.0.0.1:3000`   |
+settings there are kept in git. The token gets its own unlinked file (mode 600), which `--webterm` creates if it's
+missing, so it never lands in the repo.
 
 Change the environment settings with a drop-in, for example:
 

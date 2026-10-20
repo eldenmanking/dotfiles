@@ -58,30 +58,14 @@ webterm_url() {
   _url="http://$listen/${token:+$token/}"
 }
 
-# WEBTERM_TOKEN set in env file $1, or empty if there is none.
-read_token() {
-  local file="$1"
-  _token=""
-  [[ -f "$file" ]] && _token="$(sed -n 's/^WEBTERM_TOKEN=//p' "$file")"
-  return 0
-}
-
 # Secret URL path: keeps other sites (incl. DNS rebinding) from finding the shell.
-# Kept in its own file so the settings in env can be linked from the repo. A token from before that split is
-# reused from env, or from its backup once the link feature has replaced env with the link.
+# Kept in its own file, not env, so the settings in env can be linked from the repo.
 ensure_token() {
   local token
   if [[ -f "$WEBTERM_TOKEN_FILE" ]]; then
-    f_write_args read_token _token -- "$WEBTERM_TOKEN_FILE"
-    token="$_token"
+    token="$(sed -n 's/^WEBTERM_TOKEN=//p' "$WEBTERM_TOKEN_FILE")"
   else
-    f_write_args read_token _token -- "$WEBTERM_ENV"
-    token="$_token"
-    if [[ -z "$token" ]]; then
-      f_write_args read_token _token -- "$BACKUPS_ROOT$WEBTERM_ENV"
-      token="$_token"
-    fi
-    [[ -n "$token" ]] || token="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+    token="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
     run mkdir -p "$WEBTERM_CONF_DIR"
     (umask 077 && printf 'WEBTERM_TOKEN=%s\n' "$token" | write_file "$WEBTERM_TOKEN_FILE")
   fi
