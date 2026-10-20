@@ -5,6 +5,11 @@ This repository contains configuration files for my linux workspace. The followi
 . (~/dotfiles)
 ├── .bash_profile                    --- bash login interactive startup file
 ├── .bashrc                          --- bash non-login interactive startup file
+├── .claude                          ---
+│   ├── CLAUDE.md                    ---
+│   ├── PR-STATUSLINE.md             ---
+│   ├── commands                     ---
+│   └── scripts                      ---
 ├── .config                          ---
 │   ├── alacritty                    ---
 │   │   └── alacritty.toml           --- alacritty terminal emulator configuration file
@@ -21,50 +26,65 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── plugmaps.vim         --- mappings for neovim plugins
 │   │   └── init.vim                 --- Neovim main configuration file (sources 'core')
 │   ├── sh                           ---
-│   │   └── aliases.sh               --- default shell aliases
+│   │   ├── aliases.sh               --- default shell aliases
+│   │   └── env.sh                   ---
+│   ├── starship.toml                ---
 │   ├── yapf                         ---
 │   │   └── style                    --- yapf python formatter global configuration file
 │   └── zsh                          ---
-│       └── keybindings.zsh          --- default zsh keybindings
+│       ├── keybindings.zsh          --- default zsh keybindings
+│       └── settings.zsh             ---
 ├── .gitignore                       ---
 ├── .ideavimrc                       ---
 ├── .local                           ---
 │   ├── bin                          ---
-│   │   └── squidpdf                 --- pdf splitter for Squid notes
+│   │   ├── clip                     ---
+│   │   ├── squidpdf                 --- pdf splitter for Squid notes
+│   │   ├── vis                      --- resume or start an obsession session in cwd
+│   │   └── vm-usb                   ---
 │   └── share                        ---
 │       ├── applications             ---
 │       │   └── Alacritty.desktop    --- custom launch settings for Wayland
 │       └── backgrounds              ---
 │           └── GH2.jpg              --- placeholder background
 ├── .ocamlformat                     ---
-├── .p10k.zsh                        --- powerlevel theme settings
 ├── .profile                         --- sh-compatible login startup file
 ├── .pylintrc                        --- pylint global configuration file
 ├── .tmux                            ---
 │   └── resurrect                    ---
-│       └── saferestore.sh           --- safe restore script for tmux resurrect
+│       ├── saferestore.sh           --- safe restore script for tmux resurrect
+│       └── strategies               ---
+│           └── nvim_obsession.sh    ---
 ├── .tmux.conf                       --- tmux configuration file
 ├── .vimrc                           --- Vim main configuration file (deprecated)
 ├── .zprofile                        --- zshell login startup file
 ├── .zshrc                           --- zshell interactive startup file
 ├── README.md                        --- dotfiles overview
-├── Session.vim                      ---
 ├── Sessionx.vim                     --- useful vim options for maintaining dotfiles
 ├── docs                             ---
+│   ├── bootloader.md                ---
 │   ├── framework16-sleep.md         --- Framework 16 sleep battery drain diagnosis and fix
-│   └── mac-os-setup.md              ---
+│   ├── mac-os-setup.md              ---
+│   ├── windows-setup.md             ---
+│   └── wsl-setup.md                 ---
 ├── dump                             --- exported configuration settings
+│   ├── claude                       ---
+│   │   └── settings.json            ---
 │   ├── dconf                        ---
-│   │   ├── arch.dconf               --- selected entries from 'dconf dump /' in Arch
-│   │   └── manjaro.dconf            --- result of 'dconf dump /' in Manjaro (deprecated)
+│   │   └── arch.dconf               --- selected entries from 'dconf dump /' in Arch
 │   ├── google-chrome                ---
 │   │   └── vimium.conf              --- configuration for chrome vimium extension
 │   ├── insync                       ---
 │   │   └── ignorerules              ---
 │   ├── okular                       ---
 │   │   └── default.shortcuts        ---
-│   └── vscode                       ---
-│       └── keybindings.json         ---
+│   ├── vscode                       ---
+│   │   └── keybindings.json         ---
+│   ├── wallpaper                    ---
+│   │   └── GH2.jpg                  ---
+│   └── windows                      ---
+│       └── terminal                 ---
+│           └── settings.json        ---
 ├── install                          --- pieces of the install script (lib, features, variants)
 ├── install.sh                       --- dotfiles install script
 └── root                             ---
@@ -85,8 +105,7 @@ This repository contains configuration files for my linux workspace. The followi
         │   └── bin                  ---
         │       ├── auto-suspend     --- suspends computer if battery is low
         │       ├── cmus-reload      --- repopulates cmus library and playlists
-        │       ├── colortest        --- prints 256 terminal colors
-        │       └── vis              --- resume or start an obsession session in cwd
+        │       └── colortest        --- prints 256 terminal colors
         └── share                    ---
             └── kbd                  ---
                 └── keymaps          ---

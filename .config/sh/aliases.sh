@@ -8,7 +8,7 @@ alias df='df -h'                                                # Human-readable
 alias free='free -m'                                            # Show sizes in MB
 
 # shortcuts
-alias py=python3.10                                             # Python shortcut
+alias py=python3                                                # Python shortcut
 alias activate=". venv/bin/activate"                            # Python virtual environment activation shortcut
 alias vi=nvim                                                   #
 alias vis="source vis"                                          # Allow vis to use the vi alias

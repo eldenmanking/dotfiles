@@ -18,7 +18,6 @@ LINK_DESKTOP_PATHS=(
   .profile
   .zprofile
   .zshrc
-  .p10k.zsh
   .vimrc
   .ideavimrc
   .ocamlformat
