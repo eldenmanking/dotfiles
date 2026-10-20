@@ -88,7 +88,7 @@ This repository contains configuration files for my linux workspace. The followi
     │   │       └── auto-suspend.time--- auto-suspend timer to check if battery is low
     │   ├── udev                     ---
     │   │   └── rules.d              ---
-    │   │       └── 90-touchpad-nowak--- stop the Framework 16 touchpad from waking the laptop (copied, not linked)
+    │   │       └── 90-touchpad-nowak--- stop I2C devices (Framework 16 touchpad) from waking the laptop (copied, not linked)
     │   └── vconsole.conf            --- Linux virtual console configuration file
     └── usr                          ---
         ├── local                    ---
