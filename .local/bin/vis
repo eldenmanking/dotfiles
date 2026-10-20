@@ -16,7 +16,8 @@ function _vis {
   for i in {1..10}; do
     if [ -n "$(find . -maxdepth 1 -name Session.vim)" ]; then
       no_session=false
-      vi -S
+      # absolute path lets tmux-resurrect find the session even if nvim changes cwd
+      vi -S "$(pwd)/Session.vim"
       break
     fi
     cd ..
