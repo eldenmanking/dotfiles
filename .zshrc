@@ -22,9 +22,6 @@ autoload -Uz compinit colors                                    # Autoload these
 compinit -d                                                     # Initialize zsh completion
 colors                                                          # Activate color-coding for completion
 
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
 ################################################################################
 # Shell config
 ################################################################################
@@ -58,7 +55,7 @@ source ~/dotfiles/.config/zsh/keybindings.zsh
 ################################################################################
 
 # opam configuration
-[[ ! -r /home/linstar/.opam/opam-init/init.zsh ]] || source /home/linstar/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
+[[ ! -r $HOME/.opam/opam-init/init.zsh ]] || source $HOME/.opam/opam-init/init.zsh  > /dev/null 2> /dev/null
 
 ################################################################################
 # Starship prompt
