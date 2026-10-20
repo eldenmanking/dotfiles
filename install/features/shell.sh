@@ -75,14 +75,6 @@ feature_zsh() {
     content+="source ~/.zsh/plugins/$name/$name.zsh"
   done
 
-  [[ -n "$content" ]] && content+=$'\n'
-  content+=$(cat <<EOF
-autoload -Uz compinit colors                                    # Autoload these zsh functions when called
-compinit -d                                                     # Initialize zsh completion
-colors                                                          # Activate color-coding for completion
-EOF
-)
-
   remove_legacy_block "$HOME/.zshrc" zsh_plugins
   upsert_block "$HOME/.zshrc" zsh "$content"
 }

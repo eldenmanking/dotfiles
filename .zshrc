@@ -16,10 +16,6 @@ source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source /usr/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
 
-autoload -Uz compinit colors                                    # Autoload these zsh functions when called
-compinit -d                                                     # Initialize zsh completion
-colors                                                          # Activate color-coding for completion
-
 ################################################################################
 # Shell config
 ################################################################################

@@ -6,3 +6,7 @@ export SAVEHIST=10000
 export WORDCHARS=${WORDCHARS//\/[&.;]}                          # Don't consider certain characters as words
 export ZLE_RPROMPT_INDENT=0                                     # No space after right prompt
 typeset -U path                                                 # Remove duplicates in path/PATH
+
+autoload -Uz compinit colors                                    # Autoload these zsh functions when called
+compinit -d                                                     # Initialize zsh completion
+colors                                                          # Activate color-coding for completion
