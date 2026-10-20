@@ -23,5 +23,5 @@ feature_udev() {
 
   info "Reloading udev rules..."
   run sudo udevadm control --reload
-  run sudo udevadm trigger --action=add --subsystem-match=i2c
+  run sudo udevadm trigger --subsystem-match=i2c
 }

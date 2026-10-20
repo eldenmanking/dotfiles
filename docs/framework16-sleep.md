@@ -7,7 +7,9 @@
 - Ruled out: Bluetooth (wake event 0x0), lid, power button, removed dGPU, GPU perf override (now `auto`), NVMe APST, battery health (89%, 127 cycles).
 - Possible secondary issue: the touchpad's I2C controller (AMDI0010:03) logged ~4.6M interrupts in ~80 min while idle. The pad may be reporting noise, so try cleaning it or reseating the module if wakes continue.
 
-## Fix (disable touchpad wake)
+## Fix (disable I2C wake)
+The rule disables wake for every I2C device that has it enabled. On this laptop that is only the touchpad: the built-in and external keyboards are USB, so they are unaffected.
+
 Rule file: `root/etc/udev/rules.d/90-touchpad-nowake.rules`, installed to `/etc/udev/rules.d/` with:
 ```sh
 ./install.sh --variant steamos --udev
@@ -20,17 +22,17 @@ Apply now without the installer (temporary, lasts until reboot):
 echo disabled | sudo tee /sys/bus/i2c/devices/i2c-PIXA3854:00/power/wakeup
 ```
 
-Reload rules by hand (the rule matches `ACTION=="add"`, so the trigger has to replay add events):
+Reload rules by hand (the rule matches every action except `remove`, so the default `change` trigger applies it):
 ```sh
-sudo udevadm control --reload && sudo udevadm trigger --action=add --subsystem-match=i2c
+sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=i2c
 ```
 
-Tradeoff: tapping the touchpad no longer wakes the laptop. The keyboard, power button and lid still do.
+Tradeoff: tapping the touchpad (or any other I2C device) no longer wakes the laptop. The keyboard, power button and lid still do.
 
 ## Verify
-After applying, and again after a reboot (should print `disabled`):
+After applying, and again after a reboot (each line should end in `disabled`):
 ```sh
-cat /sys/bus/i2c/devices/i2c-PIXA3854:00/power/wakeup
+grep -H . /sys/bus/i2c/devices/*/power/wakeup
 ```
 
 After a real sleep, woken with the keyboard:
