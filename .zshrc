@@ -12,9 +12,7 @@
 #               zsh-history-substring-search
 #               zsh-completions
 
-source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
-source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-source /usr/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
+source ~/dotfiles/.config/zsh/plugins.zsh
 
 ################################################################################
 # Shell config
@@ -33,4 +31,4 @@ source ~/dotfiles/.config/zsh/external.zsh
 # Starship prompt
 ################################################################################
 
-eval "$(starship init zsh)"
+source ~/dotfiles/.config/sh/starship.sh

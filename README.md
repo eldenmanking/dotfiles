@@ -27,13 +27,15 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   └── init.vim                 --- Neovim main configuration file (sources 'core')
 │   ├── sh                           ---
 │   │   ├── aliases.sh               --- default shell aliases
-│   │   └── env.sh                   ---
+│   │   ├── env.sh                   ---
+│   │   └── starship.sh              --- starts the starship prompt in bash or zsh
 │   ├── starship.toml                ---
 │   ├── yapf                         ---
 │   │   └── style                    --- yapf python formatter global configuration file
 │   └── zsh                          ---
 │       ├── external.zsh             --- setup for external packages (e.g. opam)
 │       ├── keybindings.zsh          --- default zsh keybindings
+│       ├── plugins.zsh              --- loads zsh plugins from ~/.zsh/plugins or /usr/share/zsh/plugins
 │       └── settings.zsh             ---
 ├── .gitignore                       ---
 ├── .ideavimrc                       ---
@@ -116,7 +118,7 @@ This repository contains configuration files for my linux workspace. The followi
 ## Installation
 `install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`.
 
-Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Edit the files outside the section freely.
+Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell rc subblocks only source files under `.config/sh` and `.config/zsh`, which the linked rc files (e.g. on `arch`) source too. Edit the files outside the section freely.
 
 The `arch` variant is designed to work for Arch Linux (or other Arch-based distributions). Essential packages and applications can be installed using `./install.sh --variant arch` as a user. This variant attempts to setup the following:
  - yay

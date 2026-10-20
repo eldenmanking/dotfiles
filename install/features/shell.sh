@@ -2,23 +2,12 @@
 
 # --- Shell keybindings ---
 feature_shell() {
-  local all_shell_config=$(cat <<EOF
-# global config
-source ~/dotfiles/.config/sh/aliases.sh
-source ~/dotfiles/.config/sh/env.sh
-EOF
-)
-  local zsh_shell_config=$(cat <<EOF
-# zsh config
-source ~/dotfiles/.config/zsh/keybindings.zsh
-source ~/dotfiles/.config/zsh/settings.zsh
-source ~/dotfiles/.config/zsh/external.zsh
-EOF
-)
+  local sh_files=(.config/sh/aliases.sh .config/sh/env.sh)
+  local zsh_files=(.config/zsh/keybindings.zsh .config/zsh/settings.zsh .config/zsh/external.zsh)
 
   # Write both rc files so switching shells keeps the config.
-  upsert_block "$HOME/.bashrc" shell "$all_shell_config"
-  upsert_block "$HOME/.zshrc" shell "$all_shell_config"$'\n'"$zsh_shell_config"
+  upsert_sources "$HOME/.bashrc" shell "${sh_files[@]}"
+  upsert_sources "$HOME/.zshrc" shell "${sh_files[@]}" "${zsh_files[@]}"
 }
 
 # Install starship if missing, optionally into bin_dir.
@@ -39,21 +28,18 @@ install_starship_binary() {
 feature_starship() {
   install_starship_binary "$LOCAL_BIN"
 
-  local shell
-  for shell in bash zsh; do
-    upsert_block "$HOME/.${shell}rc" starship \
-      "command -v starship >/dev/null && eval \"\$(starship init $shell)\""
-  done
+  upsert_sources "$HOME/.bashrc" starship .config/sh/starship.sh
+  upsert_sources "$HOME/.zshrc" starship .config/sh/starship.sh
 }
 
 # --- Zsh plugins ---
-# Clone popular zsh plugins into ~/.zsh/plugins and source them from .zshrc.
+# Clone popular zsh plugins into ~/.zsh/plugins and source plugins.zsh (which
+# loads them) from .zshrc.
 # Portable: no package manager or root required. Safe to re-run.
 feature_zsh() {
   local plugins_dir="$HOME/.zsh/plugins"
 
-  # Each repo's main script shares the repo's basename (e.g. zsh-autosuggestions.zsh).
-  # Order matters: syntax-highlighting must precede history-substring-search.
+  # Keep in sync with the plugin list in .config/zsh/plugins.zsh.
   local repos=(
     zsh-users/zsh-autosuggestions
     zsh-users/zsh-syntax-highlighting
@@ -62,7 +48,7 @@ feature_zsh() {
 
   mkdir -p "$plugins_dir"
 
-  local content="" repo name
+  local repo name
   for repo in "${repos[@]}"; do
     name="${repo##*/}"
     if [[ -d "$plugins_dir/$name" ]]; then
@@ -71,9 +57,7 @@ feature_zsh() {
       info "Cloning $name..."
       git clone --depth 1 "https://github.com/$repo" "$plugins_dir/$name"
     fi
-    [[ -n "$content" ]] && content+=$'\n'
-    content+="source ~/.zsh/plugins/$name/$name.zsh"
   done
 
-  upsert_block "$HOME/.zshrc" zsh "$content"
+  upsert_sources "$HOME/.zshrc" zsh .config/zsh/plugins.zsh
 }
