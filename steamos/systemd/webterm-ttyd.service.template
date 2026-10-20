@@ -8,6 +8,8 @@ StopWhenUnneeded=yes
 # ~/dotfiles/install.sh);
 # otherwise it falls back to the next family in the list.
 Environment="WEBTERM_FONT=JetBrainsMono Nerd Font Mono, JetBrainsMono Nerd Font, monospace"
+# token first, so env (linked from ~/dotfiles/.config/webterm) can override it
+EnvironmentFile=-%h/.config/webterm/token
 EnvironmentFile=-%h/.config/webterm/env
 WorkingDirectory=%h
 ExecStartPre=rm -f %t/webterm.sock

@@ -1,0 +1,9 @@
+# webterm settings, read by webterm-ttyd.service on every start (systemd EnvironmentFile syntax).
+# Linked from ~/dotfiles by the link feature; the URL token lives in the unlinked ~/.config/webterm/token.
+# Apply changes with: ~/dotfiles/install.sh --variant steamos --webterm
+
+# Shell each browser connection runs (defaults to your login shell)
+#SHELL=/usr/bin/zsh
+
+# CSS font list, without an '='
+#WEBTERM_FONT=JetBrainsMono Nerd Font Mono, JetBrainsMono Nerd Font, monospace

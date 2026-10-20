@@ -20,6 +20,11 @@ LINK_SHELL_PATHS=(
   .zshrc
 )
 
+# Extra paths linked on steamos.
+LINK_STEAMOS_PATHS=(
+  .config/webterm
+)
+
 # Extra paths linked on full desktop installs (e.g. arch).
 LINK_DESKTOP_PATHS=(
   .vimrc

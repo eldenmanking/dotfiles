@@ -27,6 +27,8 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   ├── env.sh                   ---
 │   │   └── starship.sh              --- starts the starship prompt in bash or zsh
 │   ├── starship.toml                ---
+│   ├── webterm                      ---
+│   │   └── env                      --- webterm settings (shell, font), linked on steamos
 │   ├── yapf                         ---
 │   │   └── style                    --- yapf python formatter global configuration file
 │   └── zsh                          ---
