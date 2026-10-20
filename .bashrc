@@ -9,6 +9,7 @@
 export PROMPT_DIRTRIM=3 # Only show last three directories in filepath
 export PS1="\[\e[32m\]\h:\w\\[\e[0m\]$ " # Shell prompt format
 
-# Aliases
+# global config
 source ~/dotfiles/.config/sh/aliases.sh
+source ~/dotfiles/.config/sh/env.sh
 

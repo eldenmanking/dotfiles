@@ -1,4 +1,4 @@
-# Platform and shell detection.
+# Platform detection and GitHub release lookup.
 
 # --- Platform detection ---
 detect_os_arch() {
@@ -34,16 +34,4 @@ github_release_url() {
     | grep -E "$pattern" \
     | head -1 \
     | cut -d'"' -f4
-}
-
-# Resolve the login shell into _name and _rc_file.
-detect_shell_rc() {
-  local name
-  name="$(basename "$SHELL")"
-  case "$name" in
-    zsh)  _name=zsh;  _rc_file="$HOME/.zshrc" ;;
-    bash) _name=bash; _rc_file="$HOME/.bashrc" ;;
-    *)    warn "Unrecognized shell '$name', defaulting to bash/.bashrc"
-          _name=bash; _rc_file="$HOME/.bashrc" ;;
-  esac
 }

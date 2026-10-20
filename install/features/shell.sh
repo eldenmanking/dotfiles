@@ -15,14 +15,9 @@ source ~/dotfiles/.config/zsh/settings.zsh
 EOF
 )
 
-  f_write_args detect_shell_rc _name _rc_file
-
-  local content="$all_shell_config"
-  if [[ "$_name" == zsh ]]; then
-    content+=$'\n'"$zsh_shell_config"
-  fi
-
-  upsert_block "$_rc_file" shell "$content"
+  # Write both rc files so switching shells keeps the config.
+  upsert_block "$HOME/.bashrc" shell "$all_shell_config"
+  upsert_block "$HOME/.zshrc" shell "$all_shell_config"$'\n'"$zsh_shell_config"
 }
 
 # Install starship if missing, optionally into bin_dir.
@@ -43,8 +38,11 @@ install_starship_binary() {
 feature_starship() {
   install_starship_binary "$LOCAL_BIN"
 
-  f_write_args detect_shell_rc _name _rc_file
-  upsert_block "$_rc_file" starship "eval \"\$(starship init $_name)\""
+  local shell
+  for shell in bash zsh; do
+    upsert_block "$HOME/.${shell}rc" starship \
+      "command -v starship >/dev/null && eval \"\$(starship init $shell)\""
+  done
 }
 
 # --- Zsh plugins ---
@@ -84,5 +82,6 @@ colors                                                          # Activate color
 EOF
 )
 
-  upsert_block "$HOME/.zshrc" zsh_plugins "$content"
+  remove_legacy_block "$HOME/.zshrc" zsh_plugins
+  upsert_block "$HOME/.zshrc" zsh "$content"
 }

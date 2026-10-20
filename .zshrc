@@ -2,8 +2,6 @@
 # ~/.zshrc
 #
 
-typeset -U path                                                 # Remove duplicates in path/PATH
-
 ################################################################################
 # zsh plugins
 ################################################################################
@@ -26,28 +24,13 @@ colors                                                          # Activate color
 # Shell config
 ################################################################################
 
-# zsh common
-export HISTFILE=~/.zhistory
-export HISTSIZE=10000
-export SAVEHIST=10000
-export WORDCHARS=${WORDCHARS//\/[&.;]}                          # Don't consider certain characters as words
-export ZLE_RPROMPT_INDENT=0                                     # No space after right prompt
-
-# Color man pages
-export LESS_TERMCAP_mb=$'\E[01;32m'
-export LESS_TERMCAP_md=$'\E[01;32m'
-export LESS_TERMCAP_me=$'\E[0m'
-export LESS_TERMCAP_se=$'\E[0m'
-export LESS_TERMCAP_so=$'\E[01;47;34m'
-export LESS_TERMCAP_ue=$'\E[0m'
-export LESS_TERMCAP_us=$'\E[01;36m'
-export LESS=-R
-
-# Aliases
+# global config
 source ~/dotfiles/.config/sh/aliases.sh
+source ~/dotfiles/.config/sh/env.sh
 
 # zsh config
 source ~/dotfiles/.config/zsh/keybindings.zsh
+source ~/dotfiles/.config/zsh/settings.zsh
 
 
 ################################################################################
