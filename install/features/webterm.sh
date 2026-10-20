@@ -101,6 +101,7 @@ feature_webterm() {
     || error "no systemd user session (log in graphically or via ssh, not su/sudo)"
   f_write_args find_proxyd _proxyd
   [[ -n "$_proxyd" ]] || error "systemd-socket-proxyd not found"
+  [[ -f "$WEBTERM_ENV" ]] || $DRY_RUN || error "$WEBTERM_ENV not found; run with --link first"
 
   install_ttyd
   run "$WEBTERM_DIR/bin/webterm-index" \

@@ -97,14 +97,14 @@ Your URL token stays in `~/.config/webterm/token`.
 | Setting      | Where                                                     | Default            |
 | ------------ | --------------------------------------------------------- | ------------------ |
 | Idle timeout | `WEBTERM_IDLE` in `webterm.service`                       | `30s`              |
-| Shell        | `SHELL` in the env file                                   | your login shell   |
-| Font         | `WEBTERM_FONT` in `webterm-ttyd.service` or the env file  | JetBrainsMono Nerd Font Mono |
+| Shell        | `SHELL` in the env file                                   | `/usr/bin/zsh`     |
+| Font         | `WEBTERM_FONT` in the env file                            | JetBrainsMono Nerd Font Mono |
 | URL token    | `WEBTERM_TOKEN` in `~/.config/webterm/token`              | random, 32 hex     |
 | Port         | `ListenStream` in `steamos/systemd/webterm.socket`        | `127.0.0.1:3000`   |
 
 The env file, `~/.config/webterm/env`, is linked from `~/dotfiles/.config/webterm/env` by the `link` feature, so
-settings there are kept in git. The token gets its own unlinked file (mode 600), which `--webterm` creates if it's
-missing, so it never lands in the repo.
+settings there are kept in git; run `--link` before `--webterm`, which needs it. The token gets its own unlinked
+file (mode 600), which `--webterm` creates if it's missing, so it never lands in the repo.
 
 Change the environment settings with a drop-in, for example:
 
@@ -156,11 +156,10 @@ How it works:
 - If the browser was already open when the font was installed, restart it.
   Until then it uses the next font in the list.
 
-To use a different font, set `WEBTERM_FONT` in `~/dotfiles/.config/webterm/env` and restart.
-Open tabs switch fonts when they reconnect:
+To use a different font, change `WEBTERM_FONT` in `~/dotfiles/.config/webterm/env`, for example to
+`WEBTERM_FONT=JetBrainsMonoNL Nerd Font Mono, monospace`, then restart. Open tabs switch fonts when they reconnect:
 
 ```sh
-echo 'WEBTERM_FONT=JetBrainsMonoNL Nerd Font Mono, monospace' >> ~/dotfiles/.config/webterm/env
 ~/dotfiles/install.sh --variant steamos --webterm
 ```
 

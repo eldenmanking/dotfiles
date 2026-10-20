@@ -2,8 +2,9 @@
 # Linked from ~/dotfiles by the link feature; the URL token lives in the unlinked ~/.config/webterm/token.
 # Apply changes with: ~/dotfiles/install.sh --variant steamos --webterm
 
-# Shell each browser connection runs (defaults to your login shell)
-#SHELL=/usr/bin/zsh
+# Shell each browser connection runs
+SHELL=/usr/bin/zsh
 
-# CSS font list, without an '='
-#WEBTERM_FONT=JetBrainsMono Nerd Font Mono, JetBrainsMono Nerd Font, monospace
+# CSS font list, without an '='. The browser must have the font installed (see the font feature of
+# ~/dotfiles/install.sh); otherwise it falls back to the next family in the list.
+WEBTERM_FONT=JetBrainsMono Nerd Font Mono, JetBrainsMono Nerd Font, monospace
