@@ -1,11 +1,19 @@
-# Features: shell rc blocks, starship prompt and zsh plugins.
+# Features: shell startup file blocks, starship prompt and zsh plugins.
 
-# --- Shell keybindings ---
+# --- Shell config ---
 feature_shell() {
-  local sh_files=(.config/sh/aliases.sh .config/sh/env.sh)
+  local sh_files=(.config/sh/env.sh .config/sh/aliases.sh)
   local zsh_files=(.config/zsh/keybindings.zsh .config/zsh/settings.zsh .config/zsh/external.zsh)
 
-  # Write both rc files so switching shells keeps the config.
+  # Login shells load the environment from a profile; bash ignores ~/.profile when ~/.bash_profile exists.
+  upsert_sources "$HOME/.profile" shell .config/sh/env.sh
+  upsert_sources "$HOME/.zprofile" shell .config/sh/env.sh
+  if [[ -f "$HOME/.bash_profile" ]]; then
+    upsert_sources "$HOME/.bash_profile" shell .config/sh/env.sh
+  fi
+
+  # rc files source env.sh too, for shells with no login shell above them. Write both rc files so switching shells
+  # keeps the config.
   upsert_sources "$HOME/.bashrc" shell "${sh_files[@]}"
   upsert_sources "$HOME/.zshrc" shell "${sh_files[@]}" "${zsh_files[@]}"
 }

@@ -167,15 +167,15 @@ upsert_block() {
 }
 
 # Set the <name> subblock of <file> to source each repo-relative <path>. Shell
-# rc files only ever source files, so the same logic can be shared with the
-# directly linked rc files.
+# startup files only ever source files, so the same logic can be shared with the
+# directly linked ones. Uses POSIX '.' since sh may read ~/.profile.
 # Usage: upsert_sources <file> <name> <path>...
 upsert_sources() {
   local file="$1" name="$2" content="" rel
   shift 2
   for rel in "$@"; do
     [[ -f "$DOTFILES_ROOT/$rel" ]] || error "upsert_sources: $DOTFILES_ROOT/$rel does not exist"
-    content+="${content:+$'\n'}source ~/dotfiles/$rel"
+    content+="${content:+$'\n'}. ~/dotfiles/$rel"
   done
   upsert_block "$file" "$name" "$content"
 }

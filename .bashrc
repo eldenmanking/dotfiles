@@ -2,10 +2,7 @@
 # ~/.bashrc
 #
 
-! (shopt -q login_shell) && . "$HOME/.bash_profile"             # Source profile if not a login shell
-[[ $- != *i* ]] && return                                       # Leave if shell is not interactive (for safety)
+source ~/dotfiles/.config/sh/env.sh                             # For shells with no login shell above them
+[[ $- != *i* ]] && return                                       # Leave if shell is not interactive
 
-# global config
 source ~/dotfiles/.config/sh/aliases.sh
-source ~/dotfiles/.config/sh/env.sh
-

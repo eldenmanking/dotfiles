@@ -15,7 +15,7 @@ feature_description() {
     dconf)       echo "load dconf configuration" ;;
     xdg)         echo "load default xdg configuration" ;;
     info)        echo "provide info on manual configuration tasks" ;;
-    shell)       echo "source the shared shell config from .bashrc and .zshrc" ;;
+    shell)       echo "source the shared shell config from the profiles, .bashrc and .zshrc" ;;
     starship)    echo "install starship and add its init line to .bashrc and .zshrc" ;;
     zsh)         echo "clone zsh plugins into ~/.zsh and source them in .zshrc" ;;
     tmux)        echo "install tmux plugin manager and plugins" ;;

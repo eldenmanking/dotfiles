@@ -2,5 +2,5 @@
 # ~/.bash_profile
 #
 
-[[ -f "$HOME/.profile" ]] && . "$HOME/.profile"
-[[ $- == *i* ]] && shopt -q login_shell && . "$HOME/.bashrc"
+source ~/dotfiles/.config/sh/env.sh
+[[ $- == *i* ]] && source ~/.bashrc                              # Login shells don't read .bashrc on their own

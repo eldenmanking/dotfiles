@@ -167,28 +167,16 @@ I try to avoid modifying plugin files directly, but the following have been chan
    - Allows bluetooth to start automatically on boot and after suspend. `main.conf` must be a normal file, rather than a symlink.
 
 ## Shell Startup Files
-The key things to know regarding shell startup files are the following. By default,
+Which files a shell reads depends on whether it is a **login** shell (ssh, console login, the desktop session, tmux panes) and whether it is **interactive**:
 
- - .bash_profile is used for **login** bash shells
- - .bashrc is used for **non-login** interactive bash shells
+ - bash login shells read the first of .bash_profile, .bash_login and .profile; interactive non-login bash shells read .bashrc
+ - zsh login shells read .zprofile; interactive zsh shells (login or not) read .zshrc
 
-for bash, and
+Environment variables are inherited, so they only need setting at login; aliases, functions and shell settings are not, so every interactive shell needs them. The files are split accordingly:
 
- - .zprofile is used for **login** zsh shells
- - .zshrc is used for **interactive** zsh shells
-
-for zsh. Additionally, if .bash_profile exists, then .profile will not be executed; a similar behavior occurs for zsh. Environment variables shared across different shells should be in the global .profile file (e.g. $PATH). Shell-specific settings should be left in the respective .zshrc and .bashrc files. In general, it is nice to source both the profile and rc files for bash and zsh whenever running an interactive shell. To do so, we have the following dependency structure. For zsh:
-
- - .zshrc &rarr; .zprofile (if not login).
-
-And for bash:
-
- - .bashrc &rarr; .bash_profile (if not login)
- - .bash_profile &rarr; .bashrc (if login and interactive).
-
-And finally, in general, shell-specific profile files source the global .profile file:
-
- - .{shell-profile} &rarr; .profile
+ - `.config/sh/env.sh` holds environment variables. It is POSIX sh and safe to source more than once. The profiles (.profile, .bash_profile, .zprofile) source it, and so do the rc files, for interactive shells with no login shell above them (e.g. code-server terminals).
+ - Everything else in `.config/sh` and `.config/zsh` is interactive-only and is sourced from .bashrc and .zshrc.
+ - .bash_profile also sources .bashrc when interactive, since bash login shells don't read it on their own. Nothing else sources another startup file.
 
 ## Notes
 #### Using NTFS Partitions with Gnome
