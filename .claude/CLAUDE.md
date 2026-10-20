@@ -44,6 +44,7 @@
 
 ## Commenting
 - Write comments where code needs documenting (e.g. javadocs), matching the surrounding code's comment style and density.
+- Keep comments brief and clear: say what the code can't, in as few words as possible.
 - Update existing comments when the code they describe changes.
 - If some behavior deserves explanation, you may add a github comment IF the PR is in draft mode. Otherwise flag this to the user directly.
 
