@@ -226,82 +226,23 @@ EOF
 }
 
 # --- Merge CLAUDE.md block ---
-# Takes the tools dirs in priority order and joins their claude/CLAUDE.md files, in that order, into one block.
+# Takes the tools dirs in priority order and joins their claude/CLAUDE.md files, in that order, into the claude
+# subblock of the target CLAUDE.md.
 configure_claude_md() {
   local dst="$HOME/git/.claude/CLAUDE.md"
-  local marker_start="# Added by dotfiles"
-  local marker_end="# /Added by dotfiles"
 
-  local tools_dir nl=$'\n' src_content=""
+  local tools_dir nl=$'\n' content=""
   for tools_dir in "$@"; do
     [[ -f "$tools_dir/claude/CLAUDE.md" ]] || continue
-    src_content+="${src_content:+$nl$nl}$(cat "$tools_dir/claude/CLAUDE.md")"
+    content+="${content:+$nl$nl}$(cat "$tools_dir/claude/CLAUDE.md")"
   done
 
-  if [[ -z "$src_content" ]]; then
-    warn "No claude/CLAUDE.md found in the tools repos"
+  if [[ -z "$content" ]]; then
+    warn "No non-empty claude/CLAUDE.md found in the tools repos"
     return
   fi
 
-  mkdir -p "$(dirname "$dst")"
-
-  local block
-  block="$(printf '%s\n%s\n%s' "$marker_start" "$src_content" "$marker_end")"
-
-  # If markers already exist, check whether the content needs updating.
-  if [[ -f "$dst" ]] && grep -qF "$marker_start" "$dst"; then
-    local existing
-    existing="$(awk -v ms="$marker_start" -v me="$marker_end" '
-      $0==ms { found=1; next }
-      $0==me { found=0; next }
-      found  { print }
-    ' "$dst")"
-    if [[ "$existing" == "$src_content" ]]; then
-      info "CLAUDE.md already up to date in $dst"
-      return
-    fi
-    # Content differs — replace the existing block.
-    info "Updating dotfiles CLAUDE.md block in $dst"
-    local tmp block_file
-    tmp="$(mktemp)"
-    block_file="$(mktemp)"
-    printf '%s\n' "$block" > "$block_file"
-    awk -v ms="$marker_start" -v me="$marker_end" -v bf="$block_file" '
-      $0 == ms {
-        while ((getline line < bf) > 0) print line
-        close(bf)
-        skip = 1
-        next
-      }
-      skip && $0 == me { skip = 0; next }
-      !skip { print }
-    ' "$dst" > "$tmp"
-    rm "$block_file"
-    mv "$tmp" "$dst"
-    return
-  fi
-
-  # Fresh insert — no markers present yet.
-  if [[ -f "$dst" ]] && grep -q '</system-prompt>' "$dst"; then
-    info "Inserting dotfiles CLAUDE.md before </system-prompt> in $dst"
-    local tmp
-    tmp="$(mktemp)"
-    awk -v block="$block" '
-      !inserted && /<\/system-prompt>/ {
-        print block
-        print ""
-        inserted=1
-      }
-      { print }
-    ' "$dst" > "$tmp"
-    mv "$tmp" "$dst"
-  elif [[ -f "$dst" ]]; then
-    info "Appending dotfiles CLAUDE.md to $dst"
-    printf '\n%s\n' "$block" >> "$dst"
-  else
-    info "Creating $dst"
-    printf '%s\n' "$block" > "$dst"
-  fi
+  upsert_block "$dst" claude "$content" '</system-prompt>'
 }
 
 # --- Configure Claude Code (orchestrator) ---

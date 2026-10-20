@@ -2,4 +2,4 @@
 # ~/.zprofile
 #
 
-[[ -f "$HOME/.profile" ]] && . "$HOME/.profile"
+source ~/dotfiles/.config/sh/env.sh

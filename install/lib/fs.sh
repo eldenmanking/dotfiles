@@ -31,61 +31,151 @@ make_symlink() {
 }
 
 # --- Managed block helper ---
-# Idempotently insert or update a named block of lines in a file. Each block is
-# delimited by markers unique to <name>:
-#     # Added by light-install.sh#<name>
+# Each managed file holds a single dotfiles section made of one subblock per
+# feature. A feature only ever rewrites its own subblock:
+#     # Managed by dotfiles
+#
+#     # feature <name>
 #     ...content...
-#     # /Added by light-install.sh#<name>
-# so multiple blocks can coexist in one file and each is updated in place (not
-# duplicated) on re-run. Creates the file if missing.
-# Usage: upsert_block <file> <name> <content>
+#
+#     # /Managed by dotfiles
+DOTFILES_BLOCK_START="# Managed by dotfiles"
+DOTFILES_BLOCK_END="# /Managed by dotfiles"
+DOTFILES_SUBBLOCK_PREFIX="# feature "
+
+# Print the 1-based line numbers of lines in $1 exactly equal to $2.
+_line_numbers() {
+  awk -v s="$2" '$0 == s { print NR }' "$1"
+}
+
+# Return 0 if $file is a symlink into the dotfiles repo, where edits would
+# land in tracked files.
+_links_into_dotfiles() {
+  local file="$1" target dir root
+  [[ -L "$file" ]] || return 1
+  target="$(readlink "$file")"
+  [[ "$target" == /* ]] || target="$(dirname "$file")/$target"
+  dir="$(cd "$(dirname "$target")" 2>/dev/null && pwd -P)" || return 1
+  root="$(cd "$DOTFILES_ROOT" && pwd -P)"
+  [[ "$dir/" == "$root/"* ]]
+}
+
+# Overwrite $file with $tmp in place, keeping its mode and any symlink.
+_replace_contents() {
+  local file="$1" tmp="$2"
+  cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
+# Idempotently set the <name> subblock of the dotfiles section in <file> to
+# <content>, creating the file and section as needed. A new section is
+# appended, or inserted before the first line containing <insert_before> if
+# given and present. Refuses to edit malformed sections and symlinks into the
+# dotfiles repo.
+# Usage: upsert_block <file> <name> <content> [insert_before]
 upsert_block() {
-  local file="$1" name="$2" content="$3"
-  local start="# Added by light-install.sh#$name"
-  local end="# /Added by light-install.sh#$name"
+  local file="$1" name="$2" content="$3" insert_before="${4:-}"
+  local header="$DOTFILES_SUBBLOCK_PREFIX$name"
 
-  if [[ ! -f "$file" ]]; then
-    info "Creating $file"
-    touch "$file"
+  [[ "$name" =~ ^[A-Za-z0-9_-]+$ ]] || error "upsert_block: invalid name '$name'"
+  local line
+  while IFS= read -r line; do
+    if [[ "$line" == "$DOTFILES_BLOCK_START" || "$line" == "$DOTFILES_BLOCK_END" \
+      || "$line" == "$DOTFILES_SUBBLOCK_PREFIX"* ]]; then
+      error "upsert_block: content for '$name' contains a marker line: $line"
+    fi
+  done <<< "$content"
+
+  if _links_into_dotfiles "$file"; then
+    warn "$file links into the dotfiles repo; not adding block '$name'"
+    return 0
   fi
 
-  local desired
-  desired="$(printf '%s\n%s\n%s' "$start" "$content" "$end")"
-
-  # No existing block for this name — append a fresh one.
-  if ! grep -qxF "$start" "$file"; then
-    info "Adding block '$name' to $file"
-    printf '\n%s\n' "$desired" >> "$file"
-    return
+  local starts="" ends=""
+  if [[ -f "$file" ]]; then
+    starts="$(_line_numbers "$file" "$DOTFILES_BLOCK_START")"
+    ends="$(_line_numbers "$file" "$DOTFILES_BLOCK_END")"
+    if [[ "$starts" == *$'\n'* || "$ends" == *$'\n'* ]] \
+      || [[ -z "$starts" && -n "$ends" ]] || [[ -n "$starts" && -z "$ends" ]] \
+      || { [[ -n "$starts" ]] && (( starts > ends )); }; then
+      warn "Malformed dotfiles section in $file (need one '$DOTFILES_BLOCK_START' before one '$DOTFILES_BLOCK_END'); fix it by hand"
+      return 1
+    fi
   fi
 
-  # Block exists — skip if unchanged, otherwise replace it in place.
-  local existing
-  existing="$(awk -v s="$start" -v e="$end" '
-    $0==s {found=1}
-    found {print}
-    $0==e {found=0}
-  ' "$file")"
-  if [[ "$existing" == "$desired" ]]; then
-    info "Block '$name' already up to date in $file"
-    return
+  if $DRY_RUN; then
+    info "[dry-run] would set block '$name' in $file"
+    return 0
   fi
 
-  info "Updating block '$name' in $file"
   local tmp content_file
-  tmp="$(mktemp)"
   content_file="$(mktemp)"
-  printf '%s\n' "$desired" > "$content_file"
-  awk -v s="$start" -v e="$end" -v cf="$content_file" '
-    $0==s {
+
+  if [[ -z "$starts" ]]; then
+    # No section yet: add an empty one for the update below to fill.
+    printf '%s\n\n%s\n' "$DOTFILES_BLOCK_START" "$DOTFILES_BLOCK_END" > "$content_file"
+    mkdir -p "$(dirname "$file")"
+    if [[ -f "$file" && -n "$insert_before" ]] && grep -qF "$insert_before" "$file"; then
+      tmp="$(mktemp)"
+      awk -v pat="$insert_before" -v cf="$content_file" '
+        !done && index($0, pat) {
+          while ((getline line < cf) > 0) print line
+          close(cf)
+          print ""
+          done = 1
+        }
+        { print }
+      ' "$file" > "$tmp"
+      _replace_contents "$file" "$tmp"
+    else
+      [[ -s "$file" ]] && printf '\n' >> "$file"
+      cat "$content_file" >> "$file"
+    fi
+  fi
+
+  # Copy the file, swapping this feature's subblock (up to the next subblock
+  # or the section end) for the new content, or adding it at the section end.
+  printf '%s\n' "$content" > "$content_file"
+  tmp="$(mktemp)"
+  awk -v start="$DOTFILES_BLOCK_START" -v end="$DOTFILES_BLOCK_END" \
+      -v prefix="$DOTFILES_SUBBLOCK_PREFIX" -v header="$header" -v cf="$content_file" '
+    function emit(  line) {
+      print header
       while ((getline line < cf) > 0) print line
       close(cf)
-      skip=1
-      next
+      print ""
+      done = 1
     }
-    skip && $0==e { skip=0; next }
-    !skip { print }
+    $0 == start { insec = 1 }
+    insec && $0 == end { if (!done) emit(); insec = 0; skip = 0 }
+    insec && index($0, prefix) == 1 {
+      skip = 0
+      if ($0 == header) { if (!done) emit(); skip = 1; next }
+    }
+    skip { next }
+    { print }
   ' "$file" > "$tmp"
-  rm "$content_file"
-  mv "$tmp" "$file"
+  rm -f "$content_file"
+
+  if cmp -s "$tmp" "$file"; then
+    info "Block '$name' already up to date in $file"
+    rm -f "$tmp"
+    return 0
+  fi
+  info "Updating block '$name' in $file"
+  _replace_contents "$file" "$tmp"
+}
+
+# Set the <name> subblock of <file> to source each repo-relative <path>. Shell
+# startup files only ever source files, so the same logic can be shared with the
+# directly linked ones. Uses POSIX '.' since sh may read ~/.profile.
+# Usage: upsert_sources <file> <name> <path>...
+upsert_sources() {
+  local file="$1" name="$2" content="" rel
+  shift 2
+  for rel in "$@"; do
+    [[ -f "$DOTFILES_ROOT/$rel" ]] || error "upsert_sources: $DOTFILES_ROOT/$rel does not exist"
+    content+="${content:+$'\n'}. ~/dotfiles/$rel"
+  done
+  upsert_block "$file" "$name" "$content"
 }

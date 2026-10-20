@@ -15,8 +15,8 @@ feature_description() {
     dconf)       echo "load dconf configuration" ;;
     xdg)         echo "load default xdg configuration" ;;
     info)        echo "provide info on manual configuration tasks" ;;
-    shell)       echo "configure shell keybindings (source aliases in shell rc)" ;;
-    starship)    echo "install starship and add its init line to the shell rc" ;;
+    shell)       echo "source the shared shell config from the profiles, .bashrc and .zshrc" ;;
+    starship)    echo "install starship and add its init line to .bashrc and .zshrc" ;;
     zsh)         echo "clone zsh plugins into ~/.zsh and source them in .zshrc" ;;
     tmux)        echo "install tmux plugin manager and plugins" ;;
     binaries)    echo "install neovim and tmux to ~/.local/bin from GitHub" ;;

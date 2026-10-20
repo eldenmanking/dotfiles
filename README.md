@@ -24,12 +24,15 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   └── init.vim                 --- Neovim main configuration file (sources 'core')
 │   ├── sh                           ---
 │   │   ├── aliases.sh               --- default shell aliases
-│   │   └── env.sh                   ---
+│   │   ├── env.sh                   ---
+│   │   └── starship.sh              --- starts the starship prompt in bash or zsh
 │   ├── starship.toml                ---
 │   ├── yapf                         ---
 │   │   └── style                    --- yapf python formatter global configuration file
 │   └── zsh                          ---
+│       ├── external.zsh             --- setup for external packages (e.g. opam)
 │       ├── keybindings.zsh          --- default zsh keybindings
+│       ├── plugins.zsh              --- loads zsh plugins from ~/.zsh/plugins or /usr/share/zsh/plugins
 │       └── settings.zsh             ---
 ├── .gitignore                       ---
 ├── .ideavimrc                       ---
@@ -110,6 +113,8 @@ This repository contains configuration files for my linux workspace. The followi
 ## Installation
 `install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`.
 
+Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell startup file subblocks only source files under `.config/sh` and `.config/zsh`, which the linked startup files (e.g. on `arch`) source too. Edit the files outside the section freely.
+
 The `arch` variant is designed to work for Arch Linux (or other Arch-based distributions). Essential packages and applications can be installed using `./install.sh --variant arch` as a user. This variant attempts to setup the following:
  - yay
  - zshell (theme, completions, font)
@@ -149,7 +154,7 @@ To enable `sudo`, use the command `visudo` and uncomment `%wheel AL=(ALL:ALL) NO
 Included in the `install.sh` script are packages for HP printers--in particular, the `hplip` package is used to install drivers for specific HP printers, whereas `cups` and `system-config-printer` are more general. To install the drivers for a physically connected printer, execute `hp-setup -i` in the terminal (`-i` for CLI interactive mode) and follow the prompts. See this [Stack Exchange post](https://unix.stackexchange.com/questions/359531/installing-hp-printer-driver-for-arch-linux) for more information.
 
 #### Claude Code
-The `--claude` feature installs Claude Code configuration from one or more tools repos, by default just [eldenmanking/tools](https://github.com/eldenmanking/tools) cloned to `~/tools`. From each repo it inserts `claude/CLAUDE.md` into `~/git/.claude/CLAUDE.md` (all repos' files joined into one managed block, in order), symlinks each entry of `claude/skills` and `claude/scripts` into `~/.claude`, and deep-merges `claude/settings.json` into `~/.claude/settings.json`. Existing checkouts are fast-forwarded on each run.
+The `--claude` feature installs Claude Code configuration from one or more tools repos, by default just [eldenmanking/tools](https://github.com/eldenmanking/tools) cloned to `~/tools`. From each repo it inserts `claude/CLAUDE.md` into `~/git/.claude/CLAUDE.md` (all repos' files joined, in order, into its `# feature claude` subblock), symlinks each entry of `claude/skills` and `claude/scripts` into `~/.claude`, and deep-merges `claude/settings.json` into `~/.claude/settings.json`. Existing checkouts are fast-forwarded on each run.
 
 Repos are listed in priority order. When two repos ship a skill or script with the same name, the earlier repo's is linked and the later one is skipped with a warning; when their settings disagree on a value, the earlier repo's value is kept (lists are unioned).
 
@@ -179,28 +184,16 @@ I try to avoid modifying plugin files directly, but the following have been chan
    - Allows bluetooth to start automatically on boot and after suspend. `main.conf` must be a normal file, rather than a symlink.
 
 ## Shell Startup Files
-The key things to know regarding shell startup files are the following. By default,
+Which files a shell reads depends on whether it is a **login** shell (ssh, console login, the desktop session, tmux panes) and whether it is **interactive**:
 
- - .bash_profile is used for **login** bash shells
- - .bashrc is used for **non-login** interactive bash shells
+ - bash login shells read the first of .bash_profile, .bash_login and .profile; interactive non-login bash shells read .bashrc
+ - zsh login shells read .zprofile; interactive zsh shells (login or not) read .zshrc
 
-for bash, and
+Environment variables are inherited, so they only need setting at login; aliases, functions and shell settings are not, so every interactive shell needs them. The files are split accordingly:
 
- - .zprofile is used for **login** zsh shells
- - .zshrc is used for **interactive** zsh shells
-
-for zsh. Additionally, if .bash_profile exists, then .profile will not be executed; a similar behavior occurs for zsh. Environment variables shared across different shells should be in the global .profile file (e.g. $PATH). Shell-specific settings should be left in the respective .zshrc and .bashrc files. In general, it is nice to source both the profile and rc files for bash and zsh whenever running an interactive shell. To do so, we have the following dependency structure. For zsh:
-
- - .zshrc &rarr; .zprofile (if not login).
-
-And for bash:
-
- - .bashrc &rarr; .bash_profile (if not login)
- - .bash_profile &rarr; .bashrc (if login and interactive).
-
-And finally, in general, shell-specific profile files source the global .profile file:
-
- - .{shell-profile} &rarr; .profile
+ - `.config/sh/env.sh` holds environment variables. It is POSIX sh and safe to source more than once. The profiles (.profile, .bash_profile, .zprofile) source it, and so do the rc files, for interactive shells with no login shell above them (e.g. code-server terminals).
+ - Everything else in `.config/sh` and `.config/zsh` is interactive-only and is sourced from .bashrc and .zshrc.
+ - .bash_profile also sources .bashrc when interactive, since bash login shells don't read it on their own. Nothing else sources another startup file.
 
 ## Notes
 #### Using NTFS Partitions with Gnome

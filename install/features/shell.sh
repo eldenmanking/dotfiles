@@ -1,28 +1,21 @@
-# Features: shell rc blocks, starship prompt and zsh plugins.
+# Features: shell startup file blocks, starship prompt and zsh plugins.
 
-# --- Shell keybindings ---
+# --- Shell config ---
 feature_shell() {
-  local all_shell_config=$(cat <<EOF
-# global config
-source ~/dotfiles/.config/sh/aliases.sh
-source ~/dotfiles/.config/sh/env.sh
-EOF
-)
-  local zsh_shell_config=$(cat <<EOF
-# zsh config
-source ~/dotfiles/.config/zsh/keybindings.zsh
-source ~/dotfiles/.config/zsh/settings.zsh
-EOF
-)
+  local sh_files=(.config/sh/env.sh .config/sh/aliases.sh)
+  local zsh_files=(.config/zsh/keybindings.zsh .config/zsh/settings.zsh .config/zsh/external.zsh)
 
-  f_write_args detect_shell_rc _name _rc_file
-
-  local content="$all_shell_config"
-  if [[ "$_name" == zsh ]]; then
-    content+=$'\n'"$zsh_shell_config"
+  # Login shells load the environment from a profile; bash ignores ~/.profile when ~/.bash_profile exists.
+  upsert_sources "$HOME/.profile" shell .config/sh/env.sh
+  upsert_sources "$HOME/.zprofile" shell .config/sh/env.sh
+  if [[ -f "$HOME/.bash_profile" ]]; then
+    upsert_sources "$HOME/.bash_profile" shell .config/sh/env.sh
   fi
 
-  upsert_block "$_rc_file" shell "$content"
+  # rc files source env.sh too, for shells with no login shell above them. Write both rc files so switching shells
+  # keeps the config.
+  upsert_sources "$HOME/.bashrc" shell "${sh_files[@]}"
+  upsert_sources "$HOME/.zshrc" shell "${sh_files[@]}" "${zsh_files[@]}"
 }
 
 # Install starship if missing, optionally into bin_dir.
@@ -43,18 +36,18 @@ install_starship_binary() {
 feature_starship() {
   install_starship_binary "$LOCAL_BIN"
 
-  f_write_args detect_shell_rc _name _rc_file
-  upsert_block "$_rc_file" starship "eval \"\$(starship init $_name)\""
+  upsert_sources "$HOME/.bashrc" starship .config/sh/starship.sh
+  upsert_sources "$HOME/.zshrc" starship .config/sh/starship.sh
 }
 
 # --- Zsh plugins ---
-# Clone popular zsh plugins into ~/.zsh/plugins and source them from .zshrc.
+# Clone popular zsh plugins into ~/.zsh/plugins and source plugins.zsh (which
+# loads them) from .zshrc.
 # Portable: no package manager or root required. Safe to re-run.
 feature_zsh() {
   local plugins_dir="$HOME/.zsh/plugins"
 
-  # Each repo's main script shares the repo's basename (e.g. zsh-autosuggestions.zsh).
-  # Order matters: syntax-highlighting must precede history-substring-search.
+  # Keep in sync with the plugin list in .config/zsh/plugins.zsh.
   local repos=(
     zsh-users/zsh-autosuggestions
     zsh-users/zsh-syntax-highlighting
@@ -63,7 +56,7 @@ feature_zsh() {
 
   mkdir -p "$plugins_dir"
 
-  local content="" repo name
+  local repo name
   for repo in "${repos[@]}"; do
     name="${repo##*/}"
     if [[ -d "$plugins_dir/$name" ]]; then
@@ -72,17 +65,7 @@ feature_zsh() {
       info "Cloning $name..."
       git clone --depth 1 "https://github.com/$repo" "$plugins_dir/$name"
     fi
-    [[ -n "$content" ]] && content+=$'\n'
-    content+="source ~/.zsh/plugins/$name/$name.zsh"
   done
 
-  [[ -n "$content" ]] && content+=$'\n'
-  content+=$(cat <<EOF
-autoload -Uz compinit colors                                    # Autoload these zsh functions when called
-compinit -d                                                     # Initialize zsh completion
-colors                                                          # Activate color-coding for completion
-EOF
-)
-
-  upsert_block "$HOME/.zshrc" zsh_plugins "$content"
+  upsert_sources "$HOME/.zshrc" zsh .config/zsh/plugins.zsh
 }

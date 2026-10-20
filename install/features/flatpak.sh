@@ -18,10 +18,11 @@ feature_flatpak() {
   info "Adding flathub remote..."
   run flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-  # `flatpak install` hits the remote even for installed apps, so filter locally first.
+  # `flatpak install` hits the remote even for installed apps, so filter locally first. No --user: apps installed
+  # system-wide (e.g. via Discover) count too.
   local app missing=()
   for app in "${FLATPAK_APPS[@]}"; do
-    flatpak info --user "$app" &>/dev/null || missing+=("$app")
+    flatpak info "$app" &>/dev/null || missing+=("$app")
   done
   if (( ${#missing[@]} == 0 )); then
     info "All flatpak apps already installed."

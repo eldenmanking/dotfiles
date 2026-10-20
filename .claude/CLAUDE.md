@@ -15,6 +15,7 @@ Write functions in a functional style:
 - Globals are UPPER_CASE constants set at file load time; never mutate them from functions. Declare everything else `local`.
 - Keep pure logic (parsing, resolving config) separate from side effects, and route side effects through `run`/`run_tty` so `--dry-run` works.
 - Every feature must be idempotent: check current state first, and use `make_symlink` and `upsert_block` rather than raw `ln` or appends.
+- Shell startup files (`.profile`, `.bashrc`, `.zshrc`, ...) only source files under `.config/sh` and `.config/zsh`, so linked and managed installs share the same logic. Features write managed ones with `upsert_sources`. `env.sh` (environment, sourced from profiles and rc files) must stay POSIX sh and safe to source repeatedly.
 - Stay portable across Linux and macOS (bash 3.2: no `mapfile`, associative arrays or namerefs; no GNU-only flags).
 
 ## Verifying changes
