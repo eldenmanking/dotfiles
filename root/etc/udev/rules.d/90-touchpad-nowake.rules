@@ -1,0 +1,1 @@
+ACTION!="remove", SUBSYSTEM=="i2c", ATTR{power/wakeup}=="enabled", ATTR{power/wakeup}="disabled"
