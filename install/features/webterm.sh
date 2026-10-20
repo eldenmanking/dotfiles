@@ -58,13 +58,12 @@ webterm_url() {
   _url="http://$listen/${token:+$token/}"
 }
 
-# WEBTERM_TOKEN set in env file $1, or empty if there is none or $1 links into the repo.
+# WEBTERM_TOKEN set in env file $1, or empty if there is none.
 read_token() {
   local file="$1"
   _token=""
-  if [[ -f "$file" ]] && ! _links_into_dotfiles "$file"; then
-    _token="$(sed -n 's/^WEBTERM_TOKEN=//p' "$file")"
-  fi
+  [[ -f "$file" ]] && _token="$(sed -n 's/^WEBTERM_TOKEN=//p' "$file")"
+  return 0
 }
 
 # Secret URL path: keeps other sites (incl. DNS rebinding) from finding the shell.
