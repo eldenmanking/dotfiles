@@ -17,6 +17,17 @@ feature_flatpak() {
 
   info "Adding flathub remote..."
   run flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-  info "Installing flatpak apps..."
-  run_tty flatpak install --user -y flathub "${FLATPAK_APPS[@]}"
+
+  # `flatpak install` hits the remote even for installed apps, so filter locally first.
+  local app missing=()
+  for app in "${FLATPAK_APPS[@]}"; do
+    flatpak info --user "$app" &>/dev/null || missing+=("$app")
+  done
+  if (( ${#missing[@]} == 0 )); then
+    info "All flatpak apps already installed."
+    return
+  fi
+
+  info "Installing flatpak apps: ${missing[*]}"
+  run_tty flatpak install --user -y flathub "${missing[@]}"
 }

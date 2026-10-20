@@ -20,10 +20,9 @@
     * Install brew -> powerlevel-10k
     * Install iterm2
     * Install tmux
-    * Install nvim -> lunarvim
+    * Install nvim
     * Configure dotfiles
         * .config/nvim
-        * .config/lvim
         * .vimrc
         * .tmux.config
         * .tmux + install tpm -> ctrl-b+I

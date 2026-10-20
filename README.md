@@ -12,16 +12,6 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   └── alacritty.toml           --- alacritty terminal emulator configuration file
 │   ├── git                          ---
 │   │   └── ignore                   --- default ignored git files
-│   ├── lvim                         ---
-│   │   ├── .luarc.json              ---
-│   │   ├── config.lua               --- Lunarvim main configuration file
-│   │   ├── lua                      ---
-│   │   │   └── core                 ---
-│   │   │       ├── mappings.lua     --- Lunarvim-specific mappings
-│   │   │       └── options.lua      --- Lunarvim options and plugins
-│   │   └── spell                    --- Lunarvim spelling files
-│   │       ├── en.utf-8.add         ---
-│   │       └── en.utf-8.add.spl     ---
 │   ├── nvim                         ---
 │   │   ├── core                     ---
 │   │   │   ├── autocommands.vim     --- global autocommands
@@ -30,53 +20,66 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   ├── mappings.vim         --- 
 │   │   │   ├── options.vim          ---
 │   │   │   ├── plugins.vim          --- default neovim plugins and settings
-│   │   │   └── plugmaps.vim         --- mappings for neovim/lunarvim plugins
+│   │   │   └── plugmaps.vim         --- mappings for neovim plugins
 │   │   └── init.vim                 --- Neovim main configuration file (sources 'core')
 │   ├── sh                           ---
-│   │   └── aliases.sh               --- default shell aliases
+│   │   ├── aliases.sh               --- default shell aliases
+│   │   └── env.sh                   ---
+│   ├── starship.toml                ---
 │   ├── yapf                         ---
 │   │   └── style                    --- yapf python formatter global configuration file
 │   └── zsh                          ---
-│       └── keybindings.zsh          --- default zsh keybindings
+│       ├── keybindings.zsh          --- default zsh keybindings
+│       └── settings.zsh             ---
 ├── .gitignore                       ---
 ├── .ideavimrc                       ---
 ├── .local                           ---
 │   ├── bin                          ---
-│   │   └── squidpdf                 --- pdf splitter for Squid notes
+│   │   ├── clip                     ---
+│   │   ├── squidpdf                 --- pdf splitter for Squid notes
+│   │   ├── vis                      --- resume or start an obsession session in cwd
+│   │   └── vm-usb                   ---
 │   └── share                        ---
 │       ├── applications             ---
 │       │   └── Alacritty.desktop    --- custom launch settings for Wayland
 │       └── backgrounds              ---
 │           └── GH2.jpg              --- placeholder background
 ├── .ocamlformat                     ---
-├── .p10k.zsh                        --- powerlevel theme settings
 ├── .profile                         --- sh-compatible login startup file
 ├── .pylintrc                        --- pylint global configuration file
 ├── .tmux                            ---
 │   └── resurrect                    ---
-│       └── saferestore.sh           --- safe restore script for tmux resurrect
+│       ├── saferestore.sh           --- safe restore script for tmux resurrect
+│       └── strategies               ---
+│           └── nvim_obsession.sh    ---
 ├── .tmux.conf                       --- tmux configuration file
 ├── .vimrc                           --- Vim main configuration file (deprecated)
 ├── .zprofile                        --- zshell login startup file
 ├── .zshrc                           --- zshell interactive startup file
 ├── README.md                        --- dotfiles overview
-├── Session.vim                      ---
 ├── Sessionx.vim                     --- useful vim options for maintaining dotfiles
 ├── docs                             ---
+│   ├── bootloader.md                ---
 │   ├── framework16-sleep.md         --- Framework 16 sleep battery drain diagnosis and fix
-│   └── mac-os-setup.md              ---
+│   ├── mac-os-setup.md              ---
+│   ├── windows-setup.md             ---
+│   └── wsl-setup.md                 ---
 ├── dump                             --- exported configuration settings
 │   ├── dconf                        ---
-│   │   ├── arch.dconf               --- selected entries from 'dconf dump /' in Arch
-│   │   └── manjaro.dconf            --- result of 'dconf dump /' in Manjaro (deprecated)
+│   │   └── arch.dconf               --- selected entries from 'dconf dump /' in Arch
 │   ├── google-chrome                ---
 │   │   └── vimium.conf              --- configuration for chrome vimium extension
 │   ├── insync                       ---
 │   │   └── ignorerules              ---
 │   ├── okular                       ---
 │   │   └── default.shortcuts        ---
-│   └── vscode                       ---
-│       └── keybindings.json         ---
+│   ├── vscode                       ---
+│   │   └── keybindings.json         ---
+│   ├── wallpaper                    ---
+│   │   └── GH2.jpg                  ---
+│   └── windows                      ---
+│       └── terminal                 ---
+│           └── settings.json        ---
 ├── install                          --- pieces of the install script (lib, features, variants)
 ├── install.sh                       --- dotfiles install script
 └── root                             ---
@@ -97,8 +100,7 @@ This repository contains configuration files for my linux workspace. The followi
         │   └── bin                  ---
         │       ├── auto-suspend     --- suspends computer if battery is low
         │       ├── cmus-reload      --- repopulates cmus library and playlists
-        │       ├── colortest        --- prints 256 terminal colors
-        │       └── vis              --- execute "vi -S" in closest parent directory
+        │       └── colortest        --- prints 256 terminal colors
         └── share                    ---
             └── kbd                  ---
                 └── keymaps          ---
@@ -112,7 +114,7 @@ The `arch` variant is designed to work for Arch Linux (or other Arch-based distr
  - yay
  - zshell (theme, completions, font)
  - tmux
- - Lunarvim
+ - Neovim
  - LaTeX
  - Gnome (desktop environment, display manager, theme)
  - dconf configuration
@@ -163,10 +165,8 @@ DOTFILES_TOOLS_DIR=~/git/tools
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.
 
- - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_session.sh**: `nvim -S` changed to `vis`
-   - `vis` attempts to execute `vi -S` in the closest parent directory that contains a `Session.vim` file. When tmux is resurrected, the cwd of the pane may not be the same as the Session.vim file, so `nvim -S` may not work.
- - **~/.local/share/lunarvim/site/pack/packer/opt/vimtex/autoload/vimtex/syntax/core.vim**: `48-57` removed from `set iskeyword`, so `nvim -S` may not work.
-   - Prevents numbers from being recognized as keywords in LaTeX macros when determining syntax highlighting.
+ - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh**: symlinked from `.tmux/resurrect/strategies` by `.tmux.conf`
+   - Restores nvim with `vi -S` on its obsession session: the absolute `-S` path recorded by `vis`, otherwise `Session.vim` in the pane's cwd. The stock `session` strategy only checks the pane's cwd, which follows nvim's cwd (e.g. after `:CdToFile`), so it often restarted nvim without the session.
  - **/etc/bluetooth/main.conf**: `#Autoenable=false` changed to `Autoenable=true`
    - Allows bluetooth to start automatically on boot and after suspend. `main.conf` must be a normal file, rather than a symlink.
 
@@ -209,6 +209,3 @@ The following is a list of packages that are not included in the base installer 
  - lilypond: a CLI sheet music typesetter.
  - visual-studio-code-bin (AUR): Microsoft VSCode for Arch (supports liveshare)
  - lmms: electronic music editor
-
-#### Using LunarVim
-LunarVim has not been in development for some time. Use [Neovim v0.10.4](https://github.com/neovim/neovim/releases/tag/v0.10.4) for best results.

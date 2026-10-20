@@ -4,6 +4,7 @@
 LINK_COMMON_PATHS=(
   .tmux.conf
   .tmux/resurrect/saferestore.sh
+  .tmux/resurrect/strategies
   .config/nvim
   .config/starship.toml
   .local/bin/vis
@@ -17,14 +18,12 @@ LINK_DESKTOP_PATHS=(
   .profile
   .zprofile
   .zshrc
-  .p10k.zsh
   .vimrc
   .ideavimrc
   .ocamlformat
   .pylintrc
   .config/alacritty
   .config/git
-  .config/lvim
   .config/sh
   .config/yapf
   .config/zsh
