@@ -147,8 +147,8 @@ Included in the `install.sh` script are packages for HP printers--in particular,
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.
 
- - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_session.sh**: `nvim -S` changed to `vis`
-   - `vis` attempts to execute `vi -S` in the closest parent directory that contains a `Session.vim` file. When tmux is resurrected, the cwd of the pane may not be the same as the Session.vim file, so `nvim -S` may not work.
+ - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh**: symlinked from `.tmux/resurrect/strategies` by `.tmux.conf`
+   - Restores nvim with `vi -S` on its obsession session: the absolute `-S` path recorded by `vis`, otherwise the closest `Session.vim` at or above the pane's cwd. The stock `session` strategy only checks the pane's cwd, which follows nvim's cwd (e.g. after `:CdToFile`), so it often restarted nvim without the session.
  - **~/.local/share/lunarvim/site/pack/packer/opt/vimtex/autoload/vimtex/syntax/core.vim**: `48-57` removed from `set iskeyword`, so `nvim -S` may not work.
    - Prevents numbers from being recognized as keywords in LaTeX macros when determining syntax highlighting.
  - **/etc/bluetooth/main.conf**: `#Autoenable=false` changed to `Autoenable=true`
