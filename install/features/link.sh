@@ -4,6 +4,7 @@
 LINK_COMMON_PATHS=(
   .tmux.conf
   .tmux/resurrect/saferestore.sh
+  .tmux/resurrect/strategies
   .config/nvim
   .config/starship.toml
   .local/bin/vis
