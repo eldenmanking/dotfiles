@@ -11,13 +11,17 @@ LINK_COMMON_PATHS=(
   .local/bin/clip
 )
 
-# Extra paths linked on full desktop installs (e.g. arch).
-LINK_DESKTOP_PATHS=(
+# Shell startup files, for variants that link them instead of writing managed blocks with the shell feature.
+LINK_SHELL_PATHS=(
   .bash_profile
   .bashrc
   .profile
   .zprofile
   .zshrc
+)
+
+# Extra paths linked on full desktop installs (e.g. arch).
+LINK_DESKTOP_PATHS=(
   .vimrc
   .ideavimrc
   .ocamlformat

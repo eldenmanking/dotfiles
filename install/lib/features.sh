@@ -22,7 +22,7 @@ feature_description() {
     binaries)    echo "install neovim and tmux to ~/.local/bin from GitHub" ;;
     gng)         echo "install gng (Gradle wrapper) to ~/.local" ;;
     tre)         echo "build and install tre (tree alternative) from source" ;;
-    claude)      echo "install CLAUDE.md, skills, scripts, and settings from the tools repo" ;;
+    claude)      echo "install CLAUDE.md, skills, scripts, and settings from the tools repos" ;;
     gitconfig)   echo "set up default global git config" ;;
     flatpak)     echo "install flatpak apps from flathub (per-user)" ;;
     udev)        echo "copy root/etc/udev rules into /etc (not symlinked) and reload udev" ;;

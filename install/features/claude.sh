@@ -1,28 +1,64 @@
-# Feature: Claude Code config (CLAUDE.md, skills, scripts, settings) from the tools repo.
+# Feature: Claude Code config (CLAUDE.md, skills, scripts, settings) from one or more tools repos.
 
 TOOLS_DEFAULT_REPO="https://github.com/eldenmanking/tools.git"
 
-# --- Resolve which tools repo instance to use ---
-# Outputs _repo, _dir and _ref. DOTFILES_TOOLS_{REPO,DIR,REF} in the environment win over the same variables set in
-# the config file ($DOTFILES_TOOLS_CONFIG, default ~/.config/dotfiles/tools.conf).
+# --- Resolve which tools repos to use ---
+# Outputs _tools: one "repo<TAB>dir<TAB>ref" line per tools repo, highest priority first. DOTFILES_TOOLS lists any
+# number of repos; without it, DOTFILES_TOOLS_{REPO,DIR,REF} describe a single one. Each variable in the environment
+# wins over the same variable set in the config file ($DOTFILES_TOOLS_CONFIG, default ~/.config/dotfiles/tools.conf).
 load_tools_config() {
   local conf="${DOTFILES_TOOLS_CONFIG:-$HOME/.config/dotfiles/tools.conf}"
-  local file_repo="" file_dir="" file_ref="" dir
+  local file_tools="" file_repo="" file_dir="" file_ref="" spec dir
 
   if [[ -f "$conf" ]]; then
-    # Source in a subshell so the config file can't change this shell's state.
-    { IFS= read -r file_repo; IFS= read -r file_dir; IFS= read -r file_ref; } < <(
-      unset DOTFILES_TOOLS_REPO DOTFILES_TOOLS_DIR DOTFILES_TOOLS_REF
+    # Source in a subshell so the config file can't change this shell's state. DOTFILES_TOOLS may span several lines,
+    # so it is printed last and read to the end.
+    {
+      IFS= read -r file_repo; IFS= read -r file_dir; IFS= read -r file_ref
+      file_tools="$(cat)"
+    } < <(
+      unset DOTFILES_TOOLS DOTFILES_TOOLS_REPO DOTFILES_TOOLS_DIR DOTFILES_TOOLS_REF
       # shellcheck source=/dev/null
       source "$conf"
-      printf '%s\n%s\n%s\n' "${DOTFILES_TOOLS_REPO:-}" "${DOTFILES_TOOLS_DIR:-}" "${DOTFILES_TOOLS_REF:-}"
+      printf '%s\n%s\n%s\n%s\n' "${DOTFILES_TOOLS_REPO:-}" "${DOTFILES_TOOLS_DIR:-}" "${DOTFILES_TOOLS_REF:-}" \
+        "${DOTFILES_TOOLS:-}"
     )
   fi
 
+  spec="${DOTFILES_TOOLS:-$file_tools}"
+  if [[ -n "${spec//[[:space:]]/}" ]]; then
+    f_write_args parse_tools_spec _tools -- "$spec"
+    return
+  fi
+
   dir="${DOTFILES_TOOLS_DIR:-${file_dir:-$HOME/tools}}"
-  _repo="${DOTFILES_TOOLS_REPO:-${file_repo:-$TOOLS_DEFAULT_REPO}}"
-  _dir="${dir/#\~/$HOME}"
-  _ref="${DOTFILES_TOOLS_REF:-$file_ref}"
+  _tools="$(printf '%s\t%s\t%s' "${DOTFILES_TOOLS_REPO:-${file_repo:-$TOOLS_DEFAULT_REPO}}" "${dir/#\~/$HOME}" \
+    "${DOTFILES_TOOLS_REF:-$file_ref}")"
+}
+
+# Parse a DOTFILES_TOOLS list into _tools (see load_tools_config). Each line is "<repo> [dir] [ref]"; blank lines and
+# '#' comments are ignored. dir defaults to ~/<repo name>, and "-" keeps that default while still giving a ref.
+parse_tools_spec() {
+  local spec="$1" nl=$'\n' line repo dir ref extra name dirs="" out=""
+  while IFS= read -r line; do
+    line="${line%%#*}"
+    repo="" dir="" ref="" extra=""
+    read -r repo dir ref extra <<< "$line"
+    [[ -n "$repo" ]] || continue
+    [[ -z "$extra" ]] || error "DOTFILES_TOOLS: expected '<repo> [dir] [ref]', got '$line'"
+    if [[ -z "$dir" || "$dir" == "-" ]]; then
+      name="${repo%/}"
+      name="${name%.git}"
+      name="${name##*[/:]}"
+      dir="$HOME/$name"
+    fi
+    dir="${dir/#\~/$HOME}"
+    dir="${dir%/}"
+    list_contains "$dirs" "$dir" && error "DOTFILES_TOOLS: more than one repo uses $dir; give each its own dir"
+    dirs+=" $dir"
+    out+="${out:+$nl}$(printf '%s\t%s\t%s' "$repo" "$dir" "$ref")"
+  done <<< "$spec"
+  _tools="$out"
 }
 
 # Print a git remote URL as host/path so https and ssh forms of the same repo compare equal.
@@ -62,36 +98,48 @@ sync_tools_repo() {
 }
 
 # --- Link Claude scripts and skills ---
+# Takes the tools dirs in priority order: when two repos ship an entry with the same name, the earlier one is linked.
 configure_claude_dirs() {
-  local tools_dir="$1"
   # Symlink each entry within scripts/ and skills/ so that environment-specific entries in ~/.claude are preserved.
-  local dirs=(scripts skills) dir
+  local dirs=(scripts skills) dir tools_dir
   for dir in "${dirs[@]}"; do
-    local src_dir="$tools_dir/claude/$dir"
-    local dst_dir="$HOME/.claude/$dir"
-    [[ -d "$src_dir" ]] || continue
+    local dst_dir="$HOME/.claude/$dir" linked="" src name
+    for tools_dir in "$@"; do
+      local src_dir="$tools_dir/claude/$dir"
+      [[ -d "$src_dir" ]] || continue
 
-    # Migrate from old directory-level symlink to per-entry symlinks
-    if [[ -L "$dst_dir" ]]; then
-      info "Replacing directory symlink $dst_dir with real directory"
-      rm "$dst_dir"
-    fi
-    mkdir -p "$dst_dir"
+      # Migrate from old directory-level symlink to per-entry symlinks
+      if [[ -L "$dst_dir" ]]; then
+        info "Replacing directory symlink $dst_dir with real directory"
+        rm "$dst_dir"
+      fi
+      mkdir -p "$dst_dir"
 
-    local src
-    for src in "$src_dir"/*; do
-      [[ -e "$src" ]] || continue
-      make_symlink "$src" "$dst_dir/$(basename "$src")"
+      for src in "$src_dir"/*; do
+        [[ -e "$src" ]] || continue
+        name="$(basename "$src")"
+        if list_contains "$linked" "$name"; then
+          warn "Skipping $src: $dir/$name is already provided by an earlier tools repo"
+          continue
+        fi
+        linked+=" $name"
+        make_symlink "$src" "$dst_dir/$name"
+      done
     done
   done
 
-  # Clean up broken symlinks into the tools repo (e.g. deleted skills) or the old dotfiles/.claude location.
+  # Clean up broken symlinks into a tools repo (e.g. deleted skills) or the old dotfiles/.claude location.
   local link target
   for dir in scripts skills commands; do
     for link in "$HOME/.claude/$dir"/*; do
       [[ -L "$link" && ! -e "$link" ]] || continue
       target="$(readlink "$link")"
-      if [[ "$target" == "$tools_dir/claude/"* || "$target" == "$DOTFILES_ROOT/.claude/"* ]]; then
+      local stale=false
+      [[ "$target" == "$DOTFILES_ROOT/.claude/"* ]] && stale=true
+      for tools_dir in "$@"; do
+        [[ "$target" == "$tools_dir/claude/"* ]] && stale=true
+      done
+      if $stale; then
         info "Removing stale symlink: $link -> $target"
         rm "$link"
       fi
@@ -100,13 +148,16 @@ configure_claude_dirs() {
 }
 
 # --- Merge hooks and permissions into ~/.claude/settings.json ---
+# Takes the tools dirs in priority order. Their settings are combined first (earlier repos win scalar conflicts), then
+# merged into ~/.claude/settings.json, where the tools values win.
 configure_claude_settings() {
-  local tools_dir="$1"
-  local src="$tools_dir/claude/settings.json"
-  local dst="$HOME/.claude/settings.json"
+  local dst="$HOME/.claude/settings.json" srcs=() tools_dir
+  for tools_dir in "$@"; do
+    [[ -f "$tools_dir/claude/settings.json" ]] && srcs+=("$tools_dir/claude/settings.json")
+  done
 
-  if [[ ! -f "$src" ]]; then
-    warn "Settings source not found at $src"
+  if [[ ${#srcs[@]} -eq 0 ]]; then
+    warn "No claude/settings.json found in the tools repos"
     return
   fi
 
@@ -117,74 +168,77 @@ configure_claude_settings() {
 
   mkdir -p "$HOME/.claude"
 
-  if [[ ! -f "$dst" ]]; then
-    info "Creating $dst from dotfiles"
-    cp "$src" "$dst"
-    return
-  fi
+  python3 - "$dst" "${srcs[@]}" <<'EOF' && info "Settings merged successfully" || warn "Failed to merge settings"
+import json, os, shutil, sys
 
-  info "Merging settings from dotfiles into $dst"
-  python3 -c "
-import json, sys
+dst_path, src_paths = sys.argv[1], sys.argv[2:]
 
-changed = False
-
-def deep_merge(src, dst, path=''):
-    \"\"\"Recursively merge src into dst. Dotfiles values win on conflict.\"\"\"
-    global changed
+def deep_merge(src, dst, overwrite, path=''):
+    """Recursively merge src into dst and return whether dst changed. Missing keys are added and lists are unioned;
+    on a scalar conflict src wins if overwrite, otherwise dst keeps its value."""
+    changed = False
     for key, val in src.items():
         current = path + '.' + key if path else key
         if key not in dst:
             dst[key] = val
             changed = True
         elif isinstance(val, dict) and isinstance(dst[key], dict):
-            deep_merge(val, dst[key], current)
+            changed = deep_merge(val, dst[key], overwrite, current) or changed
         elif isinstance(val, list) and isinstance(dst[key], list):
             for item in val:
                 if item not in dst[key]:
                     dst[key].append(item)
                     changed = True
         elif dst[key] != val:
-            print(f'[warn] {current}: overwriting with dotfiles value', file=sys.stderr)
-            dst[key] = val
-            changed = True
+            if overwrite:
+                print(f'[warn] {current}: overwriting with tools repo value', file=sys.stderr)
+                dst[key] = val
+                changed = True
+            else:
+                print(f'[warn] {current}: tools repos disagree; keeping the earlier repo\'s value', file=sys.stderr)
+    return changed
 
-with open('$dst') as f:
-    settings = json.load(f)
-with open('$src') as f:
-    source = json.load(f)
+source = {}
+for path in src_paths:
+    with open(path) as f:
+        deep_merge(json.load(f), source, overwrite=False)
 
-deep_merge(source, settings)
-
-if changed:
-    import shutil
-    shutil.copy2('$dst', '${dst}.bak')
-    print('[info] Backed up existing settings to ${dst}.bak', file=sys.stderr)
-    with open('$dst', 'w') as f:
+def write(settings):
+    with open(dst_path, 'w') as f:
         json.dump(settings, f, indent=2)
         f.write('\n')
+
+if not os.path.exists(dst_path):
+    print(f'[info] Creating {dst_path} from the tools repos', file=sys.stderr)
+    write(source)
+    sys.exit()
+
+with open(dst_path) as f:
+    settings = json.load(f)
+
+if deep_merge(source, settings, overwrite=True):
+    shutil.copy2(dst_path, dst_path + '.bak')
+    print(f'[info] Backed up existing settings to {dst_path}.bak', file=sys.stderr)
+    write(settings)
 else:
     print('[info] Settings already up to date', file=sys.stderr)
-" && info "Settings merged successfully" || warn "Failed to merge settings"
+EOF
 }
 
 # --- Merge CLAUDE.md block ---
-# Copy the tools repo's CLAUDE.md into the claude subblock of the target CLAUDE.md.
+# Takes the tools dirs in priority order and joins their claude/CLAUDE.md files, in that order, into the claude
+# subblock of the target CLAUDE.md.
 configure_claude_md() {
-  local tools_dir="$1"
-  local src="$tools_dir/claude/CLAUDE.md"
   local dst="$HOME/git/.claude/CLAUDE.md"
 
-  if [[ ! -f "$src" ]]; then
-    warn "Source CLAUDE.md not found at $src"
-    return
-  fi
-
-  local content
-  content="$(cat "$src")"
+  local tools_dir nl=$'\n' content=""
+  for tools_dir in "$@"; do
+    [[ -f "$tools_dir/claude/CLAUDE.md" ]] || continue
+    content+="${content:+$nl$nl}$(cat "$tools_dir/claude/CLAUDE.md")"
+  done
 
   if [[ -z "$content" ]]; then
-    warn "$src is empty"
+    warn "No non-empty claude/CLAUDE.md found in the tools repos"
     return
   fi
 
@@ -193,9 +247,19 @@ configure_claude_md() {
 
 # --- Configure Claude Code (orchestrator) ---
 feature_claude() {
-  f_write_args load_tools_config _repo _dir _ref
-  sync_tools_repo "$_repo" "$_dir" "$_ref"
-  configure_claude_md "$_dir"
-  configure_claude_dirs "$_dir"
-  configure_claude_settings "$_dir"
+  f_write_args load_tools_config _tools
+  if [[ -z "$_tools" ]]; then
+    warn "No tools repos configured; skipping Claude Code setup"
+    return
+  fi
+
+  local repo dir ref tools_dirs=()
+  while IFS=$'\t' read -r -u 3 repo dir ref; do
+    sync_tools_repo "$repo" "$dir" "$ref"
+    tools_dirs+=("$dir")
+  done 3<<< "$_tools"
+
+  configure_claude_md "${tools_dirs[@]}"
+  configure_claude_dirs "${tools_dirs[@]}"
+  configure_claude_settings "${tools_dirs[@]}"
 }

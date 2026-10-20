@@ -5,6 +5,6 @@ variant_arch() {
   # 'terminal' is intentionally left skipped: pacman + yay together cover
   # all packages the --terminal flag would install.
   _all_exclude="terminal"
-  _link_paths="${LINK_COMMON_PATHS[*]} ${LINK_DESKTOP_PATHS[*]}"
+  _link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_DESKTOP_PATHS[*]}"
   _git_fsmonitor=true
 }
