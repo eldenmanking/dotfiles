@@ -51,7 +51,10 @@ copy_to_clipboard() {
         wl-copy < "$CLIP_FILE"
     elif command -v xclip >/dev/null 2>&1; then
         log "using xclip"
-        xclip -selection clipboard -in < "$CLIP_FILE"
+        for s in /tmp/.X11-unix/X*; do
+            [ -S "$s" ] || continue
+            DISPLAY=":${s##*/X}" xclip -selection clipboard -in < "$CLIP_FILE"
+        done
     elif command -v xsel >/dev/null 2>&1; then
         log "using xsel"
         xsel --clipboard --input < "$CLIP_FILE"
