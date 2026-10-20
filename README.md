@@ -40,7 +40,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── bin                          ---
 │   │   ├── clip                     ---
 │   │   ├── squidpdf                 --- pdf splitter for Squid notes
-│   │   ├── vis                      --- execute "vi -S" in closest parent directory
+│   │   ├── vis                      --- resume or start an obsession session in cwd
 │   │   └── vm-usb                   ---
 │   └── share                        ---
 │       ├── applications             ---
@@ -52,7 +52,9 @@ This repository contains configuration files for my linux workspace. The followi
 ├── .pylintrc                        --- pylint global configuration file
 ├── .tmux                            ---
 │   └── resurrect                    ---
-│       └── saferestore.sh           --- safe restore script for tmux resurrect
+│       ├── saferestore.sh           --- safe restore script for tmux resurrect
+│       └── strategies               ---
+│           └── nvim_obsession.sh    ---
 ├── .tmux.conf                       --- tmux configuration file
 ├── .vimrc                           --- Vim main configuration file (deprecated)
 ├── .zprofile                        --- zshell login startup file
@@ -154,8 +156,8 @@ Included in the `install.sh` script are packages for HP printers--in particular,
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.
 
- - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_session.sh**: `nvim -S` changed to `vis`
-   - `vis` attempts to execute `vi -S` in the closest parent directory that contains a `Session.vim` file. When tmux is resurrected, the cwd of the pane may not be the same as the Session.vim file, so `nvim -S` may not work.
+ - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh**: symlinked from `.tmux/resurrect/strategies` by `.tmux.conf`
+   - Restores nvim with `vi -S` on its obsession session: the absolute `-S` path recorded by `vis`, otherwise `Session.vim` in the pane's cwd. The stock `session` strategy only checks the pane's cwd, which follows nvim's cwd (e.g. after `:CdToFile`), so it often restarted nvim without the session.
  - **/etc/bluetooth/main.conf**: `#Autoenable=false` changed to `Autoenable=true`
    - Allows bluetooth to start automatically on boot and after suspend. `main.conf` must be a normal file, rather than a symlink.
 
