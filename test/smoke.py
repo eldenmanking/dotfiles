@@ -3,9 +3,11 @@
 
 systemd-socket-activate plays webterm.socket: it listens on a TCP port and
 starts systemd-socket-proxyd on the first connection, exactly like the unit.
-Checks: secret path, origin check, shell round-trip, and idle exit.
+Checks: stock page without a built index, secret path, custom index with the tab-key script, origin check, shell
+round-trip, and idle exit.
 """
 import base64
+import hashlib
 import json
 import os
 import shutil
@@ -45,13 +47,14 @@ def find_proxyd():
     fail("systemd-socket-proxyd not found")
 
 
-def http_get(path):
+def http_get(path, body=False):
     with socket.create_connection(("127.0.0.1", PORT), timeout=5) as s:
         s.sendall(f"GET {path} HTTP/1.1\r\nHost: localhost:{PORT}\r\nConnection: close\r\n\r\n".encode())
         data = b""
         while chunk := s.recv(65536):
             data += chunk
-    return int(data.split(b" ", 2)[1])
+    status = int(data.split(b" ", 2)[1])
+    return (status, data.split(b"\r\n\r\n", 1)[1]) if body else status
 
 
 class WS:
@@ -117,8 +120,36 @@ def main():
     rundir = tempfile.mkdtemp()
     sock = os.path.join(rundir, "webterm.sock")
     env = {**os.environ, "SHELL": "/bin/bash"}
+    env = {**env, "XDG_RUNTIME_DIR": rundir, "XDG_STATE_HOME": rundir}
+    launcher = os.path.join(REPO, "bin", "webterm-ttyd")
+    with open(os.path.join(REPO, "web", "tab-keys.html"), "rb") as f:
+        snippet = f.read()
+
+    fallback_sock = os.path.join(rundir, "fallback.sock")
+    fallback = subprocess.Popen([launcher, "-i", fallback_sock, "true"], env=env,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    procs.append(fallback)
+    page = None
+    for _ in range(50):
+        r = subprocess.run(["curl", "-fsS", "--noproxy", "*", "--unix-socket", fallback_sock,
+                            "http://localhost/"], capture_output=True)
+        if r.returncode == 0:
+            page = r.stdout
+            break
+        time.sleep(0.1)
+    fallback.kill()
+    if not page or b"<html" not in page or page.endswith(snippet):
+        fail("without a built page, the launcher did not serve the stock page")
+    print("ok: no page built, stock page served")
+
+    subprocess.run([os.path.join(REPO, "bin", "webterm-index")], check=True, env=env,
+                   stdout=subprocess.DEVNULL)
+    with open(ttyd, "rb") as f:
+        index = os.path.join(rundir, "webterm", f"index-{hashlib.sha256(f.read()).hexdigest()}.html")
+    if not os.path.isfile(index):
+        fail(f"page not built at {index}")
     procs.append(subprocess.Popen(
-        [ttyd, "-i", sock, "-b", f"/{TOKEN}", "-W", "-O", "-P", "10",
+        [launcher, "-i", sock, "-b", f"/{TOKEN}", "-W", "-O", "-P", "10",
          "-t", "titleFixed=Web Terminal", "-t", f"fontFamily={FONT}",
          os.path.join(REPO, "bin", "webterm-shell")],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
@@ -138,9 +169,13 @@ def main():
 
     if http_get("/") != 404:
         fail("page served without the secret path")
-    if http_get(f"/{TOKEN}/") != 200:
+    status, page = http_get(f"/{TOKEN}/", body=True)
+    if status != 200:
         fail("page not served under the secret path")
     print("ok: page only served under the secret path")
+    if b"<html" not in page or not page.endswith(snippet):
+        fail("served page is not the stock page plus web/tab-keys.html")
+    print("ok: page includes the tab-switching key script")
 
     host = f"localhost:{PORT}"
     bad = WS(f"/{TOKEN}/ws", host, "http://evil.example")
