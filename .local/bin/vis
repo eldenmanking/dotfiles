@@ -2,29 +2,24 @@
 
 ################################################################################
 # Program: vis
-# Description: Calls vi -S on first Session.vim file in prefix of current
-#              working directory. If successful, remains in Session.vim
-#              directory; otherwise, returns to original directory. To make
-#              changes in main process as well, call "source vis".
-# Location: /usr/local/bin/vis
+# Description: Resumes the vim-obsession session in the current directory, or
+#              starts one if none exists. Passes the absolute Session.vim path
+#              so tmux-resurrect can restore the session even if nvim changes
+#              cwd (see nvim_obsession.sh). Call as "source vis" so the vi
+#              alias applies.
+# Location: ~/.local/bin/vis
 ################################################################################
 
-function _vis {
-  local cwd=$(pwd)
-  local no_session=true
+_vis() {
+  local session="$PWD/Session.vim"
 
-  for i in {1..10}; do
-    if [ -n "$(find . -maxdepth 1 -name Session.vim)" ]; then
-      no_session=false
-      vi -S
-      break
-    fi
-    cd ..
-  done
-
-  if $no_session; then
-    cd $cwd
-    echo "No Session.vim file found in CWD prefix."
+  if [ -s "$session" ]; then
+    vi -S "$session"
+  else
+    # -S needs an existing file; Obsession then starts tracking it
+    : > "$session"
+    vi -S "$session" -c Obsession
   fi
 }
 _vis
+unset -f _vis
