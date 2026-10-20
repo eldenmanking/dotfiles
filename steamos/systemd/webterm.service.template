@@ -1,0 +1,8 @@
+[Unit]
+Description=Web terminal proxy (starts ttyd on demand, exits when idle)
+Requires=webterm.socket webterm-ttyd.service
+After=webterm.socket webterm-ttyd.service
+
+[Service]
+Environment=WEBTERM_IDLE=30s
+ExecStart=__PROXYD__ --exit-idle-time=${WEBTERM_IDLE} %t/webterm.sock

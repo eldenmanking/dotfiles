@@ -1,0 +1,4 @@
+#!/bin/sh
+# Command ttyd runs for each browser connection.
+cd "$HOME" || exit 1
+exec "${SHELL:-/bin/bash}" -l
