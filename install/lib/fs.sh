@@ -39,7 +39,6 @@ make_symlink() {
 #     ...content...
 #
 #     # /Managed by dotfiles
-# The section is ours: unlabeled lines inside it are dropped on update.
 DOTFILES_BLOCK_START="# Managed by dotfiles"
 DOTFILES_BLOCK_END="# /Managed by dotfiles"
 DOTFILES_SUBBLOCK_PREFIX="# feature "
@@ -110,17 +109,14 @@ upsert_block() {
   fi
 
   local tmp content_file
-  tmp="$(mktemp)"
   content_file="$(mktemp)"
-  printf '%s\n' "$content" > "$content_file"
 
   if [[ -z "$starts" ]]; then
-    # No section yet: write one holding just this subblock.
-    local section
-    section="$(printf '%s\n\n%s\n%s\n\n%s' "$DOTFILES_BLOCK_START" "$header" "$content" "$DOTFILES_BLOCK_END")"
-    printf '%s\n' "$section" > "$content_file"
+    # No section yet: add an empty one for the update below to fill.
+    printf '%s\n\n%s\n' "$DOTFILES_BLOCK_START" "$DOTFILES_BLOCK_END" > "$content_file"
+    mkdir -p "$(dirname "$file")"
     if [[ -f "$file" && -n "$insert_before" ]] && grep -qF "$insert_before" "$file"; then
-      info "Adding block '$name' before '$insert_before' in $file"
+      tmp="$(mktemp)"
       awk -v pat="$insert_before" -v cf="$content_file" '
         !done && index($0, pat) {
           while ((getline line < cf) > 0) print line
@@ -132,60 +128,32 @@ upsert_block() {
       ' "$file" > "$tmp"
       _replace_contents "$file" "$tmp"
     else
-      info "Adding block '$name' to $file"
-      mkdir -p "$(dirname "$file")"
       [[ -s "$file" ]] && printf '\n' >> "$file"
       cat "$content_file" >> "$file"
-      rm -f "$tmp"
     fi
-    rm -f "$content_file"
-    return 0
   fi
 
-  # Rebuild the section in place, replacing or appending this subblock and
-  # keeping the others (and their order) as they are.
+  # Copy the file, swapping this feature's subblock (up to the next subblock
+  # or the section end) for the new content, or adding it at the section end.
+  printf '%s\n' "$content" > "$content_file"
+  tmp="$(mktemp)"
   awk -v start="$DOTFILES_BLOCK_START" -v end="$DOTFILES_BLOCK_END" \
-      -v prefix="$DOTFILES_SUBBLOCK_PREFIX" -v name="$name" -v cf="$content_file" '
-    BEGIN {
-      while ((getline line < cf) > 0) new = new line "\n"
+      -v prefix="$DOTFILES_SUBBLOCK_PREFIX" -v header="$header" -v cf="$content_file" '
+    function emit(  line) {
+      print header
+      while ((getline line < cf) > 0) print line
       close(cf)
-    }
-    $0 == start { insec = 1; next }
-    insec && $0 == end {
-      insec = 0
-      for (i = 1; i <= n && names[i] != name; i++) ;
-      if (i > n) { n++; names[n] = name }
-      bodies[i] = new
-      print start
       print ""
-      for (i = 1; i <= n; i++) {
-        print prefix names[i]
-        printf "%s", bodies[i]
-        print ""
-      }
-      print end
-      next
+      done = 1
     }
+    $0 == start { insec = 1 }
+    insec && $0 == end { if (!done) emit(); insec = 0; skip = 0 }
     insec && index($0, prefix) == 1 {
-      nm = substr($0, length(prefix) + 1)
-      for (cur = 1; cur <= n && names[cur] != nm; cur++) ;
-      if (cur > n) { n++; names[n] = nm; bodies[n] = "" }
-      pending = ""
-      next
+      skip = 0
+      if ($0 == header) { if (!done) emit(); skip = 1; next }
     }
-    insec {
-      # Hold blank lines until more content follows, so subblocks do not
-      # accumulate trailing blanks.
-      if ($0 ~ /^[ \t]*$/) { if (cur) pending = pending $0 "\n"; next }
-      if (!cur) { dropped++; next }
-      bodies[cur] = bodies[cur] pending $0 "\n"
-      pending = ""
-      next
-    }
+    skip { next }
     { print }
-    END {
-      if (dropped) printf "%d unlabeled line(s) dropped from the dotfiles section\n", dropped > "/dev/stderr"
-    }
   ' "$file" > "$tmp"
   rm -f "$content_file"
 
