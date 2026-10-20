@@ -75,6 +75,5 @@ feature_zsh() {
     content+="source ~/.zsh/plugins/$name/$name.zsh"
   done
 
-  remove_legacy_block "$HOME/.zshrc" zsh_plugins
   upsert_block "$HOME/.zshrc" zsh "$content"
 }

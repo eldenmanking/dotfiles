@@ -39,8 +39,7 @@ make_symlink() {
 #     ...content...
 #
 #     # /Managed by dotfiles
-# The section is ours: unlabeled lines inside it (e.g. from an older format)
-# are dropped on update.
+# The section is ours: unlabeled lines inside it are dropped on update.
 DOTFILES_BLOCK_START="# Managed by dotfiles"
 DOTFILES_BLOCK_END="# /Managed by dotfiles"
 DOTFILES_SUBBLOCK_PREFIX="# feature "
@@ -69,65 +68,6 @@ _replace_contents() {
   rm -f "$tmp"
 }
 
-# Remove an old-format "# Added by light-install.sh#<name>" block, if present.
-# Usage: remove_legacy_block <file> <name>
-remove_legacy_block() {
-  local file="$1" name="$2"
-  local start="# Added by light-install.sh#$name"
-  local end="# /Added by light-install.sh#$name"
-  [[ -f "$file" ]] || return 0
-
-  local starts ends
-  starts="$(_line_numbers "$file" "$start")"
-  ends="$(_line_numbers "$file" "$end")"
-  [[ -z "$starts" && -z "$ends" ]] && return 0
-  if [[ "$starts" == *$'\n'* || "$ends" == *$'\n'* || -z "$starts" || -z "$ends" ]] \
-    || (( starts > ends )); then
-    warn "Malformed legacy block '$name' in $file; remove it by hand"
-    return 1
-  fi
-
-  if $DRY_RUN; then
-    info "[dry-run] would remove legacy block '$name' from $file"
-    return 0
-  fi
-  info "Removing legacy block '$name' from $file"
-  local tmp
-  tmp="$(mktemp)"
-  # Also drop the blank line the old helper wrote before each block.
-  awk -v s="$starts" -v e="$ends" '
-    NR == s - 1 && $0 == "" { next }
-    NR >= s && NR <= e { next }
-    { print }
-  ' "$file" > "$tmp"
-  _replace_contents "$file" "$tmp"
-}
-
-# Rename old "# Added by dotfiles" section markers to the current ones, unless
-# the file already has a current section.
-# Usage: rename_legacy_section <file>
-rename_legacy_section() {
-  local file="$1"
-  local start="# Added by dotfiles" end="# /Added by dotfiles"
-  [[ -f "$file" ]] || return 0
-  [[ -n "$(_line_numbers "$file" "$start")" ]] || return 0
-  [[ -z "$(_line_numbers "$file" "$DOTFILES_BLOCK_START")" ]] || return 0
-
-  if $DRY_RUN; then
-    info "[dry-run] would rename legacy dotfiles section markers in $file"
-    return 0
-  fi
-  info "Renaming legacy dotfiles section markers in $file"
-  local tmp
-  tmp="$(mktemp)"
-  awk -v os="$start" -v oe="$end" -v ns="$DOTFILES_BLOCK_START" -v ne="$DOTFILES_BLOCK_END" '
-    $0 == os { print ns; next }
-    $0 == oe { print ne; next }
-    { print }
-  ' "$file" > "$tmp"
-  _replace_contents "$file" "$tmp"
-}
-
 # Idempotently set the <name> subblock of the dotfiles section in <file> to
 # <content>, creating the file and section as needed. A new section is
 # appended, or inserted before the first line containing <insert_before> if
@@ -151,9 +91,6 @@ upsert_block() {
     warn "$file links into the dotfiles repo; not adding block '$name'"
     return 0
   fi
-
-  remove_legacy_block "$file" "$name" || return 1
-  rename_legacy_section "$file"
 
   local starts="" ends=""
   if [[ -f "$file" ]]; then
