@@ -19,13 +19,13 @@ export QT_QPA_PLATFORMTHEME=gnome                               # Make QT applic
 
 # Color man pages
 esc="$(printf '\033')"
-export LESS_TERMCAP_mb="$esc[01;32m"
-export LESS_TERMCAP_md="$esc[01;32m"
-export LESS_TERMCAP_me="$esc[0m"
-export LESS_TERMCAP_se="$esc[0m"
-export LESS_TERMCAP_so="$esc[01;47;34m"
-export LESS_TERMCAP_ue="$esc[0m"
-export LESS_TERMCAP_us="$esc[01;36m"
+export LESS_TERMCAP_mb="${esc}[01;32m"
+export LESS_TERMCAP_md="${esc}[01;32m"
+export LESS_TERMCAP_me="${esc}[0m"
+export LESS_TERMCAP_se="${esc}[0m"
+export LESS_TERMCAP_so="${esc}[01;47;34m"
+export LESS_TERMCAP_ue="${esc}[0m"
+export LESS_TERMCAP_us="${esc}[01;36m"
 export LESS=-R
 unset esc
 
