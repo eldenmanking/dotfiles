@@ -1,10 +1,10 @@
 # Feature: copy udev rules into /etc.
 
-# TODO(andywang): add comment
+# Rules are copied, not linked: udev reads them at boot, before an encrypted home is mounted.
 UDEV_RULES_SRC="root/etc/udev/rules.d"
 UDEV_RULES_DST="/etc/udev/rules.d"
 
-# TODO(andywang): add comment
+# Copy changed rules (replacing any old symlink), then reload udev and re-apply rules to i2c devices.
 feature_udev() {
   local file target changed=false
   for file in "$DOTFILES_ROOT/$UDEV_RULES_SRC"/*.rules; do
