@@ -6,10 +6,7 @@ This repository contains configuration files for my linux workspace. The followi
 ├── .bash_profile                    --- bash login interactive startup file
 ├── .bashrc                          --- bash non-login interactive startup file
 ├── .claude                          ---
-│   ├── CLAUDE.md                    ---
-│   ├── PR-STATUSLINE.md             ---
-│   ├── commands                     ---
-│   └── scripts                      ---
+│   └── CLAUDE.md                    --- Claude Code instructions for working in this repo
 ├── .config                          ---
 │   ├── alacritty                    ---
 │   │   └── alacritty.toml           --- alacritty terminal emulator configuration file
@@ -71,8 +68,6 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── windows-setup.md             ---
 │   └── wsl-setup.md                 ---
 ├── dump                             --- exported configuration settings
-│   ├── claude                       ---
-│   │   └── settings.json            ---
 │   ├── dconf                        ---
 │   │   └── arch.dconf               --- selected entries from 'dconf dump /' in Arch
 │   ├── google-chrome                ---
@@ -118,7 +113,7 @@ This repository contains configuration files for my linux workspace. The followi
 ## Installation
 `install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`.
 
-Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell rc subblocks only source files under `.config/sh` and `.config/zsh`, which the linked rc files (e.g. on `arch`) source too. Edit the files outside the section freely.
+Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell startup file subblocks only source files under `.config/sh` and `.config/zsh`, which the linked startup files (e.g. on `arch`) source too. Edit the files outside the section freely.
 
 The `arch` variant is designed to work for Arch Linux (or other Arch-based distributions). Essential packages and applications can be installed using `./install.sh --variant arch` as a user. This variant attempts to setup the following:
  - yay
@@ -157,6 +152,20 @@ To enable `sudo`, use the command `visudo` and uncomment `%wheel AL=(ALL:ALL) NO
 
 #### Printer Installation
 Included in the `install.sh` script are packages for HP printers--in particular, the `hplip` package is used to install drivers for specific HP printers, whereas `cups` and `system-config-printer` are more general. To install the drivers for a physically connected printer, execute `hp-setup -i` in the terminal (`-i` for CLI interactive mode) and follow the prompts. See this [Stack Exchange post](https://unix.stackexchange.com/questions/359531/installing-hp-printer-driver-for-arch-linux) for more information.
+
+#### Claude Code
+The `--claude` feature installs Claude Code configuration from a separate tools repo, by default [eldenmanking/tools](https://github.com/eldenmanking/tools) cloned to `~/tools`. It inserts the repo's `claude/CLAUDE.md` into `~/git/.claude/CLAUDE.md`, symlinks each entry of `claude/skills` and `claude/scripts` into `~/.claude`, and deep-merges `claude/settings.json` into `~/.claude/settings.json`. An existing checkout is fast-forwarded on each run.
+
+To use a different instance of the tools repo (e.g. a fork, branch, or local copy), set any of the following in the environment or in `~/.config/dotfiles/tools.conf` (the environment wins; set `DOTFILES_TOOLS_CONFIG` to read a different file):
+ - `DOTFILES_TOOLS_REPO`: git URL to clone (default `https://github.com/eldenmanking/tools.git`)
+ - `DOTFILES_TOOLS_DIR`: checkout location (default `~/tools`); a directory that exists but isn't a git checkout is used as-is
+ - `DOTFILES_TOOLS_REF`: branch or tag to check out (default: the repo's default branch)
+
+```bash
+# ~/.config/dotfiles/tools.conf
+DOTFILES_TOOLS_REPO=git@github.com:someone/tools.git
+DOTFILES_TOOLS_DIR=~/git/tools
+```
 
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.

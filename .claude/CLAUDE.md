@@ -1,54 +1,23 @@
-# Managed by dotfiles
-## Git
-- Use `git -c commit.gpgsign=false ...` when making commits
-- When making branches, name then "andywang/..." where ... is the intended change
-- Always make sure that you're working with the right branch locally. If the user asks for changes to a particular PR, then you should check out that PR first locally before making your changes.
-  - If there are untracked/unstaged changes, prompt the user for further instruction.
-- You can and should make commits to the local branch without explicit permission.
-- Only push changes to remote if there is not a PR open for the current branch or if the PR is a draft
+# dotfiles
+Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and installs tools. `README.md` has the annotated file tree, the variants and the install flow; read it before changing structure, and keep its tree in sync when adding, moving or removing files.
 
-### Github PRs
-- When iterating on an open or draft PR, add new commits instead of amending existing ones and force pushing
-- Prefix the first commit message with \[PR-start <branch-name>\]
-- Never add comments in github unless I say exactly to "reply" to a comment.
-- Double check for permission before adding comments.
-- Always create PRs in draft mode, never ready for review
-- When writing a PR description, you should:
-  - for new PRs, respect the repository's PR description template (usually at `.github/PULL_REQUEST_TEMPLATE.md`). Do not fill anything in the PR description unless the PR is a testing PR not meant to be merged into production.
-  - for existing PRs, always check the previous state to make sure that you're not dropping important context.
-  - At the top of the description, add whichever of the following blocks are relevant (always include newlines after a list):
-    ```
-    Context: <slack-thread-if-provided>
-    Main issue: <main-issue-url> / Fixes <issue-url> / Part of <issue-url> / Preflight for: <another-pr-if-this-is-a-preflight> <!-- only pick one of these -->
-    
-    Supercedes: <previous-pr-url-if-this-is-a-clone>
-    Related PRs:
-    - #xxxxx
-    - #xxxxx
+`.claude/` holds Claude Code config for working on this repo only (this file, plus any repo-specific skills or settings). Machine-wide config (the global CLAUDE.md, skills, hook scripts, settings) lives in the separate tools repo (eldenmanking/tools), which the `claude` feature installs into `~/.claude`.
 
-    Depends on:
-    - #xxxxx
+## install.sh layout
+- `install/lib/`: shared helpers (`fn.sh` output variables, `exec.sh` dry-run aware execution, `fs.sh` symlinks and managed blocks).
+- `install/features/<name>.sh`: one `feature_<name>` function per feature. Register its `--help` text in `feature_description` (`install/lib/features.sh`), and add it to `DRY_RUN_FEATURES` if it honors `--dry-run`.
+- `install/variants/<name>.sh`: `variant_<name>` sets `_description`, `_features`, `_all_exclude` and `_link_paths`. Features run in `_features` order.
+- Paths to symlink go in `LINK_COMMON_PATHS` or `LINK_DESKTOP_PATHS` (`install/features/link.sh`); `root/` maps to `/`.
 
-    Is dependent of:
-    - #xxxxx
+## Shell conventions
+Write functions in a functional style:
+- Pass inputs as arguments. Return values through `_`-prefixed output variables via `f_write_args fn _out1 _out2 -- args...`, not by setting globals or parsing stdout.
+- Globals are UPPER_CASE constants set at file load time; never mutate them from functions. Declare everything else `local`.
+- Keep pure logic (parsing, resolving config) separate from side effects, and route side effects through `run`/`run_tty` so `--dry-run` works.
+- Every feature must be idempotent: check current state first, and use `make_symlink` and `upsert_block` rather than raw `ln` or appends.
+- Shell startup files (`.profile`, `.bashrc`, `.zshrc`, ...) only source files under `.config/sh` and `.config/zsh`, so linked and managed installs share the same logic. Features write managed ones with `upsert_sources`. `env.sh` (environment, sourced from profiles and rc files) must stay POSIX sh and safe to source repeatedly.
+- Stay portable across Linux and macOS (bash 3.2: no `mapfile`, associative arrays or namerefs; no GNU-only flags).
 
-    PR stack:
-    - #xxxxx
-    - #xxxxx 👈
-    - #xxxxx
-    ```
-  - When updating a PR stack, use 👈 to mark the current PR
-  - always use #xxxxx for PRs in the same repo; for PRs outside of the repo, provide the full URL. Do not include any other text or explanation.
-- When retargeting a stacked PR (e.g. after a parent PR merges), update the stack list in the description accordingly.
-
-
-## Commenting
-- Write comments where code needs documenting (e.g. javadocs), matching the surrounding code's comment style and density.
-- Keep comments brief and clear: say what the code can't, in as few words as possible.
-- Update existing comments when the code they describe changes.
-- If some behavior deserves explanation, you may add a github comment IF the PR is in draft mode. Otherwise flag this to the user directly.
-
-## Formatting
-- Don't manually wrap markdown unless existing code already does it
-- Wrap comments with a text width of 120 characters
-# /Managed by dotfiles
+## Verifying changes
+- `bash -n` every changed script, and `shellcheck` when available.
+- `install.sh` requires the repo at `~/dotfiles`. To exercise a feature without touching the real home, point `HOME` at a scratch directory containing a `dotfiles` symlink to this checkout, then run `HOME=<dir> ./install.sh --variant <name> --<feature>`; use `--dry-run` for features that need root or a package manager.

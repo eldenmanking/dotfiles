@@ -22,8 +22,6 @@ LINK_DESKTOP_PATHS=(
   .ideavimrc
   .ocamlformat
   .pylintrc
-  .claude/commands
-  .claude/scripts
   .config/alacritty
   .config/git
   .config/sh
