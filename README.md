@@ -136,20 +136,25 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   ├── webterm-ttyd.service.temp--- ttyd on a private UNIX socket
 │   │   ├── webterm.service.template --- systemd-socket-proxyd, exits when idle
 │   │   └── webterm.socket           --- listens on 127.0.0.1:3000
-│   ├── test                         ---
-│   │   └── smoke.py                 --- smoke test for the ttyd and socket proxy chain
 │   └── web                          ---
 │       └── tab-keys.html            --- passes browser tab shortcuts through xterm.js
-└── test                             --- CI and local checks, run with make (see Testing)
-    ├── install.sh                   --- install.sh in scratch homes: --dry-run for every variant, rootless installs, idempotency
-    ├── lib.sh                       --- shared helpers, including the pinned tool downloader
-    ├── lint.sh                      --- README tree, syntax, shellcheck, actionlint and TOML checks
-    ├── readme_tree.py               --- checks this tree against the files tracked by git
-    └── versions.env                 --- pinned versions and checksums of shellcheck and actionlint
+├── test                             --- CI and local checks, run with make (see Testing)
+│   ├── install.sh                   --- install.sh in scratch homes: --dry-run for every variant, rootless installs, idempotency
+│   ├── lib.sh                       --- shared helpers, including the pinned tool downloader
+│   ├── lint.sh                      --- README tree, syntax, shellcheck, actionlint and TOML checks
+│   ├── readme_tree.py               --- checks this tree against the files tracked by git
+│   └── versions.env                 --- pinned versions and checksums of shellcheck and actionlint
+└── tests                            ---
+    └── webterm_smoke.py             --- smoke test for the ttyd and socket proxy chain
 ```
 
 ## Installation
-`install.sh` is the single entry point. Clone the repo to `~/dotfiles`: `install.sh` refuses to run from any other checkout, since everything it links points into `~/dotfiles`. (`~/dotfiles` may be a symlink, but the checkout itself must be a directory named `dotfiles`, which lint relies on.) Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`. Files under `home/` are linked into `$HOME` and files under `root/` into `/`; everything else at the top level stays in the repo.
+`install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`. Files under `home/` are linked into `$HOME` and files under `root/` into `/`; everything else at the top level stays in the repo.
+
+The repo must live at `~/dotfiles`, since everything `install.sh` links points there, and `install.sh` refuses to run from any other checkout. `~/dotfiles` may be a symlink, but the checkout itself must be a directory named `dotfiles`, which lint relies on. On a fresh machine, `install.sh` can be run straight from GitHub: when it isn't inside a checkout, it clones the repo to `~/dotfiles` (unless already there) and re-runs that copy with the same arguments. Set `DOTFILES_REPO` to clone a different URL and `DOTFILES_REF` to check out a branch or tag.
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/main/install.sh)" -- --variant coder --all
+```
 
 The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [steamos/README.md](steamos/README.md) and [docs/steamos-setup.md](docs/steamos-setup.md).
 

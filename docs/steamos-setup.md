@@ -5,39 +5,36 @@ resources I used.
 
 ## OS installation
 
-Follow Valve's official guide: [Installing SteamOS][steamos-install].
+Follow Valve's official guide: [Installing SteamOS][steamos-install]. On a
+Linux box, write the recovery image with `dd` as below rather than a
+multi-boot tool like Ventoy, which the SteamOS image behaves poorly with.
 
-The one deviation: write the recovery image to the USB drive with `cat` from a
-Linux box. The SteamOS image behaves poorly with tools like Ventoy, and a plain
-byte-for-byte copy avoids the problem.
+1. Download the SteamOS recovery image from the page above: the Deck, Machine
+   and PC image, or the separate Frame image. Either one downloads as
+   `steamdeck-recovery-4.img.bz2` (the number may change).
 
-1. Download the SteamOS recovery image from the page above and decompress it
-   if it is a `.bz2`:
-
-   ```sh
-   bunzip2 steamos-recovery.img.bz2
-   ```
-
-2. Plug in the USB drive and find its device name. Check carefully, because
-   the next step overwrites the whole device:
+2. Plug in a USB drive (8GB minimum) and find its device name. Check
+   carefully, because the next step overwrites the whole device:
 
    ```sh
    lsblk
    ```
 
 3. Write the image to the drive (replace `/dev/sdX` with the **whole device**,
-   not a partition like `/dev/sdX1`):
+   not a partition like `/dev/sdX1`). This is Valve's command; `bzcat`
+   decompresses on the fly, so there's no need to extract the image first:
 
    ```sh
-   sudo sh -c 'cat steamos-recovery.img > /dev/sdX'
-   sync
+   bzcat steamdeck-recovery-4.img.bz2 | sudo dd if=/dev/stdin of=/dev/sdX oflag=sync status=progress bs=128M
    ```
 
-   The `sh -c` wrapper makes the redirect run as root. A plain
-   `sudo cat ... > /dev/sdX` would not, because the shell opens the file
-   before `sudo` runs.
+4. Boot the target machine from the USB drive. Most non-Deck hardware needs
+   Secure Boot disabled in the BIOS first; the guide above has steps for the
+   Legion Go and ROG Ally.
 
-4. Boot the target machine from the USB drive and follow the installer.
+5. Once the recovery desktop loads, choose **Wipe Device & Install SteamOS**.
+   The same environment also offers Re-image Device (factory reset), Repair
+   SteamOS (keeps games and personal content) and Recovery tools.
 
 ## Steam settings
 
@@ -48,9 +45,27 @@ In Steam, under **Settings > In Game**:
 
 ## dotfiles
 
-Clone this repo to `~/dotfiles` and run `~/dotfiles/install.sh --variant steamos --all`.
-This includes webterm, a browser shell on localhost; see
-[steamos/README.md](../steamos/README.md).
+After the OS is installed and you've signed in to Steam:
+
+1. Switch to Desktop Mode: press the Steam button, then **Power > Switch to
+   Desktop**.
+2. Open Konsole and give the `deck` user a password, which `sudo` needs (SteamOS
+   ships without one):
+
+   ```sh
+   passwd
+   ```
+
+3. Clone this repo to `~/dotfiles` and run the installer:
+
+   ```sh
+   git clone https://github.com/eldenmanking/dotfiles ~/dotfiles
+   ~/dotfiles/install.sh --variant steamos --all
+   ```
+
+   Run `~/dotfiles/install.sh --help` to see the features, or add `--dry-run`
+   to preview the changes. This includes webterm, a browser shell on
+   localhost; see [steamos/README.md](../steamos/README.md).
 
 ## Disk encryption
 
