@@ -30,12 +30,32 @@ feature_description() {
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of a temporary arch distrobox" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units (browser shell on localhost)" ;;
     home_units)  echo "install home-units.service into /etc (sudo, only if the home is encrypted with dirlock)" ;;
+    distrobox)   echo "create an 'arch' distrobox from archlinux:latest and enter it" ;;
     *)           echo "" ;;
   esac
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip flatpak udev tmpfiles webterm home_units "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip flatpak udev tmpfiles webterm home_units distrobox "
+
+# Options (non-feature flags) that features can read. Each run passes the
+# enabled ones to every feature as its third argument, e.g. " reset ".
+FEATURE_OPTIONS=" reset "
+
+option_description() {
+  case "$1" in
+    reset) echo "reset the environment of each enabled feature that supports it" ;;
+    *)     echo "" ;;
+  esac
+}
+
+# Print the options feature $1 supports, space-separated.
+feature_options() {
+  case "$1" in
+    distrobox) echo "reset" ;;
+    *)         echo "" ;;
+  esac
+}
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"

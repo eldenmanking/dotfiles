@@ -32,7 +32,7 @@ available_variants() {
 }
 
 usage() {
-  local variant="$1" v features all_exclude
+  local variant="$1" v features all_exclude supported
   cat <<EOF
 Usage: $(basename "$0") --variant NAME [OPTIONS]
 
@@ -60,6 +60,12 @@ EOF
   for v in $features; do
     printf '  --%-14s %s\n' "$v" "$(feature_description "$v")"
   done
+  for v in $FEATURE_OPTIONS; do
+    f_write_args features_supporting _supported -- "$features" "$v"
+    supported="$_supported"
+    [[ -n "$supported" ]] || continue
+    printf '  --%-14s %s (%s)\n' "$v" "$(option_description "$v")" "$supported"
+  done
   cat <<EOF
   --dry-run        print what would happen without making changes
   --help           show this help page
@@ -74,7 +80,7 @@ usage_error() {
 }
 
 parse_args() {
-  local variant="" flags=" " all=false dry_run=false help=false
+  local variant="" flags=" " options=" " all=false dry_run=false help=false
 
   [[ $# -gt 0 ]] || help=true
   while [[ $# -gt 0 ]]; do
@@ -88,13 +94,21 @@ parse_args() {
       --all)       all=true; shift ;;
       --dry-run)   dry_run=true; shift ;;
       --help|-h)   help=true; shift ;;
-      --?*)        flags+="${1#--} "; shift ;;
+      --?*)
+        if list_contains "$FEATURE_OPTIONS" "${1#--}"; then
+          options+="${1#--} "
+        else
+          flags+="${1#--} "
+        fi
+        shift
+        ;;
       *)           usage_error "Unexpected argument: $1" ;;
     esac
   done
 
   _variant="$variant"
   _flags="$flags"
+  _options="$options"
   _all="$all"
   _dry_run="$dry_run"
   _help="$help"
@@ -115,8 +129,18 @@ exit_with_usage_unless_runnable() {
   fi
 }
 
+# Outputs: _supported, the features in $1 that support option $2.
+features_supporting() {
+  local features="$1" option="$2" feature supported=""
+  for feature in $features; do
+    list_contains "$(feature_options "$feature")" "$option" \
+      && supported+="${supported:+ }$feature"
+  done
+  _supported="$supported"
+}
+
 resolve_features() {
-  local variant="$1" flags="$2" all="$3" features all_exclude enabled=" " k
+  local variant="$1" flags="$2" all="$3" options="$4" features all_exclude enabled=" " k
 
   f_write_args variant_config _features _all_exclude -- "$variant"
   features="$_features"
@@ -131,6 +155,10 @@ resolve_features() {
       enabled+="$k "
     fi
   done
+  for k in $options; do
+    f_write_args features_supporting _supported -- "$enabled" "$k"
+    [[ -n "$_supported" ]] || warn "No enabled feature supports --$k; ignoring it"
+  done
 
   _enabled="$enabled"
 }
@@ -141,8 +169,9 @@ enter_dotfiles_root() {
   cd "$DOTFILES_ROOT"
 }
 
+# Run each enabled feature as feature_<name> <variant> <enabled> <options>.
 run_features() {
-  local variant="$1" enabled="$2" features feature
+  local variant="$1" enabled="$2" options="$3" features feature
 
   f_write_args variant_config _features -- "$variant"
   features="$_features"
@@ -154,20 +183,20 @@ run_features() {
       info "[dry-run] would run feature: $feature"
       continue
     fi
-    "$(feature_function "$feature")" "$variant" "$enabled"
+    "$(feature_function "$feature")" "$variant" "$enabled" "$options"
   done
   info "dotfiles installation complete."
 }
 
 main() {
-  f_write_args parse_args _variant _flags _all _dry_run _help -- "$@"
+  f_write_args parse_args _variant _flags _options _all _dry_run _help -- "$@"
   readonly DRY_RUN="$_dry_run"
 
   exit_with_usage_unless_runnable "$_variant" "$_flags" "$_all" "$_help"
 
-  f_write_args resolve_features _enabled -- "$_variant" "$_flags" "$_all"
+  f_write_args resolve_features _enabled -- "$_variant" "$_flags" "$_all" "$_options"
   enter_dotfiles_root
-  run_features "$_variant" "$_enabled"
+  run_features "$_variant" "$_enabled" "$_options"
 }
 
 main "$@"

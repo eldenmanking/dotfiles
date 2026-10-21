@@ -5,7 +5,8 @@ Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and
 
 ## install.sh layout
 - `install/lib/`: shared helpers (`fn.sh` output variables, `exec.sh` dry-run aware execution, `fs.sh` symlinks and managed blocks).
-- `install/features/<name>.sh`: one `feature_<name>` function per feature. Register its `--help` text in `feature_description` (`install/lib/features.sh`), and add it to `DRY_RUN_FEATURES` if it honors `--dry-run`.
+- `install/features/<name>.sh`: one `feature_<name>` function per feature, called as `feature_<name> <variant> <enabled> <options>`. Register its `--help` text in `feature_description` (`install/lib/features.sh`), and add it to `DRY_RUN_FEATURES` if it honors `--dry-run`.
+- Options are flags in `FEATURE_OPTIONS` (e.g. `--reset`) passed to every feature in the run as `<options>`; test them with `list_contains "$options" <name>`. List the options a feature honors in `feature_options` so `--help` shows them.
 - `install/variants/<name>.sh`: `variant_<name>` sets `_description`, `_features`, `_all_exclude` and `_link_paths`. Features run in `_features` order.
 - Files meant to be linked live under `home/` (maps to `$HOME`) or `root/` (maps to `/`); everything else at the top level is repo-only. Paths to symlink go in `LINK_COMMON_PATHS`, `LINK_SHELL_PATHS`, `LINK_STEAMOS_PATHS` or `LINK_DESKTOP_PATHS` (`install/features/link.sh`), prefixed with `home/` or `root/`.
 
