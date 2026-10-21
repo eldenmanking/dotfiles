@@ -33,7 +33,7 @@ gfc () {
   git fetch origin "$1" && gc "$1"
 }
 gg() {
-  cd "$(git rev-parse --show-toplevel)"
+  cd "$(git rev-parse --show-toplevel)" || return
 }
 gm() {
   if [ -z "$1" ]; then
@@ -46,9 +46,11 @@ gmp() { gm "$1" && git push; }
 gamp() { gam "$1" && git push; }
 gn() { ga . && git commit --no-verify --no-gpg-sign -m "${1:-unsigned-wip}"; }
 gnp() { ga . && git commit --no-verify --no-gpg-sign -m "${1:-unsigned-wip}" && git push; }
-gb() {
-  local remote="$(git remote show)"
-  local rebase=""
+# Functions that need local variables run their body in a subshell (POSIX sh
+# has no 'local'), so their variables don't leak into the interactive shell.
+gb() (
+  remote="$(git remote show)"
+  rebase=""
 
   # The first *positional* argument (i.e. one that doesn't start with '-') is
   # still the rebase target, exactly as before. Everything else is treated as
@@ -61,8 +63,6 @@ gb() {
     shift
   fi
   # Remaining "$@" is now the pass-through option list.
-  local -a extra
-  extra=( "$@" )
 
   command gh >/dev/null && target="$(gh pr view --json baseRefName -q '.baseRefName')"
   if [ -z "$target" ]; then
@@ -90,15 +90,24 @@ gb() {
 
   # Pass-through options go AFTER the built-in `-S -i` so they can override the
   # defaults (e.g. `--no-gpg-sign` wins over `-S`); the upstream ref stays last.
-  local shown=""
+  shown=""
   [ "$#" -gt 0 ] && shown=" $*"
   echo "Command to run: git fetch $remote $rebase && git rebase -S -i${shown} $remote/$rebase"
-  if [ -n "$ZSH_VERSION" ]; then read -k 1; else read -n 1; fi
+  # Wait for a single keypress (like bash 'read -n 1' / zsh 'read -k 1').
+  if [ -t 0 ]; then
+    tty_state="$(stty -g)"
+    trap 'stty "$tty_state"; exit 130' INT
+    stty -icanon min 1 time 0
+    dd bs=1 count=1 >/dev/null 2>&1
+    stty "$tty_state"
+    trap - INT
+  else
+    dd bs=1 count=1 >/dev/null 2>&1
+  fi
   echo "Running command..."
-  git fetch "$remote" "$rebase" && git rebase -S -i "${extra[@]}" "$remote/$rebase"
-}
-gbg() {
-  local base
+  git fetch "$remote" "$rebase" && git rebase -S -i "$@" "$remote/$rebase"
+)
+gbg() (
   if [ -n "$1" ]; then
     base="$1"
   else
@@ -110,15 +119,14 @@ gbg() {
   fi
   echo "Rebasing onto: $(git log --oneline -1 "$base")"
   git rebase --exec 'git commit --amend --no-edit -n -S --allow-empty' "$base"
-}
-gu() {
-  local branch="$(git rev-parse --abbrev-ref @)"
-  local remote="$(git remote show)"
+)
+gu() (
+  branch="$(git rev-parse --abbrev-ref @)"
+  remote="$(git remote show)"
   git fetch "$remote" "$branch"
   git reset --hard "$remote/$branch"
-}
-gal() {
-  local host dir
+)
+gal() (
   host=$(gh auth status --json hosts --jq '.hosts | keys[0]') || return 1
   dir=$(mktemp -d)
   cat >"$dir/xclip" <<EOF
@@ -129,7 +137,7 @@ EOF
   chmod +x "$dir/xclip"
   PATH="$dir:$PATH" gh auth login -h "$host" -c -p https < /dev/null
   rm -rf "$dir"
-}
+)
 
 
 # miscellaneous software shortcuts
