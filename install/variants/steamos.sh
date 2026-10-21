@@ -1,7 +1,7 @@
 # SteamOS.
 variant_steamos() {
   _description="SteamOS: per-user installs for the read-only rootfs, plus webterm"
-  _features="link starship tmux gitconfig steamos_xclip flatpak udev font webterm home_units"
+  _features="link starship tmux claude gitconfig steamos_xclip flatpak udev font webterm home_units"
   _all_exclude=""
   # Link the shell startup files rather than running the shell and zsh features. zsh plugins load from
   # /usr/share/zsh/plugins when present and are skipped otherwise.

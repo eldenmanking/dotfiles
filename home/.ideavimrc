@@ -1,4 +1,4 @@
-source ~/dotfiles/.config/nvim/core/options.vim
+source ~/dotfiles/home/.config/nvim/core/options.vim
 
 " Highlight copied text
 Plug 'machakann/vim-highlightedyank'

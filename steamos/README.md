@@ -102,7 +102,7 @@ Your URL token stays in `~/.config/webterm/token`.
 | URL token    | `WEBTERM_TOKEN` in `~/.config/webterm/token`              | random, 32 hex     |
 | Port         | `ListenStream` in `steamos/systemd/webterm.socket`        | `127.0.0.1:3000`   |
 
-The env file, `~/.config/webterm/env`, is linked from `~/dotfiles/.config/webterm/env` by the `link` feature, so
+The env file, `~/.config/webterm/env`, is linked from `~/dotfiles/home/.config/webterm/env` by the `link` feature, so
 settings there are kept in git; run `--link` before `--webterm`, which needs it. The token gets its own unlinked
 file (mode 600), which `--webterm` creates if it's missing, so it never lands in the repo.
 
@@ -156,7 +156,7 @@ How it works:
 - If the browser was already open when the font was installed, restart it.
   Until then it uses the next font in the list.
 
-To use a different font, change `WEBTERM_FONT` in `~/dotfiles/.config/webterm/env`, for example to
+To use a different font, change `WEBTERM_FONT` in `~/dotfiles/home/.config/webterm/env`, for example to
 `WEBTERM_FONT=JetBrainsMonoNL Nerd Font Mono, monospace`, then restart. Open tabs switch fonts when they reconnect:
 
 ```sh

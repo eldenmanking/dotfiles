@@ -12,7 +12,7 @@ feature_gitconfig() {
   git_fsmonitor="$_git_fsmonitor"
 
   info "Configuring global git settings..."
-  run git config --global core.excludesFile "$DOTFILES_ROOT/.config/git/ignore"
+  run git config --global core.excludesFile "$DOTFILES_ROOT/home/.config/git/ignore"
   if [[ "$git_fsmonitor" == true ]]; then
     run git config --global core.fsmonitor true
   fi

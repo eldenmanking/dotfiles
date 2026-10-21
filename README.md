@@ -3,64 +3,9 @@ This repository contains configuration files for my linux workspace. The followi
 
 ```
 . (~/dotfiles)
-├── .bash_profile                    --- bash login interactive startup file
-├── .bashrc                          --- bash non-login interactive startup file
 ├── .claude                          ---
 │   └── CLAUDE.md                    --- Claude Code instructions for working in this repo
-├── .config                          ---
-│   ├── alacritty                    ---
-│   │   └── alacritty.toml           --- alacritty terminal emulator configuration file
-│   ├── git                          ---
-│   │   └── ignore                   --- default ignored git files
-│   ├── nvim                         ---
-│   │   ├── core                     ---
-│   │   │   ├── autocommands.vim     --- global autocommands
-│   │   │   ├── commands.vim         --- global command and function definitions
-│   │   │   ├── filetypes.vim        --- filetype specific settings and autocommands
-│   │   │   ├── mappings.vim         --- 
-│   │   │   ├── options.vim          ---
-│   │   │   ├── plugins.vim          --- default neovim plugins and settings
-│   │   │   └── plugmaps.vim         --- mappings for neovim plugins
-│   │   └── init.vim                 --- Neovim main configuration file (sources 'core')
-│   ├── sh                           ---
-│   │   ├── aliases.sh               --- default shell aliases
-│   │   ├── env.sh                   ---
-│   │   └── starship.sh              --- starts the starship prompt in bash or zsh
-│   ├── starship.toml                ---
-│   ├── webterm                      ---
-│   │   └── env                      --- webterm settings (shell, font), linked on steamos
-│   ├── yapf                         ---
-│   │   └── style                    --- yapf python formatter global configuration file
-│   └── zsh                          ---
-│       ├── external.zsh             --- setup for external packages (e.g. opam)
-│       ├── keybindings.zsh          --- default zsh keybindings
-│       ├── plugins.zsh              --- loads zsh plugins from ~/.zsh/plugins or /usr/share/zsh/plugins
-│       └── settings.zsh             ---
 ├── .gitignore                       ---
-├── .ideavimrc                       ---
-├── .local                           ---
-│   ├── bin                          ---
-│   │   ├── clip                     ---
-│   │   ├── squidpdf                 --- pdf splitter for Squid notes
-│   │   ├── vis                      --- resume or start an obsession session in cwd
-│   │   └── vm-usb                   ---
-│   └── share                        ---
-│       ├── applications             ---
-│       │   └── Alacritty.desktop    --- custom launch settings for Wayland
-│       └── backgrounds              ---
-│           └── GH2.jpg              --- placeholder background
-├── .ocamlformat                     ---
-├── .profile                         --- sh-compatible login startup file
-├── .pylintrc                        --- pylint global configuration file
-├── .tmux                            ---
-│   └── resurrect                    ---
-│       ├── saferestore.sh           --- safe restore script for tmux resurrect
-│       └── strategies               ---
-│           └── nvim_obsession.sh    ---
-├── .tmux.conf                       --- tmux configuration file
-├── .vimrc                           --- Vim main configuration file (deprecated)
-├── .zprofile                        --- zshell login startup file
-├── .zshrc                           --- zshell interactive startup file
 ├── README.md                        --- dotfiles overview
 ├── Sessionx.vim                     --- useful vim options for maintaining dotfiles
 ├── docs                             ---
@@ -86,6 +31,62 @@ This repository contains configuration files for my linux workspace. The followi
 │   └── windows                      ---
 │       └── terminal                 ---
 │           └── settings.json        ---
+├── home                             --- files linked into $HOME (home/X -> ~/X)
+│   ├── .bash_profile                --- bash login interactive startup file
+│   ├── .bashrc                      --- bash non-login interactive startup file
+│   ├── .config                      ---
+│   │   ├── alacritty                ---
+│   │   │   └── alacritty.toml       --- alacritty terminal emulator configuration file
+│   │   ├── git                      ---
+│   │   │   └── ignore               --- default ignored git files
+│   │   ├── nvim                     ---
+│   │   │   ├── core                 ---
+│   │   │   │   ├── autocommands.vim --- global autocommands
+│   │   │   │   ├── commands.vim     --- global command and function definitions
+│   │   │   │   ├── filetypes.vim    --- filetype specific settings and autocommands
+│   │   │   │   ├── mappings.vim     --- 
+│   │   │   │   ├── options.vim      ---
+│   │   │   │   ├── plugins.vim      --- default neovim plugins and settings
+│   │   │   │   └── plugmaps.vim     --- mappings for neovim plugins
+│   │   │   └── init.vim             --- Neovim main configuration file (sources 'core')
+│   │   ├── sh                       ---
+│   │   │   ├── aliases.sh           --- default shell aliases
+│   │   │   ├── env.sh               ---
+│   │   │   └── starship.sh          --- starts the starship prompt in bash or zsh
+│   │   ├── starship.toml            ---
+│   │   ├── webterm                  ---
+│   │   │   └── env                  --- webterm settings (shell, font), linked on steamos
+│   │   ├── yapf                     ---
+│   │   │   └── style                --- yapf python formatter global configuration file
+│   │   └── zsh                      ---
+│   │       ├── external.zsh         --- setup for external packages (e.g. opam)
+│   │       ├── keybindings.zsh      --- default zsh keybindings
+│   │       ├── plugins.zsh          --- loads zsh plugins from ~/.zsh/plugins or /usr/share/zsh/plugins
+│   │       └── settings.zsh         ---
+│   ├── .ideavimrc                   ---
+│   ├── .local                       ---
+│   │   ├── bin                      ---
+│   │   │   ├── clip                 ---
+│   │   │   ├── squidpdf             --- pdf splitter for Squid notes
+│   │   │   ├── vis                  --- resume or start an obsession session in cwd
+│   │   │   └── vm-usb               ---
+│   │   └── share                    ---
+│   │       ├── applications         ---
+│   │       │   └── Alacritty.deskto --- custom launch settings for Wayland
+│   │       └── backgrounds          ---
+│   │           └── GH2.jpg          --- placeholder background
+│   ├── .ocamlformat                 ---
+│   ├── .profile                     --- sh-compatible login startup file
+│   ├── .pylintrc                    --- pylint global configuration file
+│   ├── .tmux                        ---
+│   │   └── resurrect                ---
+│   │       ├── saferestore.sh       --- safe restore script for tmux resurrect
+│   │       └── strategies           ---
+│   │           └── nvim_obsession.s ---
+│   ├── .tmux.conf                   --- tmux configuration file
+│   ├── .vimrc                       --- Vim main configuration file (deprecated)
+│   ├── .zprofile                    --- zshell login startup file
+│   └── .zshrc                       --- zshell interactive startup file
 ├── install                          --- pieces of the install script (lib, features, variants)
 ├── install.sh                       --- dotfiles install script
 ├── root                             ---
@@ -133,11 +134,11 @@ This repository contains configuration files for my linux workspace. The followi
 ```
 
 ## Installation
-`install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`.
+`install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`. Files under `home/` are linked into `$HOME` and files under `root/` into `/`; everything else at the top level stays in the repo.
 
 The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [steamos/README.md](steamos/README.md) and [docs/steamos-setup.md](docs/steamos-setup.md).
 
-Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell startup file subblocks only source files under `.config/sh` and `.config/zsh`, which the linked startup files (on `arch` and `steamos`) source too. Edit the files outside the section freely.
+Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell startup file subblocks only source files under `home/.config/sh` and `home/.config/zsh`, which the linked startup files (on `arch` and `steamos`) source too. Edit the files outside the section freely.
 
 The `arch` variant is designed to work for Arch Linux (or other Arch-based distributions). Essential packages and applications can be installed using `./install.sh --variant arch` as a user. This variant attempts to setup the following:
  - yay
@@ -202,7 +203,7 @@ git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.
 
- - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh**: symlinked from `.tmux/resurrect/strategies` by `.tmux.conf`
+ - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh**: symlinked from `home/.tmux/resurrect/strategies` by `.tmux.conf`
    - Restores nvim with `vi -S` on its obsession session: the absolute `-S` path recorded by `vis`, otherwise `Session.vim` in the pane's cwd. The stock `session` strategy only checks the pane's cwd, which follows nvim's cwd (e.g. after `:CdToFile`), so it often restarted nvim without the session.
  - **/etc/bluetooth/main.conf**: `#Autoenable=false` changed to `Autoenable=true`
    - Allows bluetooth to start automatically on boot and after suspend. `main.conf` must be a normal file, rather than a symlink.
@@ -215,8 +216,8 @@ Which files a shell reads depends on whether it is a **login** shell (ssh, conso
 
 Environment variables are inherited, so they only need setting at login; aliases, functions and shell settings are not, so every interactive shell needs them. The files are split accordingly:
 
- - `.config/sh/env.sh` holds environment variables. It is POSIX sh and safe to source more than once. The profiles (.profile, .bash_profile, .zprofile) source it, and so do the rc files, for interactive shells with no login shell above them (e.g. code-server terminals).
- - Everything else in `.config/sh` and `.config/zsh` is interactive-only and is sourced from .bashrc and .zshrc.
+ - `home/.config/sh/env.sh` holds environment variables. It is POSIX sh and safe to source more than once. The profiles (.profile, .bash_profile, .zprofile) source it, and so do the rc files, for interactive shells with no login shell above them (e.g. code-server terminals).
+ - Everything else in `home/.config/sh` and `home/.config/zsh` is interactive-only and is sourced from .bashrc and .zshrc.
  - .bash_profile also sources .bashrc when interactive, since bash login shells don't read it on their own. Nothing else sources another startup file.
 
 ## Notes

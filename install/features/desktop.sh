@@ -6,14 +6,25 @@ FONT_NF_VERSION=v3.4.0
 FONT_SHA256=ef552a3e638f25125c6ad4c51176a6adcdce295ab1d2ffacf0db060caf8c1582
 FONT_FAMILY="JetBrainsMono Nerd Font Mono"
 FONT_DEST="$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
+FONT_STAMP="$FONT_DEST/.version"
 
-font_installed() {
-  command -v fc-list >/dev/null && fc-list : family | grep -qF "$FONT_FAMILY"
+# True when FONT_DEST holds exactly the pinned release.
+font_up_to_date() {
+  [[ -f "$FONT_STAMP" && "$(cat "$FONT_STAMP")" == "$FONT_NF_VERSION $FONT_SHA256" ]]
+}
+
+# True when the family comes from somewhere else (e.g. a system package), which we leave alone.
+font_installed_elsewhere() {
+  [[ ! -d "$FONT_DEST" ]] && command -v fc-list >/dev/null && fc-list : family | grep -qF "$FONT_FAMILY"
 }
 
 feature_font() {
-  if font_installed; then
-    info "$FONT_FAMILY already installed"
+  if font_up_to_date; then
+    info "$FONT_FAMILY $FONT_NF_VERSION already installed"
+    return
+  fi
+  if font_installed_elsewhere; then
+    info "$FONT_FAMILY already installed outside $FONT_DEST"
     return
   fi
   require_commands curl sha256sum tar xz
@@ -25,9 +36,12 @@ feature_font() {
     "https://github.com/ryanoasis/nerd-fonts/releases/download/$FONT_NF_VERSION/JetBrainsMono.tar.xz" \
     "$FONT_SHA256" "$tmp/font.tar.xz" font \
     || { rm -rf "$tmp"; error "could not download the font"; }
+  # Start clean so files dropped by a newer release don't linger.
+  run rm -rf "$FONT_DEST"
   run mkdir -p "$FONT_DEST"
   run tar -xJf "$tmp/font.tar.xz" -C "$FONT_DEST" --wildcards '*.ttf' OFL.txt
   if command -v fc-cache >/dev/null; then run fc-cache -f "$FONT_DEST"; fi
+  $DRY_RUN || printf '%s\n' "$FONT_NF_VERSION $FONT_SHA256" > "$FONT_STAMP"
   rm -rf "$tmp"
   info "Installed $FONT_FAMILY to $FONT_DEST (restart the browser if it was open)"
 }

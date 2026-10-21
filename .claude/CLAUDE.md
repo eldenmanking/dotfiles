@@ -7,7 +7,7 @@ Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and
 - `install/lib/`: shared helpers (`fn.sh` output variables, `exec.sh` dry-run aware execution, `fs.sh` symlinks and managed blocks).
 - `install/features/<name>.sh`: one `feature_<name>` function per feature. Register its `--help` text in `feature_description` (`install/lib/features.sh`), and add it to `DRY_RUN_FEATURES` if it honors `--dry-run`.
 - `install/variants/<name>.sh`: `variant_<name>` sets `_description`, `_features`, `_all_exclude` and `_link_paths`. Features run in `_features` order.
-- Paths to symlink go in `LINK_COMMON_PATHS`, `LINK_SHELL_PATHS` or `LINK_DESKTOP_PATHS` (`install/features/link.sh`); `root/` maps to `/`.
+- Files meant to be linked live under `home/` (maps to `$HOME`) or `root/` (maps to `/`); everything else at the top level is repo-only. Paths to symlink go in `LINK_COMMON_PATHS`, `LINK_SHELL_PATHS`, `LINK_STEAMOS_PATHS` or `LINK_DESKTOP_PATHS` (`install/features/link.sh`), prefixed with `home/` or `root/`.
 
 ## Shell conventions
 Write functions in a functional style:
@@ -15,7 +15,7 @@ Write functions in a functional style:
 - Globals are UPPER_CASE constants set at file load time; never mutate them from functions. Declare everything else `local`.
 - Keep pure logic (parsing, resolving config) separate from side effects, and route side effects through `run`/`run_tty` so `--dry-run` works.
 - Every feature must be idempotent: check current state first, and use `make_symlink` and `upsert_block` rather than raw `ln` or appends.
-- Shell startup files (`.profile`, `.bashrc`, `.zshrc`, ...) only source files under `.config/sh` and `.config/zsh`, so linked and managed installs share the same logic. Features write managed ones with `upsert_sources`. `env.sh` (environment, sourced from profiles and rc files) must stay POSIX sh and safe to source repeatedly.
+- Shell startup files (`.profile`, `.bashrc`, `.zshrc`, ...) only source files under `home/.config/sh` and `home/.config/zsh`, so linked and managed installs share the same logic. Features write managed ones with `upsert_sources`. `env.sh` (environment, sourced from profiles and rc files) must stay POSIX sh and safe to source repeatedly.
 - Stay portable across Linux and macOS (bash 3.2: no `mapfile`, associative arrays or namerefs; no GNU-only flags).
 
 ## Verifying changes
