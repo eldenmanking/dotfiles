@@ -1,5 +1,8 @@
+# Follow sourced files, resolving `# shellcheck source=` paths relative to the script. Sources that can't be followed
+# (globbed lists, user config) say so with `# shellcheck source=/dev/null`.
+external-sources=true
+source-path=SCRIPTDIR
 # Functions return values through _-prefixed output variables (see f_write_args in install/lib/fn.sh), which
-# shellcheck reports as unused where they are set and unassigned where they are read.
+# shellcheck reports as unused where they are set and unassigned where they are read: it checks one file at a time,
+# and install.sh sources install/ through a glob it can't follow.
 disable=SC2034,SC2154
-# Startup files and scripts source paths built at runtime (e.g. from $HOME), which shellcheck cannot follow.
-disable=SC1090,SC1091

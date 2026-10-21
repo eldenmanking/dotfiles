@@ -2,10 +2,10 @@
 
 # TODO(andywang): add comment
 
-LIB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../install/lib"
-# shellcheck source=../../install/lib/output.sh
+LIB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../install/lib"
+# shellcheck source=../../../install/lib/output.sh
 source "$LIB_DIR/output.sh"
-# shellcheck source=../../install/lib/fn.sh
+# shellcheck source=../../../install/lib/fn.sh
 source "$LIB_DIR/fn.sh"
 
 VIRSH="flatpak run --command=virsh org.gnome.Boxes"

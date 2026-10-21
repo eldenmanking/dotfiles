@@ -82,10 +82,10 @@ sync_tools_repo() {
     fi
     info "Updating tools repo at $tools_dir"
     if [[ -n "$tools_ref" ]]; then
-      # shellcheck disable=SC2015 # warn if either the fetch or the checkout fails
-      git -C "$tools_dir" fetch --quiet origin "$tools_ref" \
-        && git -C "$tools_dir" checkout --quiet "$tools_ref" \
-        || warn "Failed to check out '$tools_ref' in $tools_dir"
+      if ! { git -C "$tools_dir" fetch --quiet origin "$tools_ref" \
+        && git -C "$tools_dir" checkout --quiet "$tools_ref"; }; then
+        warn "Failed to check out '$tools_ref' in $tools_dir"
+      fi
     fi
     git -C "$tools_dir" pull --quiet --ff-only 2>/dev/null \
       || warn "Could not fast-forward $tools_dir; using it as-is"
@@ -169,8 +169,7 @@ configure_claude_settings() {
 
   mkdir -p "$HOME/.claude"
 
-  # shellcheck disable=SC2015 # info never fails
-  python3 - "$dst" "${srcs[@]}" <<'EOF' && info "Settings merged successfully" || warn "Failed to merge settings"
+  if python3 - "$dst" "${srcs[@]}" <<'EOF'
 import json, os, shutil, sys
 
 dst_path, src_paths = sys.argv[1], sys.argv[2:]
@@ -225,6 +224,11 @@ if deep_merge(source, settings, overwrite=True):
 else:
     print('[info] Settings already up to date', file=sys.stderr)
 EOF
+  then
+    info "Settings merged successfully"
+  else
+    warn "Failed to merge settings"
+  fi
 }
 
 # --- Merge CLAUDE.md block ---

@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-# shellcheck source=test/lib.sh
+# shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 # Outputs: _sh, _bash, _sourced, _zsh and _python, newline-separated tracked files of each language. Files under

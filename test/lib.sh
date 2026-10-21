@@ -4,13 +4,13 @@ TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$TEST_DIR")"
 TOOLS_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles-test"
 
-# shellcheck source=install/lib/output.sh
+# shellcheck source=../install/lib/output.sh
 source "$REPO_ROOT/install/lib/output.sh"
-# shellcheck source=install/lib/fn.sh
+# shellcheck source=../install/lib/fn.sh
 source "$REPO_ROOT/install/lib/fn.sh"
-# shellcheck source=install/lib/platform.sh
+# shellcheck source=../install/lib/platform.sh
 source "$REPO_ROOT/install/lib/platform.sh"
-# shellcheck source=test/versions.env
+# shellcheck source=versions.env
 source "$TEST_DIR/versions.env"
 
 # Print the SHA-256 of $1 (sha256sum on Linux, shasum on macOS).

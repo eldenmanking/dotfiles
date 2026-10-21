@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-# shellcheck source=test/lib.sh
+# shellcheck source=lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 INSTALL_BASH="${INSTALL_BASH:-bash}"
@@ -104,17 +104,16 @@ test_usage() {
 
 # --dry-run must succeed and leave the home untouched, for install, reinstall and uninstall.
 test_dry_run() {
-  local variant="$1" flags="" feature mode before
+  local variant="$1" flags=() feature mode before
   info "dry run: $variant"
   variant_info "$variant"
   for feature in $_features; do
-    list_contains "$DRY_RUN_SKIP" "$feature" || flags+=" --$feature"
+    list_contains "$DRY_RUN_SKIP" "$feature" || flags+=("--$feature")
   done
   new_home
   before="$(snapshot "$_home")"
   for mode in "" --reinstall --uninstall; do
-    # shellcheck disable=SC2086 # $flags and $mode are lists of options
-    run_install "$_home" --variant "$variant" --dry-run $mode $flags || fail "$variant --dry-run${mode:+ $mode} failed"
+    run_install "$_home" --variant "$variant" --dry-run ${mode:+"$mode"} "${flags[@]}" || fail "$variant --dry-run${mode:+ $mode} failed"
   done
   [[ "$(snapshot "$_home")" == "$before" ]] || fail "$variant --dry-run changed the home"
 }
@@ -143,21 +142,22 @@ check_managed_blocks() {
 
 # Check login and interactive bash and zsh load the startup files in home $1 without errors.
 check_shells_load() {
-  local variant="$1" home="$2" shell err
-  # bash prints job control warnings when interactive without a terminal.
-  for shell in "bash -lic" "bash -ic" "zsh -lic" "zsh -ic"; do
-    have_or_skip "${shell%% *}" "sourcing the $variant startup files with $shell" || continue
-    # shellcheck disable=SC2086 # $shell is a command and its options
-    err="$(env -i HOME="$home" PATH=/usr/bin:/bin TERM=dumb $shell true 2>&1 </dev/null \
-      | grep -vE 'cannot set terminal process group|no job control in this shell' || true)"
-    [[ -z "$err" ]] || fail "$variant: $shell printed: $err"
+  local variant="$1" home="$2" shell opts err
+  for shell in bash zsh; do
+    have_or_skip "$shell" "sourcing the $variant startup files with $shell" || continue
+    for opts in -lic -ic; do
+      # bash prints job control warnings when interactive without a terminal.
+      err="$(env -i HOME="$home" PATH=/usr/bin:/bin TERM=dumb "$shell" "$opts" true 2>&1 </dev/null \
+        | grep -vE 'cannot set terminal process group|no job control in this shell' || true)"
+      [[ -z "$err" ]] || fail "$variant: $shell $opts printed: $err"
+    done
   done
 }
 
 # A real install of the rootless features, then the same install again, which must change nothing. Variants that
 # link anything under root/ need sudo, so only their --dry-run is tested.
 test_install() {
-  local variant="$1" flags="--link --gitconfig" managed=false repo_before first
+  local variant="$1" flags=(--link --gitconfig) managed=false repo_before first
   variant_info "$variant"
   case " $_link_paths" in *" root/"*) return ;; esac
   # Variants with the shell feature write managed blocks into the startup files instead of linking them.
@@ -165,14 +165,13 @@ test_install() {
   info "install: $variant"
   new_home
   if $managed; then
-    flags+=" --shell"
+    flags+=(--shell)
     # The shell feature must keep what is already there. (Linked variants would back it up into the checkout.)
     printf '# user line\n' > "$_home/.bashrc"
   fi
   repo_before="$(repo_status)"
 
-  # shellcheck disable=SC2086 # $flags is a list of options
-  run_install "$_home" --variant "$variant" $flags || { fail "$variant install failed"; return; }
+  run_install "$_home" --variant "$variant" "${flags[@]}" || { fail "$variant install failed"; return; }
   check_links "$variant" "$_home"
   if $managed; then
     check_managed_blocks "$variant" "$_home"
@@ -182,8 +181,7 @@ test_install() {
     || fail "$variant: core.excludesFile not set in .gitconfig"
 
   first="$(snapshot "$_home")"
-  # shellcheck disable=SC2086
-  run_install "$_home" --variant "$variant" $flags || fail "$variant second install failed"
+  run_install "$_home" --variant "$variant" "${flags[@]}" || fail "$variant second install failed"
   [[ "$(snapshot "$_home")" == "$first" ]] || fail "$variant: a second install changed the home"
   [[ "$(repo_status)" == "$repo_before" ]] || fail "$variant: install wrote into the checkout"
 }
