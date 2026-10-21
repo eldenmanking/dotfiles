@@ -1,5 +1,5 @@
 # dotfiles
-Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and installs tools. `README.md` has the annotated file tree, the variants and the install flow; read it before changing structure, and keep its tree in sync when adding, moving or removing files.
+Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and installs tools. `README.md` has the annotated file tree, the variants and the install flow; read it before changing structure, and keep its tree in sync when adding, moving or removing files. The tree puts U+00A0 (non-breaking space) after `│`; copy those characters exactly when editing it, or Edit and sed won't match.
 
 `.claude/` holds Claude Code config for working on this repo only (this file, plus any repo-specific skills or settings). Machine-wide config (the global CLAUDE.md, skills, hook scripts, settings) lives in separate tools repos (by default eldenmanking/tools; see `DOTFILES_TOOLS` in `README.md`), which the `claude` feature installs into `~/.claude`.
 
@@ -9,6 +9,7 @@ Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and
 - A feature that can be undone also defines `uninstall_feature_<name> <variant> <enabled>`, which `--uninstall` runs (in reverse feature order) and `--reinstall` runs before `feature_<name>`. It must be idempotent, always honor `--dry-run`, and confirm before destroying user data. Defining it is all it takes; `--help` lists it automatically.
 - `install/variants/<name>.sh`: `variant_<name>` sets `_description`, `_features`, `_all_exclude` and `_link_paths`. Features run in `_features` order.
 - Files meant to be linked live under `home/` (maps to `$HOME`) or `root/` (maps to `/`); everything else at the top level is repo-only. Paths to symlink go in `LINK_COMMON_PATHS`, `LINK_SHELL_PATHS`, `LINK_STEAMOS_PATHS` or `LINK_DESKTOP_PATHS` (`install/features/link.sh`), prefixed with `home/` or `root/`.
+- Files under `root/` for SteamOS are copied with `copy_system_files` (`install/lib/fs.sh`), never symlinked: the home directory is encrypted, so `/etc` can't point into it at boot.
 
 ## Shell conventions
 Write functions in a functional style:
