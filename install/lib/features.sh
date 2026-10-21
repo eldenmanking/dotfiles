@@ -38,27 +38,19 @@ feature_description() {
 # Features that honor --dry-run; others are only announced.
 DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip flatpak udev tmpfiles webterm home_units distrobox "
 
-# Options (non-feature flags) that features can read. Each run passes the
-# enabled ones to every feature as its third argument, e.g. " reset ".
-FEATURE_OPTIONS=" reset "
-
-option_description() {
-  case "$1" in
-    reset) echo "reset the environment of each enabled feature that supports it" ;;
-    *)     echo "" ;;
-  esac
-}
-
-# Print the options feature $1 supports, space-separated.
-feature_options() {
-  case "$1" in
-    distrobox) echo "reset" ;;
-    *)         echo "" ;;
-  esac
-}
-
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
+}
+
+# Features can define uninstall_feature_<name>, run by --uninstall and before
+# feature_<name> by --reinstall. It must be idempotent and honor --dry-run.
+uninstall_function() {
+  printf 'uninstall_feature_%s' "${1//-/_}"
+}
+
+# Return 0 if feature $1 defines an uninstall function.
+feature_uninstallable() {
+  declare -F "$(uninstall_function "$1")" >/dev/null
 }
 
 # Return 0 if a variant_<name> function is defined.
