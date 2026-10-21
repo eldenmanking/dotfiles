@@ -94,16 +94,9 @@ gb() (
   [ "$#" -gt 0 ] && shown=" $*"
   echo "Command to run: git fetch $remote $rebase && git rebase -S -i${shown} $remote/$rebase"
   # Wait for a single keypress (like bash 'read -n 1' / zsh 'read -k 1').
-  if [ -t 0 ]; then
-    tty_state="$(stty -g)"
-    trap 'stty "$tty_state"; exit 130' INT
-    stty -icanon min 1 time 0
-    dd bs=1 count=1 >/dev/null 2>&1
-    stty "$tty_state"
-    trap - INT
-  else
-    dd bs=1 count=1 >/dev/null 2>&1
-  fi
+  stty -icanon min 1 time 0 2>/dev/null
+  dd bs=1 count=1 >/dev/null 2>&1
+  stty icanon 2>/dev/null
   echo "Running command..."
   git fetch "$remote" "$rebase" && git rebase -S -i "$@" "$remote/$rebase"
 )
