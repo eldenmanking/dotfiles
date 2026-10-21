@@ -114,25 +114,25 @@ This repository contains configuration files for my linux workspace. The followi
 │           └── kbd                  ---
 │               └── keymaps          ---
 │                   └── us-caps.map  --- keymap for linux console remapping caps to escape
-└── steamos                          --- webterm and home-units (formerly the steamos-config repo)
-    ├── .gitignore                   ---
-    ├── LICENSE                      --- MIT license for this directory
-    ├── README.md                    --- webterm and home-units documentation
-    ├── bin                          ---
-    │   ├── home-units-start         --- starts units in an encrypted home once dirlock unlocks it
-    │   ├── webterm-index            --- builds ttyd's page with the tab-key script appended
-    │   ├── webterm-shell            --- login shell ttyd runs for each connection
-    │   └── webterm-ttyd             --- runs ttyd with the built page, if any
-    ├── systemd                      ---
-    │   ├── home-units.keep.conf     --- SteamOS keep list so home-units survives updates
-    │   ├── home-units.service       --- system-wide user unit installed into /etc/systemd/user
-    │   ├── webterm-ttyd.service.temp--- ttyd on a private UNIX socket
-    │   ├── webterm.service.template --- systemd-socket-proxyd, exits when idle
-    │   └── webterm.socket           --- listens on 127.0.0.1:3000
-    ├── test                         ---
-    │   └── smoke.py                 --- smoke test for the ttyd and socket proxy chain
-    └── web                          ---
-        └── tab-keys.html            --- passes browser tab shortcuts through xterm.js
+├── steamos                          --- webterm and home-units (formerly the steamos-config repo)
+│   ├── .gitignore                   ---
+│   ├── LICENSE                      --- MIT license for this directory
+│   ├── README.md                    --- webterm and home-units documentation
+│   ├── bin                          ---
+│   │   ├── home-units-start         --- starts units in an encrypted home once dirlock unlocks it
+│   │   ├── webterm-index            --- builds ttyd's page with the tab-key script appended
+│   │   ├── webterm-shell            --- login shell ttyd runs for each connection
+│   │   └── webterm-ttyd             --- runs ttyd with the built page, if any
+│   ├── systemd                      ---
+│   │   ├── home-units.keep.conf     --- SteamOS keep list so home-units survives updates
+│   │   ├── home-units.service       --- system-wide user unit installed into /etc/systemd/user
+│   │   ├── webterm-ttyd.service.temp--- ttyd on a private UNIX socket
+│   │   ├── webterm.service.template --- systemd-socket-proxyd, exits when idle
+│   │   └── webterm.socket           --- listens on 127.0.0.1:3000
+│   └── web                          ---
+│       └── tab-keys.html            --- passes browser tab shortcuts through xterm.js
+└── tests                            ---
+    └── webterm_smoke.py             --- smoke test for the ttyd and socket proxy chain
 ```
 
 ## Installation

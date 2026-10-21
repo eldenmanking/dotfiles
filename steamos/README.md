@@ -290,7 +290,7 @@ the tmux server. That's expected.
 ## Testing
 
 ```sh
-python3 steamos/test/smoke.py
+python3 tests/webterm_smoke.py
 ```
 
 It needs `steamos/bin/ttyd`, which `--webterm` downloads.

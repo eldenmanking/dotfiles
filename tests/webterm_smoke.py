@@ -18,7 +18,7 @@ import sys
 import tempfile
 import time
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "steamos")
 PORT = 3999
 TOKEN = "smoketoken"
 FONT = "JetBrainsMono Nerd Font Mono, JetBrainsMono Nerd Font, monospace"
