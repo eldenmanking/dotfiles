@@ -40,7 +40,7 @@ bootstrap() {
 }
 
 # Source install/lib, features and variants. They only define functions and constants, so their globals stay global.
-load_install_scripts() {
+load_install_deps() {
   local f
   for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/variants/*.sh; do
     # shellcheck source=/dev/null
@@ -232,7 +232,7 @@ run_features() {
 
 main() {
   bootstrap "$@"
-  load_install_scripts
+  load_install_deps
 
   f_write_args parse_args _variant _flags _mode _all _dry_run _help -- "$@"
   readonly DRY_RUN="$_dry_run"
