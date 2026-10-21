@@ -45,6 +45,9 @@ main() {
     failed=1
   fi
 
+  info "features suit their variants and run after the features they require"
+  install/validate.sh || failed=1
+
   [[ "$failed" == 0 ]] || error "validation failed"
   info "validation passed"
 }

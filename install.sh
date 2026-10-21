@@ -57,6 +57,12 @@ available_variants() {
   printf '%s' "$names"
 }
 
+# Print feature $1's --help line, with the features it requires.
+usage_feature() {
+  f_write_args feature_requirements _machine _os _gui _requires -- "$1"
+  printf '  --%-14s %s%s\n' "$1" "$(feature_description "$1")" "${_requires:+ (requires: --${_requires// / --})}"
+}
+
 usage() {
   local variant="$1" v features optional uninstallable=""
   cat <<EOF
@@ -85,12 +91,12 @@ Options for variant '$variant':
 EOF
   for v in $features; do
     feature_uninstallable "$v" && uninstallable+="${uninstallable:+ }$v"
-    list_contains "$optional" "$v" || printf '  --%-14s %s\n' "$v" "$(feature_description "$v")"
+    list_contains "$optional" "$v" || usage_feature "$v"
   done
   if [[ -n "$optional" ]]; then
     printf '\nOptional (not included in --all):\n'
     for v in $optional; do
-      printf '  --%-14s %s\n' "$v" "$(feature_description "$v")"
+      usage_feature "$v"
     done
     echo
   fi

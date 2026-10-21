@@ -94,7 +94,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── .vimrc                       --- Vim main configuration file (deprecated)
 │   ├── .zprofile                    --- zshell login startup file
 │   └── .zshrc                       --- zshell interactive startup file
-├── install                          --- pieces of the install script (lib, features, variants)
+├── install                          --- pieces of the install script (lib, features, variants) and validate.sh
 ├── install.sh                       --- dotfiles install script
 ├── root                             ---
 │   ├── etc                          ---
@@ -157,6 +157,28 @@ The repo must live at `~/dotfiles`, since everything `install.sh` links points t
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/main/install.sh)" -- --variant coder --all
 ```
+
+#### Feature Requirements
+Each feature declares, in `feature_requirements` (`install/lib/features.sh`), the machines, OS and GUI it works on and the features it requires, and each variant declares the `_os` and `_gui` it targets. `install/validate.sh` (run in CI) checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes.
+
+| Feature | Machine | OS | GUI | Requires |
+|---|---|---|---|---|
+| `pacman`, `terminal`, `printer`, `logiops` | any | arch | any | |
+| `yay` | any | arch | gnome | |
+| `font`, `manual`, `distrobox` | any | linux | any | |
+| `link`, `info`, `shell`, `starship`, `zsh`, `gng`, `tre`, `claude`, `gitconfig` | any | any | any | |
+| `services` | laptop | linux | any | `link` |
+| `dconf` | any | linux | gnome | |
+| `xdg` | any | linux | gnome | `pacman` |
+| `tmux` | any | any | any | `link` |
+| `binaries` | any | linux, macos | any | |
+| `flatpak` | any | linux | desktop | |
+| `udev`, `tmpfiles` | framework16 | linux | any | |
+| `steamos_xclip` | any | steamos | desktop | |
+| `webterm` | any | linux | any | `link` |
+| `home_units` | any | steamos | any | |
+
+`linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The variants target: `arch` (arch, gnome), `steamos` (steamos, kde), `coder` (linux, no GUI) and `portable` (linux and macos, no GUI).
 
 The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [steamos/README.md](steamos/README.md) and [docs/steamos-setup.md](docs/steamos-setup.md).
 

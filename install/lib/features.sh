@@ -36,6 +36,52 @@ feature_description() {
   esac
 }
 
+# Where feature $1 works and which features it needs. Outputs (space-separated lists):
+#  _machine: hardware it is for: any, laptop, framework16
+#  _os: any, linux, macos, arch, steamos (linux covers arch and steamos)
+#  _gui: any (also headless), desktop (any graphical session), gnome, kde
+#  _requires: features that must run before it in the same variant
+# Each variant sets the _os and _gui it targets (lists, each entry is checked); install/validate.sh checks every
+# variant's features against them and that each feature's _requires come earlier in its _features.
+feature_requirements() {
+  local machine="any" os="any" gui="any" requires=""
+  case "$1" in
+    pacman|terminal|printer|logiops) os="arch" ;;
+    yay)           os="arch" gui="gnome" ;;
+    font)          os="linux" ;;
+    link|info|shell|starship|zsh|gng|tre|claude|gitconfig) ;;
+    services)      machine="laptop" os="linux" requires="link" ;;
+    manual)        os="linux" ;;
+    dconf)         os="linux" gui="gnome" ;;
+    xdg)           os="linux" gui="gnome" requires="pacman" ;;
+    tmux)          requires="link" ;;
+    binaries|neovim) os="linux macos" ;;
+    flatpak)       os="linux" gui="desktop" ;;
+    udev|tmpfiles) machine="framework16" os="linux" ;;
+    steamos_xclip) os="steamos" gui="desktop" ;;
+    webterm)       os="linux" requires="link" ;;
+    home_units)    os="steamos" ;;
+    distrobox)     os="linux" ;;
+    *)             error "feature_requirements: unknown feature '$1'" ;;
+  esac
+  _machine="$machine"
+  _os="$os"
+  _gui="$gui"
+  _requires="$requires"
+}
+
+# Return 0 if a feature for OSes $1 works on a variant targeting OS $2.
+os_supported() {
+  list_contains "$1" any || list_contains "$1" "$2" \
+    || { list_contains "$1" linux && list_contains "arch steamos" "$2"; }
+}
+
+# Return 0 if a feature for GUIs $1 works on a variant targeting GUI $2 (none for headless).
+gui_supported() {
+  list_contains "$1" any || list_contains "$1" "$2" \
+    || { list_contains "$1" desktop && [[ "$2" != none ]]; }
+}
+
 # Features that honor --dry-run; others are only announced.
 DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip flatpak udev tmpfiles webterm home_units distrobox "
 
