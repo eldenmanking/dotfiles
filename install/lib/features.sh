@@ -36,34 +36,38 @@ feature_description() {
   esac
 }
 
-# Where feature $1 works and which features it needs. Outputs (space-separated lists):
-#  _machine: hardware it is for: any, laptop, framework16
-#  _os: any, linux, macos, arch, steamos (linux covers arch and steamos)
-#  _gui: any (also headless), desktop (any graphical session), gnome, kde
-#  _requires: features that must run before it in the same variant
-# Each variant sets the _os and _gui it targets (lists, each entry is checked); install/validate.sh checks every
-# variant's features against them and that each feature's _requires come earlier in its _features.
+# Values the requirement tags may use.
+FEATURE_MACHINES="any laptop framework16"
+FEATURE_OSES="any linux macos arch steamos"
+FEATURE_GUIS="any desktop gnome kde"
+
+# Where feature $1 works and which features it needs, read from the tags in the comment block directly above its
+# feature_<name> function in install/features. Outputs (space-separated lists, empty when the tag is missing):
+#  _machine: @machine, hardware it is for: any, laptop, framework16
+#  _os: @os, any, linux, macos, arch, steamos (linux covers arch and steamos)
+#  _gui: @gui, any (also headless), desktop (any graphical session), gnome, kde
+#  _requires: @requires (optional), features that must run before it in the same variant
+# Each variant sets the _os and _gui it targets (lists, each entry is checked); install/validate.sh requires the tags
+# on every feature, checks every variant's features against them and that each feature's _requires come earlier in
+# its _features.
 feature_requirements() {
-  local machine="any" os="any" gui="any" requires=""
-  case "$1" in
-    pacman|terminal|printer|logiops) os="arch" ;;
-    yay)           os="arch" gui="gnome" ;;
-    font)          os="linux" ;;
-    link|info|shell|starship|zsh|gng|tre|claude|gitconfig) ;;
-    services)      machine="laptop" os="linux" requires="link" ;;
-    manual)        os="linux" ;;
-    dconf)         os="linux" gui="gnome" ;;
-    xdg)           os="linux" gui="gnome" requires="pacman" ;;
-    tmux)          requires="link" ;;
-    binaries|neovim) os="linux macos" ;;
-    flatpak)       os="linux" gui="desktop" ;;
-    udev|tmpfiles) machine="framework16" os="linux" ;;
-    steamos_xclip) os="steamos" gui="desktop" ;;
-    webterm)       os="linux" requires="link" ;;
-    home_units)    os="steamos" ;;
-    distrobox)     os="linux" ;;
-    *)             error "feature_requirements: unknown feature '$1'" ;;
-  esac
+  local fn line machine="" os="" gui="" requires=""
+  fn="$(feature_function "$1")"
+  while IFS= read -r line; do
+    line="${line#\#}"
+    line="${line# }"
+    case "$line" in
+      "@machine "*)  machine="${line#@machine }" ;;
+      "@os "*)       os="${line#@os }" ;;
+      "@gui "*)      gui="${line#@gui }" ;;
+      "@requires "*) requires="${line#@requires }" ;;
+    esac
+  done < <(awk -v fn="$fn" '
+    FNR == 1 { block = "" }
+    /^#/ { block = block $0 "\n"; next }
+    index($0, fn "()") == 1 { printf "%s", block; exit }
+    { block = "" }
+  ' "$INSTALL_DIR"/features/*.sh)
   _machine="$machine"
   _os="$os"
   _gui="$gui"

@@ -1,6 +1,9 @@
 # Features: shell startup file blocks, starship prompt and zsh plugins.
 
 # --- Shell config ---
+# @machine any
+# @os any
+# @gui any
 feature_shell() {
   local sh_files=(home/.config/sh/env.sh home/.config/sh/aliases.sh)
   local zsh_files=(home/.config/zsh/keybindings.zsh home/.config/zsh/settings.zsh home/.config/zsh/external.zsh)
@@ -33,6 +36,9 @@ install_starship_binary() {
 }
 
 # --- Starship prompt ---
+# @machine any
+# @os any
+# @gui any
 feature_starship() {
   install_starship_binary "$LOCAL_BIN"
 
@@ -44,6 +50,9 @@ feature_starship() {
 # Clone popular zsh plugins into ~/.zsh/plugins and source plugins.zsh (which
 # loads them) from .zshrc.
 # Portable: no package manager or root required. Safe to re-run.
+# @machine any
+# @os any
+# @gui any
 feature_zsh() {
   local plugins_dir="$HOME/.zsh/plugins"
 

@@ -41,6 +41,9 @@ check_home_units_keep_list() {
   done
 }
 
+# @machine any
+# @os steamos
+# @gui any
 feature_home_units() {
   if home_units_current; then
     info "home-units.service already up to date"

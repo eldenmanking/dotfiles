@@ -159,7 +159,17 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/ma
 ```
 
 #### Feature Requirements
-Each feature declares, in `feature_requirements` (`install/lib/features.sh`), the machines, OS and GUI it works on and the features it requires, and each variant declares the `_os` and `_gui` it targets. `install/validate.sh` (run in CI) checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes.
+Each `feature_<name>` function has tags in the comment directly above it, naming the machines, OS and GUI it works on and the features it requires (`@requires` is optional):
+
+```bash
+# @machine any
+# @os linux
+# @gui any
+# @requires link
+feature_webterm() {
+```
+
+Each variant declares the `_os` and `_gui` it targets. `install/validate.sh` (run in CI) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry or the `@machine`, `@os` or `@gui` tag, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes.
 
 | Feature | Machine | OS | GUI | Requires |
 |---|---|---|---|---|

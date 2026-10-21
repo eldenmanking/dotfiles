@@ -18,6 +18,9 @@ font_installed_elsewhere() {
   [[ ! -d "$FONT_DEST" ]] && command -v fc-list >/dev/null && fc-list : family | grep -qF "$FONT_FAMILY"
 }
 
+# @machine any
+# @os linux
+# @gui any
 feature_font() {
   if font_up_to_date; then
     info "$FONT_FAMILY $FONT_NF_VERSION already installed"
@@ -46,6 +49,9 @@ feature_font() {
   info "Installed $FONT_FAMILY to $FONT_DEST (restart the browser if it was open)"
 }
 
+# @machine any
+# @os arch
+# @gui any
 feature_logiops() {
   if ! systemctl list-unit-files | grep -q "logid.service"; then
     info "Installing PixlOne/logiops..."
@@ -71,15 +77,25 @@ feature_logiops() {
   fi
 }
 
+# @machine laptop
+# @os linux
+# @gui any
+# @requires link
 feature_services() {
   run systemctl enable --now auto-suspend.timer
   run systemctl enable --now bluetooth.service
 }
 
+# @machine any
+# @os linux
+# @gui any
 feature_manual() {
   confirmsed /etc/bluetooth/main.conf "#AutoEnable=false" "AutoEnable=true" sudo
 }
 
+# @machine any
+# @os linux
+# @gui gnome
 feature_dconf() {
   local dump_file="$DOTFILES_ROOT/dump/dconf/arch.dconf"
 
@@ -101,6 +117,10 @@ feature_dconf() {
   info "dconf configuration loaded."
 }
 
+# @machine any
+# @os linux
+# @gui gnome
+# @requires pacman
 feature_xdg() {
   info "Running xdg-user-dirs-update..."
   run xdg-user-dirs-update
@@ -118,6 +138,9 @@ feature_xdg() {
   info "xdg update complete."
 }
 
+# @machine any
+# @os any
+# @gui any
 feature_info() {
   cat <<EOF
 

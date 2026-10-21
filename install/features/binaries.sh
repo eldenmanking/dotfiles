@@ -100,17 +100,26 @@ Install them first (e.g. apt install build-essential pkg-config libevent-dev ncu
   info "tmux installed to $LOCAL_BIN/tmux"
 }
 
+# @machine any
+# @os linux macos
+# @gui any
 feature_binaries() {
   install_neovim
   install_tmux_binary
 }
 
 # Just neovim, for variants whose tmux comes from elsewhere (building it needs gcc).
+# @machine any
+# @os linux macos
+# @gui any
 feature_neovim() {
   install_neovim
 }
 
 # --- Install gng ---
+# @machine any
+# @os any
+# @gui any
 feature_gng() {
   if command -v gw &>/dev/null; then
     info "gng already available: $(command -v gw)"
@@ -133,6 +142,9 @@ feature_gng() {
 }
 
 # --- Install tre ---
+# @machine any
+# @os any
+# @gui any
 feature_tre() {
   if command -v tre &>/dev/null; then
     info "tre already available: $(command -v tre)"

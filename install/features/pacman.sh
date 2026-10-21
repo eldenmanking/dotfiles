@@ -106,6 +106,9 @@ ensure_yay() {
   rm -rf /tmp/yay
 }
 
+# @machine any
+# @os arch
+# @gui any
 feature_pacman() {
   info "Installing pacman packages for terminal..."
   run_tty sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"
@@ -115,6 +118,9 @@ feature_pacman() {
   run_tty sudo pacman --needed -Sq "${LATEX_PACMAN[@]}"
 }
 
+# @machine any
+# @os arch
+# @gui gnome
 feature_yay() {
   ensure_yay
   info "Installing yay packages for gnome..."
@@ -122,6 +128,9 @@ feature_yay() {
 }
 
 # Install only the terminal packages, unless --pacman already covers them.
+# @machine any
+# @os arch
+# @gui any
 feature_terminal() {
   local enabled="$2"
   if ! list_contains "$enabled" pacman; then
@@ -132,6 +141,9 @@ feature_terminal() {
   install_starship_binary
 }
 
+# @machine any
+# @os arch
+# @gui any
 feature_printer() {
   info "Installing pacman packages for printer..."
   run_tty sudo pacman --needed -Sq "${PRINTER_PACMAN[@]}"

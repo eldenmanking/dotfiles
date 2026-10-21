@@ -52,6 +52,9 @@ link_dotfile() {
   esac
 }
 
+# @machine any
+# @os any
+# @gui any
 feature_link() {
   local variant="$1" link_paths entry file
   f_write_args variant_config _link_paths -- "$variant"

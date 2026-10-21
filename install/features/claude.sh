@@ -252,6 +252,9 @@ configure_claude_md() {
 }
 
 # --- Configure Claude Code (orchestrator) ---
+# @machine any
+# @os any
+# @gui any
 feature_claude() {
   f_write_args load_tools_config _tools
   if [[ -z "$_tools" ]]; then

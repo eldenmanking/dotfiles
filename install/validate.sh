@@ -3,9 +3,11 @@
 ################################################################################
 # Program: install/validate.sh
 # Description: Checks the feature and variant registry without installing
-#              anything: every variant's features exist, are documented, suit
-#              the variant's OS and GUI, and come after the features they
-#              require. Exits non-zero on any problem. Run in CI.
+#              anything: every feature_<name> function in install/features is
+#              documented (feature_description and @machine, @os and @gui
+#              tags), and every variant's features exist, suit the variant's
+#              OS and GUI, and come after the features they require. Exits
+#              non-zero on any problem. Run in CI.
 ################################################################################
 
 set -euo pipefail
@@ -23,17 +25,56 @@ for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/var
   source "$f"
 done
 
+# Outputs: _features, every feature with a feature_<name> function in install/features.
+scan_features() {
+  _features="$(sed -n 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' "$INSTALL_DIR"/features/*.sh | tr '\n' ' ')"
+}
+
+# Outputs: _problems, one line per problem with value list $3 of tag @$2 on feature $1, given allowed values $4.
+check_tag() {
+  local feature="$1" tag="$2" values="$3" allowed="$4" nl=$'\n' problems="" v
+  [[ -n "$values" ]] || problems+="--$feature: missing @$tag tag above $(feature_function "$feature")$nl"
+  for v in $values; do
+    list_contains "$allowed" "$v" || problems+="--$feature: @$tag '$v' is not one of: $allowed$nl"
+  done
+  _problems="$problems"
+}
+
+# Outputs: _problems, one line per problem with the documentation of feature $1. $2 is every known feature.
+check_feature_docs() {
+  local feature="$1" known="$2" problems="" dep
+  [[ -n "$(feature_description "$feature")" ]] \
+    || problems+="--$feature: no feature_description entry"$'\n'
+
+  f_write_args feature_requirements _machine _os _gui _requires -- "$feature"
+  local machine="$_machine" os="$_os" gui="$_gui" requires="$_requires"
+  f_write_args check_tag _problems -- "$feature" machine "$machine" "$FEATURE_MACHINES"
+  problems+="$_problems"
+  f_write_args check_tag _problems -- "$feature" os "$os" "$FEATURE_OSES"
+  problems+="$_problems"
+  f_write_args check_tag _problems -- "$feature" gui "$gui" "$FEATURE_GUIS"
+  problems+="$_problems"
+  for dep in $requires; do
+    list_contains "$known" "$dep" || problems+="--$feature: @requires '$dep' is not a feature"$'\n'
+  done
+
+  _problems="$problems"
+}
+
 # Outputs: _problems, one line per problem with feature $2 in variant $1, which targets $3 and $4. $5 is the
 # variant's features that run before this one.
 check_feature() {
   local variant="$1" feature="$2" variant_os="$3" variant_gui="$4" earlier="$5" nl=$'\n' problems="" v dep
 
-  declare -F "$(feature_function "$feature")" >/dev/null \
-    || problems+="$variant: --$feature has no $(feature_function "$feature") function$nl"
-  [[ -n "$(feature_description "$feature")" ]] \
-    || problems+="$variant: --$feature has no feature_description entry$nl"
+  if ! declare -F "$(feature_function "$feature")" >/dev/null; then
+    _problems="$variant: --$feature has no $(feature_function "$feature") function$nl"
+    return
+  fi
 
+  # Missing tags are reported once by check_feature_docs.
   f_write_args feature_requirements _machine _os _gui _requires -- "$feature"
+  [[ -n "$_os" ]] || variant_os=""
+  [[ -n "$_gui" ]] || variant_gui=""
   for v in $variant_os; do
     os_supported "$_os" "$v" || problems+="$variant: --$feature supports os '$_os', not '$v'$nl"
   done
@@ -66,13 +107,18 @@ check_variant() {
 }
 
 main() {
-  local f variant problems="" known=" " k
+  local f variant problems="" known feature k
+  f_write_args scan_features _features
+  known="$_features"
+
+  for feature in $known; do
+    f_write_args check_feature_docs _problems -- "$feature" "$known"
+    problems+="$_problems"
+  done
   for f in "$INSTALL_DIR"/variants/*.sh; do
     variant="$(basename "$f" .sh)"
     f_write_args check_variant _problems -- "$variant"
     problems+="$_problems"
-    f_write_args variant_config _features -- "$variant"
-    known+="$_features "
   done
   for k in $DRY_RUN_FEATURES; do
     list_contains "$known" "$k" || problems+="DRY_RUN_FEATURES names unknown feature '$k'"$'\n'

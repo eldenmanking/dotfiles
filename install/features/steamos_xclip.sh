@@ -1,6 +1,9 @@
 # TODO(andywang): add comment
 
 # --- Install xclip ---
+# @machine any
+# @os steamos
+# @gui desktop
 feature_steamos_xclip() {
   local container="tmp-arch"
 

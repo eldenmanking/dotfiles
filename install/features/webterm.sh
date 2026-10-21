@@ -95,6 +95,10 @@ check_socket_activation() {
   fi
 }
 
+# @machine any
+# @os linux
+# @gui any
+# @requires link
 feature_webterm() {
   require_commands curl sha256sum systemctl
   systemctl --user show-environment >/dev/null 2>&1 \
