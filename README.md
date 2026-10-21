@@ -98,9 +98,11 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── system               ---
 │   │   │       ├── auto-suspend.serv--- laptop auto-suspend service to prevent death
 │   │   │       └── auto-suspend.time--- auto-suspend timer to check if battery is low
+│   │   ├── tmpfiles.d               ---
+│   │   │   └── ec-no-wakeup.conf    --- stop the embedded controller (ACPI GPE 0x0B) from waking the laptop from s2idle (copied, not linked)
 │   │   ├── udev                     ---
 │   │   │   └── rules.d              ---
-│   │   │       └── 90-touchpad-nowak--- stop I2C devices (Framework 16 touchpad) from waking the laptop (copied, not linked)
+│   │   │       └── 90-touchpad-nowak--- stop I2C devices (Framework 16 touchpad) from waking the laptop (copied, not linked; candidate for removal, see docs/framework16-sleep.md)
 │   │   └── vconsole.conf            --- Linux virtual console configuration file
 │   └── usr                          ---
 │       ├── local                    ---

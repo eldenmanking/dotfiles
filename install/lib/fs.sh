@@ -30,6 +30,28 @@ make_symlink() {
   run $sudo_cmd ln -snfv "$src" "$target"
 }
 
+# Copy each file in $src_dir matching $glob into $dst_dir with sudo, replacing
+# any old symlink. For system files read at boot, before an encrypted home is
+# mounted, where a symlink into ~ would dangle. Outputs: _changed, the
+# space-separated targets that were copied (empty if all were up to date).
+# Usage: f_write_args copy_system_files _changed -- <src_dir> <dst_dir> <glob>
+copy_system_files() {
+  local src_dir="$1" dst_dir="$2" glob="$3" file target changed=""
+  for file in "$src_dir"/$glob; do
+    [[ -e "$file" ]] || continue
+    target="$dst_dir/$(basename "$file")"
+    if [[ ! -L "$target" ]] && cmp -s "$file" "$target"; then
+      info "$target already up to date"
+      continue
+    fi
+    info "Copying $file to $target..."
+    run sudo rm -f "$target"
+    run sudo install -Dvm 644 "$file" "$target"
+    changed+="${changed:+ }$target"
+  done
+  _changed="$changed"
+}
+
 # --- Managed block helper ---
 # Each managed file holds a single dotfiles section made of one subblock per
 # feature. A feature only ever rewrites its own subblock:

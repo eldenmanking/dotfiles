@@ -26,6 +26,7 @@ feature_description() {
     gitconfig)   echo "set up default global git config" ;;
     flatpak)     echo "install flatpak apps from flathub (per-user)" ;;
     udev)        echo "copy root/etc/udev rules into /etc (not symlinked) and reload udev" ;;
+    tmpfiles)    echo "copy root/etc/tmpfiles.d configs into /etc (not symlinked) and apply them" ;;
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of a temporary arch distrobox" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units (browser shell on localhost)" ;;
     home_units)  echo "install home-units.service into /etc (sudo, only if the home is encrypted with dirlock)" ;;
@@ -34,7 +35,7 @@ feature_description() {
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip flatpak udev webterm home_units "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip flatpak udev tmpfiles webterm home_units "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
