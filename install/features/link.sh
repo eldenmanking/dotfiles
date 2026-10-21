@@ -2,54 +2,54 @@
 
 # Paths linked by every variant. Directories link every file under them.
 LINK_COMMON_PATHS=(
-  .tmux.conf
-  .tmux/resurrect/saferestore.sh
-  .config/nvim
-  .config/starship.toml
-  .local/bin/vis
-  .local/bin/clip
+  home/.tmux.conf
+  home/.tmux/resurrect/saferestore.sh
+  home/.config/nvim
+  home/.config/starship.toml
+  home/.local/bin/vis
+  home/.local/bin/clip
 )
 
 # Shell startup files, for variants that link them instead of writing managed blocks with the shell feature.
 LINK_SHELL_PATHS=(
-  .bash_profile
-  .bashrc
-  .profile
-  .zprofile
-  .zshrc
+  home/.bash_profile
+  home/.bashrc
+  home/.profile
+  home/.zprofile
+  home/.zshrc
 )
 
 # Extra paths linked on steamos.
 LINK_STEAMOS_PATHS=(
-  .config/webterm
+  home/.config/webterm
 )
 
 # Extra paths linked on full desktop installs (e.g. arch).
 LINK_DESKTOP_PATHS=(
-  .vimrc
-  .ideavimrc
-  .ocamlformat
-  .pylintrc
-  .config/alacritty
-  .config/git
-  .config/sh
-  .config/yapf
-  .config/zsh
-  .local/bin/squidpdf
-  .local/bin/vm-usb
-  .local/share
+  home/.vimrc
+  home/.ideavimrc
+  home/.ocamlformat
+  home/.pylintrc
+  home/.config/alacritty
+  home/.config/git
+  home/.config/sh
+  home/.config/yapf
+  home/.config/zsh
+  home/.local/bin/squidpdf
+  home/.local/bin/vm-usb
+  home/.local/share
   root/etc
   root/usr
 )
 
-# Link one repo-relative file: root/* goes to /, everything else to $HOME.
+# Link one repo-relative file: root/* goes to / and home/* to $HOME.
 link_dotfile() {
   local rel="$1"
-  if [[ "$rel" == root/* ]]; then
-    make_symlink "$DOTFILES_ROOT/$rel" "/${rel#root/}" sudo
-  else
-    make_symlink "$DOTFILES_ROOT/$rel" "$HOME/$rel"
-  fi
+  case "$rel" in
+    root/*) make_symlink "$DOTFILES_ROOT/$rel" "/${rel#root/}" sudo ;;
+    home/*) make_symlink "$DOTFILES_ROOT/$rel" "$HOME/${rel#home/}" ;;
+    *) warn "Not under root/ or home/, skipping: $rel" ;;
+  esac
 }
 
 feature_link() {

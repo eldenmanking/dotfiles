@@ -2,14 +2,14 @@
 
 # --- Shell config ---
 feature_shell() {
-  local sh_files=(.config/sh/env.sh .config/sh/aliases.sh)
-  local zsh_files=(.config/zsh/keybindings.zsh .config/zsh/settings.zsh .config/zsh/external.zsh)
+  local sh_files=(home/.config/sh/env.sh home/.config/sh/aliases.sh)
+  local zsh_files=(home/.config/zsh/keybindings.zsh home/.config/zsh/settings.zsh home/.config/zsh/external.zsh)
 
   # Login shells load the environment from a profile; bash ignores ~/.profile when ~/.bash_profile exists.
-  upsert_sources "$HOME/.profile" shell .config/sh/env.sh
-  upsert_sources "$HOME/.zprofile" shell .config/sh/env.sh
+  upsert_sources "$HOME/.profile" shell home/.config/sh/env.sh
+  upsert_sources "$HOME/.zprofile" shell home/.config/sh/env.sh
   if [[ -f "$HOME/.bash_profile" ]]; then
-    upsert_sources "$HOME/.bash_profile" shell .config/sh/env.sh
+    upsert_sources "$HOME/.bash_profile" shell home/.config/sh/env.sh
   fi
 
   # rc files source env.sh too, for shells with no login shell above them. Write both rc files so switching shells
@@ -36,8 +36,8 @@ install_starship_binary() {
 feature_starship() {
   install_starship_binary "$LOCAL_BIN"
 
-  upsert_sources "$HOME/.bashrc" starship .config/sh/starship.sh
-  upsert_sources "$HOME/.zshrc" starship .config/sh/starship.sh
+  upsert_sources "$HOME/.bashrc" starship home/.config/sh/starship.sh
+  upsert_sources "$HOME/.zshrc" starship home/.config/sh/starship.sh
 }
 
 # --- Zsh plugins ---
@@ -47,7 +47,7 @@ feature_starship() {
 feature_zsh() {
   local plugins_dir="$HOME/.zsh/plugins"
 
-  # Keep in sync with the plugin list in .config/zsh/plugins.zsh.
+  # Keep in sync with the plugin list in home/.config/zsh/plugins.zsh.
   local repos=(
     zsh-users/zsh-autosuggestions
     zsh-users/zsh-syntax-highlighting
@@ -67,5 +67,5 @@ feature_zsh() {
     fi
   done
 
-  upsert_sources "$HOME/.zshrc" zsh .config/zsh/plugins.zsh
+  upsert_sources "$HOME/.zshrc" zsh home/.config/zsh/plugins.zsh
 }
