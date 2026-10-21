@@ -21,5 +21,6 @@ Write functions in a functional style:
 - Don't call `_`-prefixed helpers from another file; they are private to it. Add a public helper to `install/lib/` instead.
 
 ## Verifying changes
-- `bash -n` every changed script, and `shellcheck` when available (`shellcheck -s bash` for sourced files without a shebang, such as `install/lib`, `install/features` and `install/variants`).
+- Run `make lint` (syntax, the pinned shellcheck with `.shellcheckrc`, actionlint, and the README tree check) and `make test` (install.sh in scratch homes) before pushing; CI runs the same targets. See Testing in `README.md`.
+- Fix shellcheck findings rather than disabling them; when one is intentional (e.g. word splitting a list), disable it on that line with a `# shellcheck disable=SCxxxx # reason` comment.
 - `install.sh` requires the repo at `~/dotfiles`. To exercise a feature without touching the real home, point `HOME` at a scratch directory containing a `dotfiles` symlink to this checkout, then run `HOME=<dir> ./install.sh --variant <name> --<feature>`; use `--dry-run` for features that need root or a package manager.

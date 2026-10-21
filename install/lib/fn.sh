@@ -32,8 +32,10 @@ f_write_args() {
   done
   [[ $# -gt 0 ]] && shift
   [[ -n "$outs" ]] || error "f_write_args $fn: no outputs given"
+  # shellcheck disable=SC2086 # $outs is a list of variable names
   f_prepare_args $outs
   "$fn" "$@"
+  # shellcheck disable=SC2086
   f_end "$fn" $outs
 }
 

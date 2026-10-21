@@ -5,7 +5,14 @@ This repository contains configuration files for my linux workspace. The followi
 . (~/dotfiles)
 ├── .claude                          ---
 │   └── CLAUDE.md                    --- Claude Code instructions for working in this repo
+├── .github                          ---
+│   ├── dependabot.yml               --- keeps the workflows' pinned actions current
+│   └── workflows                    ---
+│       ├── ci.yml                   --- lint, and install tests on Arch Linux and Ubuntu
+│       └── macos.yml                --- install tests on macOS (bash 3.2), when the files they test change
 ├── .gitignore                       ---
+├── .shellcheckrc                    --- shellcheck settings for the repo
+├── Makefile                         --- make lint, make test and make check (see Testing)
 ├── README.md                        --- dotfiles overview
 ├── Sessionx.vim                     --- useful vim options for maintaining dotfiles
 ├── docs                             ---
@@ -114,25 +121,31 @@ This repository contains configuration files for my linux workspace. The followi
 │           └── kbd                  ---
 │               └── keymaps          ---
 │                   └── us-caps.map  --- keymap for linux console remapping caps to escape
-└── steamos                          --- webterm and home-units (formerly the steamos-config repo)
-    ├── .gitignore                   ---
-    ├── LICENSE                      --- MIT license for this directory
-    ├── README.md                    --- webterm and home-units documentation
-    ├── bin                          ---
-    │   ├── home-units-start         --- starts units in an encrypted home once dirlock unlocks it
-    │   ├── webterm-index            --- builds ttyd's page with the tab-key script appended
-    │   ├── webterm-shell            --- login shell ttyd runs for each connection
-    │   └── webterm-ttyd             --- runs ttyd with the built page, if any
-    ├── systemd                      ---
-    │   ├── home-units.keep.conf     --- SteamOS keep list so home-units survives updates
-    │   ├── home-units.service       --- system-wide user unit installed into /etc/systemd/user
-    │   ├── webterm-ttyd.service.temp--- ttyd on a private UNIX socket
-    │   ├── webterm.service.template --- systemd-socket-proxyd, exits when idle
-    │   └── webterm.socket           --- listens on 127.0.0.1:3000
-    ├── test                         ---
-    │   └── smoke.py                 --- smoke test for the ttyd and socket proxy chain
-    └── web                          ---
-        └── tab-keys.html            --- passes browser tab shortcuts through xterm.js
+├── steamos                          --- webterm and home-units (formerly the steamos-config repo)
+│   ├── .gitignore                   ---
+│   ├── LICENSE                      --- MIT license for this directory
+│   ├── README.md                    --- webterm and home-units documentation
+│   ├── bin                          ---
+│   │   ├── home-units-start         --- starts units in an encrypted home once dirlock unlocks it
+│   │   ├── webterm-index            --- builds ttyd's page with the tab-key script appended
+│   │   ├── webterm-shell            --- login shell ttyd runs for each connection
+│   │   └── webterm-ttyd             --- runs ttyd with the built page, if any
+│   ├── systemd                      ---
+│   │   ├── home-units.keep.conf     --- SteamOS keep list so home-units survives updates
+│   │   ├── home-units.service       --- system-wide user unit installed into /etc/systemd/user
+│   │   ├── webterm-ttyd.service.temp--- ttyd on a private UNIX socket
+│   │   ├── webterm.service.template --- systemd-socket-proxyd, exits when idle
+│   │   └── webterm.socket           --- listens on 127.0.0.1:3000
+│   ├── test                         ---
+│   │   └── smoke.py                 --- smoke test for the ttyd and socket proxy chain
+│   └── web                          ---
+│       └── tab-keys.html            --- passes browser tab shortcuts through xterm.js
+└── test                             --- CI and local checks, run with make (see Testing)
+    ├── install.sh                   --- install.sh in scratch homes: --dry-run for every variant, rootless installs, idempotency
+    ├── lib.sh                       --- shared helpers, including the pinned tool downloader
+    ├── lint.sh                      --- README tree, syntax, shellcheck, actionlint and TOML checks
+    ├── readme_tree.py               --- checks this tree against the files tracked by git
+    └── versions.env                 --- pinned versions and checksums of shellcheck and actionlint
 ```
 
 ## Installation
@@ -201,6 +214,13 @@ git@github.com:someone/tools.git  ~/git/someone-tools  # same repo name, so give
 git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the stable branch
 "
 ```
+
+## Testing
+`make lint` checks the README tree above against the files tracked by git, checks the syntax of every shell, zsh, Python and TOML file, and runs shellcheck and actionlint. The shellcheck and actionlint versions are pinned in `test/versions.env`; `make lint` downloads them (checked against their SHA-256) into `~/.cache/dotfiles-test` on first use. zsh and python3 checks are skipped with a warning when those are missing, except in CI.
+
+`make test` runs `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every variant, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` for managed variants) for every variant that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `make check` runs both.
+
+CI (`.github/workflows/`) runs `make lint` on Ubuntu, and `make test` on Arch Linux (in a container whose packages are pinned to an Arch Linux Archive snapshot), Ubuntu and macOS (only when the files it tests change). Actions are pinned to commit SHAs and kept current by Dependabot; container images, runner labels and `test/versions.env` are bumped by hand.
 
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.

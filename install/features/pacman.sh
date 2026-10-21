@@ -97,10 +97,10 @@ ensure_yay() {
     return
   fi
   (
-    cd /tmp
+    cd /tmp || exit
     rm -rf yay
     git clone https://aur.archlinux.org/yay.git
-    cd yay
+    cd yay || exit
     makepkg -si
   )
   rm -rf /tmp/yay

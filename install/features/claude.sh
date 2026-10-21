@@ -82,6 +82,7 @@ sync_tools_repo() {
     fi
     info "Updating tools repo at $tools_dir"
     if [[ -n "$tools_ref" ]]; then
+      # shellcheck disable=SC2015 # warn if either the fetch or the checkout fails
       git -C "$tools_dir" fetch --quiet origin "$tools_ref" \
         && git -C "$tools_dir" checkout --quiet "$tools_ref" \
         || warn "Failed to check out '$tools_ref' in $tools_dir"
@@ -168,6 +169,7 @@ configure_claude_settings() {
 
   mkdir -p "$HOME/.claude"
 
+  # shellcheck disable=SC2015 # info never fails
   python3 - "$dst" "${srcs[@]}" <<'EOF' && info "Settings merged successfully" || warn "Failed to merge settings"
 import json, os, shutil, sys
 

@@ -1,0 +1,5 @@
+# Functions return values through _-prefixed output variables (see f_write_args in install/lib/fn.sh), which
+# shellcheck reports as unused where they are set and unassigned where they are read.
+disable=SC2034,SC2154
+# Startup files and scripts source paths built at runtime (e.g. from $HOME), which shellcheck cannot follow.
+disable=SC1090,SC1091

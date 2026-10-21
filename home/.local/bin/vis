@@ -11,6 +11,7 @@
 ################################################################################
 
 _vis() {
+  # shellcheck disable=SC3043 # local is supported by every sh this runs under (dash, bash, zsh, busybox)
   local session="$PWD/Session.vim"
 
   if [ -s "$session" ]; then

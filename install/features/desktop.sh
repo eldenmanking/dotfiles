@@ -54,9 +54,9 @@ feature_logiops() {
       info "[dry-run] would build and install PixlOne/logiops from source"
     else
       (
-        cd /tmp && rm -rf logiops && git clone https://github.com/PixlOne/logiops && cd logiops
+        cd /tmp && rm -rf logiops && git clone https://github.com/PixlOne/logiops && cd logiops || exit
         mkdir -p build
-        cd build
+        cd build || exit
         cmake ..
         make
         sudo make install
