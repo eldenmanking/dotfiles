@@ -10,7 +10,35 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_REPO="${DOTFILES_REPO:-https://github.com/eldenmanking/dotfiles.git}"
+
+# When run without its install/ directory beside it (e.g. fetched with curl), clone the repo to ~/dotfiles unless it
+# is already there, then re-run its install.sh with the same arguments. The output helpers in install/lib aren't
+# loaded yet, so this one prints its own messages. Stdin is reattached to the terminal when it isn't one (as with
+# 'curl ... | bash -s -- ARGS'), so features that prompt still can.
+bootstrap() {
+  local script_dir="$1" dotfiles="$HOME/dotfiles"
+  shift
+  [[ ! -f "$script_dir/install/lib/fn.sh" ]] || return 0
+
+  if [[ ! -e "$dotfiles" ]]; then
+    command -v git >/dev/null || { printf '[error] git is required to clone %s\n' "$DOTFILES_REPO" >&2; exit 1; }
+    printf '[info] Cloning %s into %s\n' "$DOTFILES_REPO" "$dotfiles"
+    git clone --quiet ${DOTFILES_REF:+--branch "$DOTFILES_REF"} "$DOTFILES_REPO" "$dotfiles"
+  fi
+  [[ -f "$dotfiles/install.sh" ]] \
+    || { printf '[error] %s exists but has no install.sh; move it aside and re-run.\n' "$dotfiles" >&2; exit 1; }
+
+  if [[ ! -t 0 ]] && { : </dev/tty; } 2>/dev/null; then
+    exec bash "$dotfiles/install.sh" "$@" </dev/tty
+  fi
+  exec bash "$dotfiles/install.sh" "$@"
+}
+
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
+bootstrap "$(cd "$(dirname "${SCRIPT_SOURCE:-.}")" && pwd)" "$@"
+
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" && pwd)"
 INSTALL_DIR="$SCRIPT_DIR/install"
 DOTFILES_ROOT="$HOME/dotfiles"
 BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
