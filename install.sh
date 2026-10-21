@@ -10,45 +10,43 @@
 
 set -euo pipefail
 
-DOTFILES_REPO="${DOTFILES_REPO:-https://github.com/eldenmanking/dotfiles.git}"
-
-# When run without its install/ directory beside it (e.g. fetched with curl), clone the repo to ~/dotfiles unless it
-# is already there, then re-run its install.sh with the same arguments. The output helpers in install/lib aren't
-# loaded yet, so this one prints its own messages. Stdin is reattached to the terminal when it isn't one (as with
-# 'curl ... | bash -s -- ARGS'), so features that prompt still can.
-bootstrap() {
-  local script_dir="$1" dotfiles="$HOME/dotfiles"
-  shift
-  [[ ! -f "$script_dir/install/lib/fn.sh" ]] || return 0
-
-  if [[ ! -e "$dotfiles" ]]; then
-    command -v git >/dev/null || { printf '[error] git is required to clone %s\n' "$DOTFILES_REPO" >&2; exit 1; }
-    printf '[info] Cloning %s into %s\n' "$DOTFILES_REPO" "$dotfiles"
-    git clone --quiet ${DOTFILES_REF:+--branch "$DOTFILES_REF"} "$DOTFILES_REPO" "$dotfiles"
-  fi
-  [[ -f "$dotfiles/install.sh" ]] \
-    || { printf '[error] %s exists but has no install.sh; move it aside and re-run.\n' "$dotfiles" >&2; exit 1; }
-
-  if [[ ! -t 0 ]] && { : </dev/tty; } 2>/dev/null; then
-    exec bash "$dotfiles/install.sh" "$@" </dev/tty
-  fi
-  exec bash "$dotfiles/install.sh" "$@"
-}
-
-SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
-bootstrap "$(cd "$(dirname "${SCRIPT_SOURCE:-.}")" && pwd)" "$@"
-
-SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 INSTALL_DIR="$SCRIPT_DIR/install"
 DOTFILES_ROOT="$HOME/dotfiles"
+DOTFILES_REPO="${DOTFILES_REPO:-https://github.com/eldenmanking/dotfiles.git}"
 BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
 LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 
-for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/variants/*.sh; do
-  # shellcheck source=/dev/null
-  source "$f"
-done
+# When run without its install/ directory beside it (e.g. fetched with curl), clone the repo to $DOTFILES_ROOT unless
+# it is already there, then re-run its install.sh with the same arguments. Runs before install/lib is loaded, so it
+# prints its own messages. Stdin is reattached to the terminal when it isn't one (as with 'curl ... | bash -s -- ARGS'),
+# so features that prompt still can.
+bootstrap() {
+  [[ ! -f "$INSTALL_DIR/lib/fn.sh" ]] || return 0
+
+  if [[ ! -e "$DOTFILES_ROOT" ]]; then
+    command -v git >/dev/null || { printf '[error] git is required to clone %s\n' "$DOTFILES_REPO" >&2; exit 1; }
+    printf '[info] Cloning %s into %s\n' "$DOTFILES_REPO" "$DOTFILES_ROOT"
+    git clone --quiet ${DOTFILES_REF:+--branch "$DOTFILES_REF"} "$DOTFILES_REPO" "$DOTFILES_ROOT"
+  fi
+  [[ -f "$DOTFILES_ROOT/install.sh" ]] \
+    || { printf '[error] %s exists but has no install.sh; move it aside and re-run.\n' "$DOTFILES_ROOT" >&2; exit 1; }
+
+  if [[ ! -t 0 ]] && { : </dev/tty; } 2>/dev/null; then
+    exec bash "$DOTFILES_ROOT/install.sh" "$@" </dev/tty
+  fi
+  exec bash "$DOTFILES_ROOT/install.sh" "$@"
+}
+
+# Source install/lib, features and variants. They only define functions and constants, so their globals stay global.
+load_install_scripts() {
+  local f
+  for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/variants/*.sh; do
+    # shellcheck source=/dev/null
+    source "$f"
+  done
+}
 
 available_variants() {
   local f names=""
@@ -233,6 +231,9 @@ run_features() {
 }
 
 main() {
+  bootstrap "$@"
+  load_install_scripts
+
   f_write_args parse_args _variant _flags _mode _all _dry_run _help -- "$@"
   readonly DRY_RUN="$_dry_run"
 
