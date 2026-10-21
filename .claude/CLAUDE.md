@@ -17,7 +17,8 @@ Write functions in a functional style:
 - Every feature must be idempotent: check current state first, and use `make_symlink` and `upsert_block` rather than raw `ln` or appends.
 - Shell startup files (`.profile`, `.bashrc`, `.zshrc`, ...) only source files under `home/.config/sh` and `home/.config/zsh`, so linked and managed installs share the same logic. Features write managed ones with `upsert_sources`. `env.sh` (environment, sourced from profiles and rc files) must stay POSIX sh and safe to source repeatedly.
 - Stay portable across Linux and macOS (bash 3.2: no `mapfile`, associative arrays or namerefs; no GNU-only flags).
+- Don't call `_`-prefixed helpers from another file; they are private to it. Add a public helper to `install/lib/` instead.
 
 ## Verifying changes
-- `bash -n` every changed script, and `shellcheck` when available.
+- `bash -n` every changed script, and `shellcheck` when available (`shellcheck -s bash` for sourced files without a shebang, such as `install/lib`, `install/features` and `install/variants`).
 - `install.sh` requires the repo at `~/dotfiles`. To exercise a feature without touching the real home, point `HOME` at a scratch directory containing a `dotfiles` symlink to this checkout, then run `HOME=<dir> ./install.sh --variant <name> --<feature>`; use `--dry-run` for features that need root or a package manager.
