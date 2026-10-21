@@ -8,7 +8,7 @@ on:
       - install.sh
       - install/**
       - home/**
-      - test/**
+      - tests/**
       - Makefile
       - .github/workflows/macos.yml
   pull_request:

@@ -1,4 +1,4 @@
-# Shared helpers for test/lint.sh and test/install.sh.
+# Shared helpers for tests/lint.sh and tests/install.sh.
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$TEST_DIR")"
@@ -41,7 +41,7 @@ tool_release() {
     *) error "tool_release: unknown tool '$tool'" ;;
   esac
   _sha256="${!sha_var:-}"
-  [[ -n "$_sha256" ]] || error "tool_release: no checksum for $tool on $os-$arch in test/versions.env"
+  [[ -n "$_sha256" ]] || error "tool_release: no checksum for $tool on $os-$arch in tests/versions.env"
 }
 
 # Outputs: _path, the pinned tool $1, downloaded and checksummed into TOOLS_CACHE on first use.

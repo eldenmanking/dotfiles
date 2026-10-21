@@ -62,7 +62,7 @@ main() {
 
   info "README.md tree"
   if have_or_skip python3 "the README.md tree check"; then
-    python3 test/readme_tree.py || failed=1
+    python3 tests/readme_tree.py || failed=1
   fi
 
   info "Syntax (sh -n, bash -n, zsh -n)"

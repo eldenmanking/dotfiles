@@ -1,5 +1,5 @@
 # Keeps the commit SHAs that pin the workflows' actions current. Container images, runner labels and the tools in
-# test/versions.env are bumped by hand.
+# tests/versions.env are bumped by hand.
 version: 2
 updates:
   - package-ecosystem: github-actions
