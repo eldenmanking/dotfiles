@@ -45,9 +45,27 @@ In Steam, under **Settings > In Game**:
 
 ## dotfiles
 
-Clone this repo to `~/dotfiles` and run `~/dotfiles/install.sh --variant steamos --all`.
-This includes webterm, a browser shell on localhost; see
-[steamos/README.md](../steamos/README.md).
+After the OS is installed and you've signed in to Steam:
+
+1. Switch to Desktop Mode: press the Steam button, then **Power > Switch to
+   Desktop**.
+2. Open Konsole and give the `deck` user a password, which `sudo` needs (SteamOS
+   ships without one):
+
+   ```sh
+   passwd
+   ```
+
+3. Clone this repo to `~/dotfiles` and run the installer:
+
+   ```sh
+   git clone https://github.com/eldenmanking/dotfiles ~/dotfiles
+   ~/dotfiles/install.sh --variant steamos --all
+   ```
+
+   Run `~/dotfiles/install.sh --help` to see the features, or add `--dry-run`
+   to preview the changes. This includes webterm, a browser shell on
+   localhost; see [steamos/README.md](../steamos/README.md).
 
 ## Disk encryption
 
