@@ -11,6 +11,7 @@ _distrobox_exists() {
 }
 
 # Create the arch distrobox and enter it once to finish its setup.
+#
 # @machine any
 # @os linux
 # @gui any

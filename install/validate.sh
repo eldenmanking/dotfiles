@@ -4,8 +4,8 @@
 # Program: install/validate.sh
 # Description: Checks the feature and variant registry without installing
 #              anything: every feature_<name> function in install/features is
-#              documented (feature_description and @machine, @os and @gui
-#              tags), and every variant's features exist, suit the variant's
+#              documented (feature_description, and a doc comment with a
+#              description and @machine, @os and @gui tags), and every variant's features exist, suit the variant's
 #              OS and GUI, and come after the features they require. Exits
 #              non-zero on any problem. Run in CI.
 ################################################################################
@@ -40,11 +40,38 @@ check_tag() {
   _problems="$problems"
 }
 
+# Outputs: _problems, one line per problem with the layout of doc $2 of feature $1: description lines, a bare '#'
+# line, then only tags.
+check_doc_layout() {
+  local feature="$1" doc="$2" nl=$'\n' problems="" line state=start
+  while IFS= read -r line; do
+    case "$state:$line" in
+      start:)                state=start ;;
+      start:@*)              problems+="--$feature: doc has no description before its tags$nl"; state=tags ;;
+      start:*)               state=description ;;
+      description:)          state=blank ;;
+      description:@*)        problems+="--$feature: doc needs a bare '#' line between description and tags$nl"
+                             state=tags ;;
+      description:*|blank:)  ;;
+      blank:@*)              state=tags ;;
+      blank:*)               state=description ;;
+      tags:@*)               ;;
+      tags:*)                problems+="--$feature: doc has '$line' after its tags; tags go last$nl"; break ;;
+    esac
+  done <<< "$doc"
+  [[ "$state" != start ]] || problems+="--$feature: no doc comment above $(feature_function "$feature")$nl"
+  _problems="$problems"
+}
+
 # Outputs: _problems, one line per problem with the documentation of feature $1. $2 is every known feature.
 check_feature_docs() {
   local feature="$1" known="$2" problems="" dep
   [[ -n "$(feature_description "$feature")" ]] \
     || problems+="--$feature: no feature_description entry"$'\n'
+
+  f_write_args feature_doc _doc -- "$feature"
+  f_write_args check_doc_layout _problems -- "$feature" "$_doc"
+  problems+="$_problems"
 
   f_write_args feature_requirements _machine _os _gui _requires -- "$feature"
   local machine="$_machine" os="$_os" gui="$_gui" requires="$_requires"

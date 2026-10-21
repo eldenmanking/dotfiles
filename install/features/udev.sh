@@ -5,6 +5,7 @@ UDEV_RULES_SRC="root/etc/udev/rules.d"
 UDEV_RULES_DST="/etc/udev/rules.d"
 
 # Copy changed rules (replacing any old symlink), then reload udev and re-apply rules to i2c devices.
+#
 # @machine framework16
 # @os linux
 # @gui any

@@ -52,6 +52,8 @@ link_dotfile() {
   esac
 }
 
+# Symlink the variant's _link_paths: home/ into $HOME and root/ into / (with sudo).
+#
 # @machine any
 # @os any
 # @gui any

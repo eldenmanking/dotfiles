@@ -95,6 +95,9 @@ check_socket_activation() {
   fi
 }
 
+# Serve a shell in the browser on localhost: download ttyd and install systemd user units that start it on
+# demand (see steamos/README.md).
+#
 # @machine any
 # @os linux
 # @gui any

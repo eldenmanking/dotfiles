@@ -159,9 +159,12 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/ma
 ```
 
 #### Feature Requirements
-Each `feature_<name>` function has tags in the comment directly above it, naming the machines, OS and GUI it works on and the features it requires (`@requires` is optional):
+Each `feature_<name>` function has a doc comment directly above it: a brief description, a bare `#` line, then tags naming the machines, OS and GUI it works on and the features it requires (`@requires` is optional):
 
 ```bash
+# Serve a shell in the browser on localhost: download ttyd and install systemd user units that start it on
+# demand (see steamos/README.md).
+#
 # @machine any
 # @os linux
 # @gui any
@@ -169,7 +172,7 @@ Each `feature_<name>` function has tags in the comment directly above it, naming
 feature_webterm() {
 ```
 
-Each variant declares the `_os` and `_gui` it targets. `install/validate.sh` (run in CI) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry or the `@machine`, `@os` or `@gui` tag, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes.
+Each variant declares the `_os` and `_gui` it targets. `install/validate.sh` (run by `make lint`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes.
 
 | Feature | Machine | OS | GUI | Requires |
 |---|---|---|---|---|

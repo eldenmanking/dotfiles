@@ -251,7 +251,8 @@ configure_claude_md() {
   upsert_block "$dst" claude "$content" '</system-prompt>'
 }
 
-# --- Configure Claude Code (orchestrator) ---
+# Install Claude Code config from the tools repos: CLAUDE.md, skills, scripts and settings (see README.md).
+#
 # @machine any
 # @os any
 # @gui any

@@ -1,6 +1,7 @@
 # Feature: tmux plugin manager and plugins.
 
-# --- Tmux plugins ---
+# Clone tpm and install the tmux plugins listed in the linked ~/.tmux.conf.
+#
 # @machine any
 # @os any
 # @gui any
