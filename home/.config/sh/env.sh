@@ -1,3 +1,4 @@
+#!/bin/sh
 # Environment variables. Sourced from login profiles and rc files, so it must be POSIX sh and safe to source more
 # than once.
 

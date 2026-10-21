@@ -1,3 +1,4 @@
+#!/bin/sh
 # Start the starship prompt in bash or zsh, if installed.
 command -v starship >/dev/null 2>&1 || return 0
 if [ -n "${ZSH_VERSION:-}" ]; then
