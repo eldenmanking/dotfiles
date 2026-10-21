@@ -102,6 +102,33 @@ test_usage() {
   ! run_install "$_home" --variant coder --nope >/dev/null 2>&1 || fail "unknown option accepted"
 }
 
+# Run install.sh at $1 with home $2 and expect it to refuse, with a message matching $3.
+expect_refused() {
+  local script="$1" home="$2" pattern="$3" out
+  if out="$(env -i HOME="$home" PATH="$PATH" "$INSTALL_BASH" "$script" --variant coder --gitconfig </dev/null 2>&1)"; then
+    fail "install.sh ran from $script with HOME=$home"
+  elif ! grep -q -- "$pattern" <<< "$out"; then
+    fail "install.sh from $script: expected '$pattern', got: $out"
+  fi
+}
+
+# install.sh must run from ~/dotfiles (or a link to it), and the checkout must be named dotfiles.
+test_checkout_location() {
+  local home other
+  info "checkout location"
+  home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
+  expect_refused "$REPO_ROOT/install.sh" "$home" "must be checked out at $home/dotfiles"
+  mkdir "$home/dotfiles"
+  expect_refused "$REPO_ROOT/install.sh" "$home" "is not $home/dotfiles"
+  rmdir "$home/dotfiles"
+  # A copy named otherwise, linked as ~/dotfiles.
+  other="$SCRATCH/not-dotfiles"
+  mkdir "$other"
+  cp -R "$REPO_ROOT/install.sh" "$REPO_ROOT/install" "$other/"
+  ln -s "$other" "$home/dotfiles"
+  expect_refused "$home/dotfiles/install.sh" "$home" "must be a directory named dotfiles"
+}
+
 # --dry-run must succeed and leave the home untouched, for install, reinstall and uninstall.
 test_dry_run() {
   local variant="$1" flags=() feature mode before
@@ -206,6 +233,7 @@ main() {
   f_write_args all_variants _variants
   variants="$_variants"
   test_usage "$variants"
+  test_checkout_location
   for variant in $variants; do
     test_dry_run "$variant"
     test_install "$variant"

@@ -56,6 +56,8 @@ toml_syntax() {
 main() {
   local failed=0 shellcheck actionlint
   cd "$REPO_ROOT"
+  # .shellcheckrc finds the startup files' "$HOME/dotfiles/..." sources through the checkout's parent.
+  [[ "$(basename "$(pwd -P)")" == dotfiles ]] || error "the checkout must be a directory named dotfiles, as install.sh requires"
   f_write_args classify_files _sh _bash _sourced _zsh _python
 
   info "README.md tree"

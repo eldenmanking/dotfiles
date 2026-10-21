@@ -3,5 +3,4 @@
 # ~/.profile
 #
 
-# shellcheck source=.config/sh/env.sh
-. ~/dotfiles/home/.config/sh/env.sh
+. "$HOME/dotfiles/home/.config/sh/env.sh"

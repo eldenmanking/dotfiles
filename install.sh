@@ -159,9 +159,30 @@ resolve_features() {
   _enabled="$enabled"
 }
 
+# Outputs: _problem, why install.sh in $1 can't install from $2, or empty if it can. Everything it links points into
+# $2, so it must run from that checkout ($2 may be a symlink to it), and the checkout must be named dotfiles, which
+# the startup files and lint (.shellcheckrc) rely on.
+checkout_problem() {
+  local script_dir="$1" root="$2" script_real root_real
+  script_real="$(cd "$script_dir" && pwd -P)"
+  if [[ ! -d "$root" ]]; then
+    _problem="dotfiles must be checked out at $root"
+    return
+  fi
+  root_real="$(cd "$root" && pwd -P)"
+  if [[ "$script_real" != "$root_real" ]]; then
+    _problem="this checkout ($script_real) is not $root ($root_real); run $root/install.sh instead"
+  elif [[ "${root_real##*/}" != dotfiles ]]; then
+    _problem="the checkout must be a directory named dotfiles, not '${root_real##*/}' ($root links to $root_real)"
+  else
+    _problem=""
+  fi
+}
+
 enter_dotfiles_root() {
-  # Ensure dotfiles dir exists and switch to it (no subshell, so cwd persists).
-  [[ -d "$DOTFILES_ROOT" ]] || error "dotfiles must be at $DOTFILES_ROOT."
+  f_write_args checkout_problem _problem -- "$SCRIPT_DIR" "$DOTFILES_ROOT"
+  [[ -z "$_problem" ]] || error "$_problem"
+  # No subshell, so the cwd persists.
   cd "$DOTFILES_ROOT"
 }
 
