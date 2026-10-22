@@ -39,7 +39,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── alacritty.toml       --- alacritty terminal emulator configuration file
 │   │   ├── git                      ---
 │   │   │   └── ignore               --- default ignored git files
-│   │   │   ├── kcminputrc               --- KDE input settings (keyboard repeat), merged by the kde feature (not linked)
+│   │   ├── kcminputrc               --- KDE input settings (keyboard repeat), merged by the kde feature (not linked)
 │   │   ├── nvim                     ---
 │   │   │   ├── core                 ---
 │   │   │   │   ├── autocommands.vim --- global autocommands
