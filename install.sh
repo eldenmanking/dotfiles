@@ -185,29 +185,29 @@ resolve_features() {
   _enabled="$enabled"
 }
 
-# Outputs: _problem, why install.sh in $1 can't install from $2, or empty if it can. Everything it links points into
-# $2, so it must run from that checkout ($2 may be a symlink to it), and the checkout must be named dotfiles, which
-# the startup files and lint (.shellcheckrc) rely on.
-checkout_problem() {
+# Print why install.sh in $1 can't install from $2, or nothing if it can. Everything it links points into $2, so it
+# must run from that checkout ($2 may be a symlink to it), and the checkout must be named dotfiles, which the startup
+# files and lint (.shellcheckrc) rely on.
+explain_checkout_problem() {
   local script_dir="$1" root="$2" script_real root_real
   script_real="$(cd "$script_dir" && pwd -P)"
   if [[ ! -d "$root" ]]; then
-    _problem="dotfiles must be checked out at $root"
+    printf 'dotfiles must be checked out at %s' "$root"
     return
   fi
   root_real="$(cd "$root" && pwd -P)"
   if [[ "$script_real" != "$root_real" ]]; then
-    _problem="this checkout ($script_real) is not $root ($root_real); run $root/install.sh instead"
+    printf 'this checkout (%s) is not %s (%s); run %s/install.sh instead' "$script_real" "$root" "$root_real" "$root"
   elif [[ "${root_real##*/}" != dotfiles ]]; then
-    _problem="the checkout must be a directory named dotfiles, not '${root_real##*/}' ($root links to $root_real)"
-  else
-    _problem=""
+    printf "the checkout must be a directory named dotfiles, not '%s' (%s links to %s)" \
+      "${root_real##*/}" "$root" "$root_real"
   fi
 }
 
 enter_dotfiles_root() {
-  f_write_args checkout_problem _problem -- "$SCRIPT_DIR" "$DOTFILES_ROOT"
-  [[ -z "$_problem" ]] || error "$_problem"
+  local problem
+  problem="$(explain_checkout_problem "$SCRIPT_DIR" "$DOTFILES_ROOT")"
+  [[ -z "$problem" ]] || error "$problem"
   # No subshell, so the cwd persists.
   cd "$DOTFILES_ROOT"
 }

@@ -12,7 +12,7 @@ Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and
 
 ## Shell conventions
 Write functions in a functional style:
-- Pass inputs as arguments. Return values through `_`-prefixed output variables via `f_write_args fn _out1 _out2 -- args...`, not by setting globals or parsing stdout.
+- Pass inputs as arguments. Return values through `_`-prefixed output variables via `f_write_args fn _out1 _out2 -- args...`, not by setting globals or parsing stdout. A function with a single result may print it instead, for the caller to capture with `$(...)` (e.g. `feature_function`, `explain_checkout_problem`).
 - Globals are UPPER_CASE constants set at file load time; never mutate them from functions. Declare everything else `local`.
 - Keep pure logic (parsing, resolving config) separate from side effects, and route side effects through `run`/`run_tty` so `--dry-run` works.
 - Every feature must be idempotent: check current state first, and use `make_symlink` and `upsert_block` rather than raw `ln` or appends.
