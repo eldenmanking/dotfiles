@@ -17,10 +17,22 @@ DRY_RUN_SKIP=" webterm "
 FAILURES=0
 trap 'rm -rf "$SCRATCH"' EXIT
 
-# Record a failed check and keep going, so one run reports every failure.
+# Report a passed check.
+pass() {
+  printf '  \033[32mok\033[0m   %s\n' "$*"
+}
+
+# Report a failed check and keep going, so one run reports every failure.
 fail() {
-  warn "FAIL: $*"
+  printf '  \033[31mFAIL\033[0m %s\n' "$*" >&2
   FAILURES=$((FAILURES + 1))
+}
+
+# Report check $1 as passed if the remaining args, run as a command, succeed.
+check() {
+  local description="$1"
+  shift
+  if "$@"; then pass "$description"; else fail "$description"; fi
 }
 
 # Outputs: _home, a new scratch home holding a dotfiles symlink to this checkout, as install.sh requires.
@@ -32,19 +44,35 @@ new_home() {
 }
 
 # Run install.sh with home $1 and the remaining args, in a clean environment with no terminal. Its output goes to
-# LOG, and is shown on failure. Returns install.sh's status.
+# LOG. Returns install.sh's status.
 run_install() {
-  local home="$1" status=0
+  local home="$1"
   shift
-  env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$home/dotfiles/install.sh" "$@" \
-    </dev/null >"$LOG" 2>&1 || status=$?
-  if [[ "$status" != 0 ]]; then
-    sed 's/^/    | /' "$LOG" >&2
-  fi
-  return "$status"
+  env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$home/dotfiles/install.sh" "$@" </dev/null >"$LOG" 2>&1
 }
 
-# Outputs: _features and _link_paths of variant $1, read from its definition the same way install.sh does.
+# Run install.sh like run_install and report it as a check that it succeeds, showing its output if not.
+install_ok() {
+  local home="$1"
+  shift
+  if run_install "$home" "$@"; then
+    pass "install.sh${*:+ $*}"
+  else
+    fail "install.sh${*:+ $*}"
+    sed 's/^/       | /' "$LOG" >&2
+    return 1
+  fi
+}
+
+# Run install.sh like run_install and report it as a check that it refuses.
+install_refused() {
+  local home="$1"
+  shift
+  if run_install "$home" "$@"; then fail "install.sh $* (should be refused)"; else pass "install.sh $* (refused)"; fi
+}
+
+# Outputs: _features and _link_paths of variant $1, read from its definition the same way install.sh does, and
+# _dry_run_features, the features that honor --dry-run (install.sh only announces the others).
 variant_info() {
   local variant="$1" out
   out="$(
@@ -54,10 +82,12 @@ variant_info() {
       source "$f"
     done
     "variant_$variant"
-    printf '%s\n%s\n' "$_features" "$_link_paths"
+    printf '%s\n%s\n%s\n' "$_features" "$_link_paths" "$DRY_RUN_FEATURES"
   )"
   _features="${out%%$'\n'*}"
-  _link_paths="${out#*$'\n'}"
+  out="${out#*$'\n'}"
+  _link_paths="${out%%$'\n'*}"
+  _dry_run_features="${out#*$'\n'}"
 }
 
 # Print one line per entry under home $1 (outside dotfiles): its type, path, and symlink target or checksum.
@@ -72,6 +102,17 @@ snapshot() {
       printf 'F %s %s\n' "$path" "$(cksum < "$home/$path")"
     fi
   done
+}
+
+# Report check $1: snapshot $3 must equal snapshot $2, or the lines that differ are shown.
+check_unchanged() {
+  local description="$1" before="$2" after="$3"
+  if [[ "$before" == "$after" ]]; then
+    pass "$description"
+  else
+    fail "$description; changed (- before, + after):"
+    diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") | grep '^[<>]' | sed 's/^</       -/; s/^>/       +/' >&2 || true
+  fi
 }
 
 repo_status() {
@@ -93,78 +134,89 @@ test_usage() {
   local variants="$1" variant
   info "usage"
   new_home
-  run_install "$_home" || fail "install.sh with no arguments"
+  install_ok "$_home" || true
   for variant in $variants; do
-    run_install "$_home" --variant "$variant" --help || fail "--variant $variant --help"
-    grep -q -- '--link' "$LOG" || fail "--variant $variant --help does not list --link"
+    install_ok "$_home" --variant "$variant" --help && check "  ...lists --link" grep -q -- '--link' "$LOG"
   done
-  ! run_install "$_home" --variant nope >/dev/null 2>&1 || fail "unknown variant accepted"
-  ! run_install "$_home" --variant coder --nope >/dev/null 2>&1 || fail "unknown option accepted"
+  install_refused "$_home" --variant nope
+  install_refused "$_home" --variant coder --nope
 }
 
-# Run install.sh at $1 with home $2 and expect it to refuse, with a message matching $3.
+# Run install.sh at $1 with home $2 and expect it to refuse, with a message matching $3. $4 describes the case.
 expect_refused() {
-  local script="$1" home="$2" pattern="$3" out
+  local script="$1" home="$2" pattern="$3" description="$4" out
   if out="$(env -i HOME="$home" PATH="$PATH" "$INSTALL_BASH" "$script" --variant coder --gitconfig </dev/null 2>&1)"; then
     fail "install.sh ran from $script with HOME=$home"
   elif ! grep -q -- "$pattern" <<< "$out"; then
     fail "install.sh from $script: expected '$pattern', got: $out"
+  else
+    pass "refused $description"
   fi
 }
 
 # install.sh must run from ~/dotfiles (or a link to it), and the checkout must be named dotfiles.
 test_checkout_location() {
   local home other
-  info "checkout location"
+  info "checkout location: install.sh refuses to run from anywhere but a checkout named dotfiles at ~/dotfiles"
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
-  expect_refused "$REPO_ROOT/install.sh" "$home" "must be checked out at $home/dotfiles"
+  expect_refused "$REPO_ROOT/install.sh" "$home" "must be checked out at $home/dotfiles" "with no ~/dotfiles"
   mkdir "$home/dotfiles"
-  expect_refused "$REPO_ROOT/install.sh" "$home" "is not $home/dotfiles"
+  expect_refused "$REPO_ROOT/install.sh" "$home" "is not $home/dotfiles" "from a checkout other than ~/dotfiles"
   rmdir "$home/dotfiles"
   # A copy named otherwise, linked as ~/dotfiles.
   other="$SCRATCH/not-dotfiles"
   mkdir "$other"
   cp -R "$REPO_ROOT/install.sh" "$REPO_ROOT/install" "$other/"
   ln -s "$other" "$home/dotfiles"
-  expect_refused "$home/dotfiles/install.sh" "$home" "must be a directory named dotfiles"
+  expect_refused "$home/dotfiles/install.sh" "$home" "must be a directory named dotfiles" \
+    "with ~/dotfiles linked to a checkout named not-dotfiles"
 }
 
 # --dry-run must succeed and leave the home untouched, for install, reinstall and uninstall.
 test_dry_run() {
-  local variant="$1" flags=() feature mode before
-  info "dry run: $variant"
+  local variant="$1" flags=() feature mode before skipped="" announced=""
   variant_info "$variant"
   for feature in $_features; do
-    list_contains "$DRY_RUN_SKIP" "$feature" || flags+=("--$feature")
+    if list_contains "$DRY_RUN_SKIP" "$feature"; then
+      skipped+=" $feature"
+      continue
+    fi
+    flags+=("--$feature")
+    list_contains "$_dry_run_features" "$feature" || announced+=" $feature"
   done
+  info "$variant: dry run of every feature${skipped:+ except$skipped (needs a live systemd user session)}"
+  [[ -z "$announced" ]] || info "  (without --dry-run support, so only announced:$announced)"
   new_home
   before="$(snapshot "$_home")"
   for mode in "" --reinstall --uninstall; do
-    run_install "$_home" --variant "$variant" --dry-run ${mode:+"$mode"} "${flags[@]}" || fail "$variant --dry-run${mode:+ $mode} failed"
+    install_ok "$_home" --variant "$variant" --dry-run ${mode:+"$mode"} "${flags[@]}" || true
   done
-  [[ "$(snapshot "$_home")" == "$before" ]] || fail "$variant --dry-run changed the home"
+  check_unchanged "home unchanged" "$before" "$(snapshot "$_home")"
 }
 
 # Check that every file under the variant's link paths is linked into home $1.
 check_links() {
-  local variant="$1" home="$2" file target
+  local variant="$1" home="$2" file target count=0 bad=0
   variant_info "$variant"
   # shellcheck disable=SC2086 # $_link_paths is a list of paths
   while IFS= read -r file; do
     target="$home/${file#home/}"
-    [[ -L "$target" && "$(readlink "$target")" == "$home/dotfiles/$file" ]] \
-      || fail "$variant: $target is not a link to $home/dotfiles/$file"
+    count=$((count + 1))
+    if [[ ! -L "$target" || "$(readlink "$target")" != "$home/dotfiles/$file" ]]; then
+      fail "link missing or wrong: ~/${file#home/} should point to ~/dotfiles/$file"
+      bad=$((bad + 1))
+    fi
   done < <(git -C "$REPO_ROOT" ls-files -- $_link_paths)
+  [[ "$bad" != 0 ]] || pass "all $count files under the link paths are linked into ~"
 }
 
 # Check the managed startup files in home $1 source env.sh and keep the user's own lines.
 check_managed_blocks() {
   local variant="$1" home="$2" file
   for file in .profile .zprofile .bashrc .zshrc; do
-    grep -q '^\. ~/dotfiles/home/\.config/sh/env\.sh$' "$home/$file" 2>/dev/null \
-      || fail "$variant: $file does not source env.sh"
+    check "managed block in ~/$file sources env.sh" grep -q '^\. ~/dotfiles/home/\.config/sh/env\.sh$' "$home/$file"
   done
-  grep -q '^# user line$' "$home/.bashrc" || fail "$variant: the shell feature dropped the user's .bashrc lines"
+  check "user's own line in ~/.bashrc kept" grep -q '^# user line$' "$home/.bashrc"
 }
 
 # Check login and interactive bash and zsh load the startup files in home $1 without errors.
@@ -176,7 +228,11 @@ check_shells_load() {
       # bash prints job control warnings when interactive without a terminal.
       err="$(env -i HOME="$home" PATH=/usr/bin:/bin TERM=dumb "$shell" "$opts" true 2>&1 </dev/null \
         | grep -vE 'cannot set terminal process group|no job control in this shell' || true)"
-      [[ -z "$err" ]] || fail "$variant: $shell $opts printed: $err"
+      if [[ -z "$err" ]]; then
+        pass "$shell $opts loads the startup files without errors"
+      else
+        fail "$shell $opts printed: $err"
+      fi
     done
   done
 }
@@ -186,43 +242,47 @@ check_shells_load() {
 test_install() {
   local variant="$1" flags=(--link --gitconfig) managed=false repo_before first
   variant_info "$variant"
-  case " $_link_paths" in *" root/"*) return ;; esac
+  case " $_link_paths" in
+    *" root/"*)
+      info "$variant: no real install (its links include root/, which needs sudo)"
+      return
+      ;;
+  esac
   # Variants with the shell feature write managed blocks into the startup files instead of linking them.
   list_contains "$_features" shell && managed=true
-  info "install: $variant"
+  $managed && flags+=(--shell)
+  info "$variant: real install of ${flags[*]} (the other features download, build or need root)"
   new_home
   if $managed; then
-    flags+=(--shell)
     # The shell feature must keep what is already there. (Linked variants would back it up into the checkout.)
     printf '# user line\n' > "$_home/.bashrc"
   fi
   repo_before="$(repo_status)"
 
-  run_install "$_home" --variant "$variant" "${flags[@]}" || { fail "$variant install failed"; return; }
+  install_ok "$_home" --variant "$variant" "${flags[@]}" || return
   check_links "$variant" "$_home"
   if $managed; then
     check_managed_blocks "$variant" "$_home"
   fi
   check_shells_load "$variant" "$_home"
-  [[ "$(git config --file "$_home/.gitconfig" core.excludesFile)" == "$_home/dotfiles/home/.config/git/ignore" ]] \
-    || fail "$variant: core.excludesFile not set in .gitconfig"
+  check "core.excludesFile set in ~/.gitconfig" \
+    [ "$(git config --file "$_home/.gitconfig" core.excludesFile)" = "$_home/dotfiles/home/.config/git/ignore" ]
 
   first="$(snapshot "$_home")"
-  run_install "$_home" --variant "$variant" "${flags[@]}" || fail "$variant second install failed"
-  [[ "$(snapshot "$_home")" == "$first" ]] || fail "$variant: a second install changed the home"
-  [[ "$(repo_status)" == "$repo_before" ]] || fail "$variant: install wrote into the checkout"
+  install_ok "$_home" --variant "$variant" "${flags[@]}" || true
+  check_unchanged "  ...the second install changed nothing" "$first" "$(snapshot "$_home")"
+  check_unchanged "nothing was written into the checkout" "$repo_before" "$(repo_status)"
 }
 
 # env.sh must be POSIX and safe to source more than once: a second source leaves PATH as it was.
 test_env_sh() {
   local shell env_sh="$REPO_ROOT/home/.config/sh/env.sh"
-  info "env.sh"
+  info "env.sh: sourcing it twice leaves PATH unchanged"
   for shell in sh bash zsh; do
     have_or_skip "$shell" "sourcing env.sh with $shell" || continue
     # shellcheck disable=SC2016 # expanded by $shell
-    env -i HOME="$SCRATCH" PATH=/usr/bin:/bin "$shell" -c \
-      '. "$1"; first=$PATH; . "$1"; [ "$PATH" = "$first" ]' sh "$env_sh" \
-      || fail "sourcing env.sh twice with $shell changed PATH or failed"
+    check "$shell" env -i HOME="$SCRATCH" PATH=/usr/bin:/bin "$shell" -c \
+      '. "$1"; first=$PATH; . "$1"; [ "$PATH" = "$first" ]' sh "$env_sh"
   done
 }
 
