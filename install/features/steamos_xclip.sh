@@ -1,8 +1,10 @@
-# TODO(andywang): add comment
+# Feature: xclip (steamos). SteamOS has no xclip and its rootfs is read-only, so
+# copy the binary out of the arch distrobox that the distrobox feature creates.
+# The distrobox is kept; --distrobox --uninstall removes it.
 
 # --- Install xclip ---
 feature_steamos_xclip() {
-  local container="tmp-arch"
+  local name="$DISTROBOX_NAME"
 
   if command -v xclip &>/dev/null; then
     info "xclip already available: $(command -v xclip)"
@@ -13,24 +15,31 @@ feature_steamos_xclip() {
     return
   fi
 
-  if distrobox list 2>/dev/null | grep -qw "$container"; then
-    info "distrobox '$container' already exists"
+  if distrobox_exists "$name"; then
+    info "Reusing distrobox '$name'"
   else
-    info "Creating distrobox '$container'..."
-    run distrobox create -Y -n "$container" -i archlinux:latest
+    info "Creating distrobox '$name' from $DISTROBOX_IMAGE..."
+    run distrobox create --name "$name" --image "$DISTROBOX_IMAGE" --yes
   fi
 
-  info "Installing xclip in '$container' and copying it to $LOCAL_BIN..."
-  run_tty distrobox enter "$container" -- bash -c "
+  info "Installing xclip in '$name' and copying it to $LOCAL_BIN..."
+  run_tty distrobox enter "$name" -- bash -c "
     sudo pacman -Sy --noconfirm --needed xclip &&
     mkdir -p '$LOCAL_BIN' &&
     cp /usr/bin/xclip '$LOCAL_BIN/xclip'
   "
 
-  info "Removing distrobox '$container'..."
-  run distrobox rm -f "$container"
-
   if ! $DRY_RUN && ldd "$LOCAL_BIN/xclip" | grep -q "not found"; then
     warn "xclip is missing shared libraries on this host (see 'ldd $LOCAL_BIN/xclip')."
   fi
+}
+
+# Remove the copied xclip binary. The distrobox is left to uninstall_feature_distrobox.
+uninstall_feature_steamos_xclip() {
+  if [[ ! -e "$LOCAL_BIN/xclip" ]]; then
+    info "$LOCAL_BIN/xclip does not exist"
+    return
+  fi
+  info "Removing $LOCAL_BIN/xclip..."
+  run rm -f "$LOCAL_BIN/xclip"
 }

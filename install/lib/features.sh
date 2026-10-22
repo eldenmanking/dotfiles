@@ -28,7 +28,7 @@ feature_description() {
     flatpak)     echo "install flatpak apps from flathub (per-user)" ;;
     udev)        echo "copy root/etc/udev rules into /etc (not symlinked) and reload udev" ;;
     tmpfiles)    echo "copy root/etc/tmpfiles.d configs into /etc (not symlinked) and apply them" ;;
-    steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of a temporary arch distrobox" ;;
+    steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of the 'arch' distrobox (created if missing, then kept)" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units (browser shell on localhost)" ;;
     home_units)  echo "install home-units.service into /etc (sudo, only if the home is encrypted with dirlock)" ;;
     distrobox)   echo "create an 'arch' distrobox from archlinux:latest and enter it" ;;
