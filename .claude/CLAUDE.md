@@ -7,7 +7,7 @@ Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and
 - `install/lib/`: shared helpers (`fn.sh` output variables, `exec.sh` dry-run aware execution, `fs.sh` symlinks and managed blocks).
 - `install/features/<name>.sh`: one `feature_<name> <variant> <enabled>` function per feature. Register its `--help` text in `feature_description` (`install/lib/features.sh`), and add it to `DRY_RUN_FEATURES` if it honors `--dry-run`.
 - A feature that can be undone also defines `uninstall_feature_<name> <variant> <enabled>`, which `--uninstall` runs (in reverse feature order) and `--reinstall` runs before `feature_<name>`. It must be idempotent, always honor `--dry-run`, and confirm before destroying user data. Defining it is all it takes; `--help` lists it automatically.
-- `install/variants/<name>.sh`: `variant_<name>` sets `_description`, `_features`, `_all_exclude` and `_link_paths`. Features run in `_features` order.
+- `install/variants/<name>.sh`: `variant_<name>` sets `_description`, `_features`, `_optional` and `_link_paths`. Features run in `_features` order; `_optional` lists the ones `--all` skips, which run only when their flag is given (`--help` shows them separately).
 - Files meant to be linked live under `home/` (maps to `$HOME`) or `root/` (maps to `/`); everything else at the top level is repo-only. Paths to symlink go in `LINK_COMMON_PATHS`, `LINK_SHELL_PATHS`, `LINK_STEAMOS_PATHS` or `LINK_DESKTOP_PATHS` (`install/features/link.sh`), prefixed with `home/` or `root/`.
 
 ## Shell conventions

@@ -58,7 +58,7 @@ available_variants() {
 }
 
 usage() {
-  local variant="$1" v features all_exclude uninstallable=""
+  local variant="$1" v features optional uninstallable=""
   cat <<EOF
 Usage: $(basename "$0") --variant NAME [OPTIONS]
 
@@ -74,19 +74,26 @@ EOF
   done
   variant_exists "$variant" || return 0
 
-  f_write_args variant_config _features _all_exclude -- "$variant"
+  f_write_args variant_config _features _optional -- "$variant"
   features="$_features"
-  all_exclude="$_all_exclude"
+  optional="$_optional"
   cat <<EOF
 
 Options for variant '$variant':
   --variant NAME   select the variant
-  --all            install all options${all_exclude:+ (except: $all_exclude)}
+  --all            install all default options
 EOF
   for v in $features; do
-    printf '  --%-14s %s\n' "$v" "$(feature_description "$v")"
     feature_uninstallable "$v" && uninstallable+="${uninstallable:+ }$v"
+    list_contains "$optional" "$v" || printf '  --%-14s %s\n' "$v" "$(feature_description "$v")"
   done
+  if [[ -n "$optional" ]]; then
+    printf '\nOptional (not included in --all):\n'
+    for v in $optional; do
+      printf '  --%-14s %s\n' "$v" "$(feature_description "$v")"
+    done
+    echo
+  fi
   if [[ -n "$uninstallable" ]]; then
     printf '  --%-14s %s (%s)\n' reinstall "uninstall the selected options, then install them" "$uninstallable"
     printf '  --%-14s %s (%s)\n' uninstall "uninstall the selected options" "$uninstallable"
@@ -156,18 +163,18 @@ exit_with_usage_unless_runnable() {
 # Outputs: _enabled, the selected features. Under --uninstall, features
 # without an uninstall function are dropped (with a warning if named).
 resolve_features() {
-  local variant="$1" flags="$2" all="$3" mode="$4" features all_exclude enabled=" " k
+  local variant="$1" flags="$2" all="$3" mode="$4" features optional enabled=" " k
 
-  f_write_args variant_config _features _all_exclude -- "$variant"
+  f_write_args variant_config _features _optional -- "$variant"
   features="$_features"
-  all_exclude="$_all_exclude"
+  optional="$_optional"
 
   for k in $flags; do
     list_contains "$features" "$k" \
       || usage_error "Unknown option for variant '$variant': --$k" "$variant"
   done
   for k in $features; do
-    if list_contains "$flags" "$k" || { $all && ! list_contains "$all_exclude" "$k"; }; then
+    if list_contains "$flags" "$k" || { $all && ! list_contains "$optional" "$k"; }; then
       if [[ "$mode" != install ]] && ! feature_uninstallable "$k"; then
         if list_contains "$flags" "$k"; then
           if [[ "$mode" == uninstall ]]; then
