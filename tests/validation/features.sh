@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
-
-################################################################################
-# Program: install/validate.sh
-# Description: Checks the feature and variant registry without installing
-#              anything: every feature_<name> function in install/features is
-#              documented (feature_description, and a doc comment with a
-#              description and @machine, @os and @gui tags), and every variant's features exist, suit the variant's
-#              OS and GUI, and come after the features they require. Exits
-#              non-zero on any problem. Run in CI.
-################################################################################
+# Validate the feature and variant registry without installing anything: every feature_<name> function in
+# install/features is documented (a feature_description entry, and a doc comment with a description and @machine, @os
+# and @gui tags), and every variant's features exist, suit the variant's OS and GUI, and come after the features they
+# require. Run via `make validate`.
 
 set -euo pipefail
 
-INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../lib.sh"
+
+INSTALL_DIR="$REPO_ROOT/install"
 # Feature files read these at load time; point them at this checkout.
-DOTFILES_ROOT="$(dirname "$INSTALL_DIR")"
+DOTFILES_ROOT="$REPO_ROOT"
 BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
 LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"

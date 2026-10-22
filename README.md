@@ -94,7 +94,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── .vimrc                       --- Vim main configuration file (deprecated)
 │   ├── .zprofile                    --- zshell login startup file
 │   └── .zshrc                       --- zshell interactive startup file
-├── install                          --- pieces of the install script (lib, features, variants) and validate.sh
+├── install                          --- pieces of the install script (lib, features, variants)
 ├── install.sh                       --- dotfiles install script
 ├── root                             ---
 │   ├── etc                          ---
@@ -144,8 +144,9 @@ This repository contains configuration files for my linux workspace. The followi
     ├── lint                         ---
     │   └── lint.sh                  --- make lint: syntax, shellcheck, actionlint and TOML checks
     ├── validation                   ---
+    │   ├── features.sh              --- checks feature docs, and that variants suit and order their features
     │   ├── readme_tree.py           --- checks this tree against the files tracked by git
-    │   └── validate.sh              --- make validate: checkout name, README tree, pinned checksums
+    │   └── validate.sh              --- make validate: checkout name, README tree, checksums, features
     ├── versions.env                 --- pinned versions and checksums of shellcheck and actionlint
     └── webterm_smoke.py             --- smoke test for the ttyd and socket proxy chain
 ```
@@ -172,7 +173,7 @@ Each `feature_<name>` function has a doc comment directly above it: a brief desc
 feature_webterm() {
 ```
 
-Each variant declares the `_os` and `_gui` it targets. `install/validate.sh` (run by `make lint`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes.
+Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes.
 
 | Feature | Machine | OS | GUI | Requires |
 |---|---|---|---|---|
@@ -184,7 +185,7 @@ Each variant declares the `_os` and `_gui` it targets. `install/validate.sh` (ru
 | `dconf` | any | linux | gnome | |
 | `xdg` | any | linux | gnome | `pacman` |
 | `tmux` | any | any | any | `link` |
-| `binaries` | any | linux, macos | any | |
+| `binaries`, `neovim` | any | linux, macos | any | |
 | `flatpak` | any | linux | desktop | |
 | `udev`, `tmpfiles` | framework16 | linux | any | |
 | `steamos_xclip` | any | steamos | desktop | |
@@ -260,7 +261,7 @@ git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the
 ## Testing
 Checks come in three kinds, each with a make target; `make check` runs all three.
 
-- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, and `tests/versions.env` pins a SHA-256 for every tool on every platform.
+- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, `tests/versions.env` pins a SHA-256 for every tool on every platform, and every feature is documented and suits the variants that use it (see Feature Requirements).
 - **Lint** (`make lint`, `tests/lint/`) checks code quality: the syntax of every shell, zsh, Python and TOML file, shellcheck and actionlint. The shellcheck and actionlint versions are pinned in `tests/versions.env`; `make lint` downloads them into `~/.cache/dotfiles-test` on first use and refuses any download that doesn't match its pinned SHA-256.
 - **Tests** (`make test`, `tests/install.sh`) check behavior, so changes don't break what already works. They run `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every variant, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` for managed variants) for every variant that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `tests/webterm_smoke.py` is a separate smoke test for webterm, run by hand.
 

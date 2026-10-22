@@ -71,7 +71,7 @@ feature_doc() {
 #  _os: @os, any, linux, macos, arch, steamos (linux covers arch and steamos)
 #  _gui: @gui, any (also headless), desktop (any graphical session), gnome, kde
 #  _requires: @requires (optional), features that must run before it in the same variant
-# Each variant sets the _os and _gui it targets (lists, each entry is checked); install/validate.sh requires the
+# Each variant sets the _os and _gui it targets (lists, each entry is checked); tests/validation/features.sh requires the
 # description and tags on every feature, checks every variant's features against them and that each feature's
 # _requires come earlier in its _features.
 feature_requirements() {
