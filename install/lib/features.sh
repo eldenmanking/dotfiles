@@ -20,6 +20,7 @@ feature_description() {
     zsh)         echo "clone zsh plugins into ~/.zsh and source them in .zshrc" ;;
     tmux)        echo "install tmux plugin manager and plugins" ;;
     binaries)    echo "install neovim and tmux to ~/.local/bin from GitHub" ;;
+    neovim)      echo "install neovim to ~/.local/bin from GitHub" ;;
     gng)         echo "install gng (Gradle wrapper) to ~/.local" ;;
     tre)         echo "build and install tre (tree alternative) from source" ;;
     claude)      echo "install CLAUDE.md, skills, scripts, and settings from the tools repos" ;;
@@ -36,7 +37,7 @@ feature_description() {
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info steamos_xclip flatpak udev tmpfiles webterm home_units distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip flatpak udev tmpfiles webterm home_units distrobox "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"

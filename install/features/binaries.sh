@@ -23,6 +23,11 @@ install_neovim() {
 
   local download_url="https://github.com/neovim/neovim/releases/latest/download/${asset_name}"
 
+  if $DRY_RUN; then
+    info "[dry-run] would download $download_url and install neovim to $LOCAL_PREFIX"
+    return
+  fi
+
   local tmp
   tmp="$(mktemp -d)"
 
@@ -98,6 +103,11 @@ Install them first (e.g. apt install build-essential pkg-config libevent-dev ncu
 feature_binaries() {
   install_neovim
   install_tmux_binary
+}
+
+# Just neovim, for variants whose tmux comes from elsewhere (building it needs gcc).
+feature_neovim() {
+  install_neovim
 }
 
 # --- Install gng ---
