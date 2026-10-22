@@ -284,6 +284,15 @@ test_env_sh() {
     check "$shell" env -i HOME="$SCRATCH" PATH=/usr/bin:/bin "$shell" -c \
       '. "$1"; first=$PATH; . "$1"; [ "$PATH" = "$first" ]' sh "$env_sh"
   done
+
+  # The gnome Qt theme overrides other desktops' themes (e.g. Plasma's icons and colors), so only gnome gets it.
+  info "env.sh: sets QT_QPA_PLATFORMTHEME only in gnome"
+  # shellcheck disable=SC2016 # expanded by sh
+  check "set in gnome" env -i HOME="$SCRATCH" PATH=/usr/bin:/bin XDG_CURRENT_DESKTOP=ubuntu:GNOME sh -c \
+    '. "$1"; [ "${QT_QPA_PLATFORMTHEME:-}" = gnome ]' sh "$env_sh"
+  # shellcheck disable=SC2016 # expanded by sh
+  check "unset in KDE" env -i HOME="$SCRATCH" PATH=/usr/bin:/bin XDG_CURRENT_DESKTOP=KDE sh -c \
+    '. "$1"; [ -z "${QT_QPA_PLATFORMTHEME:-}" ]' sh "$env_sh"
 }
 
 main() {
