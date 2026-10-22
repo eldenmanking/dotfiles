@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Lint the repo: README tree, shell syntax, shellcheck, workflows and TOML. Run via `make lint`.
+# Lint the code: shell, zsh, Python and TOML syntax, shellcheck and actionlint. Run via `make lint`.
 
 set -euo pipefail
 
-# shellcheck source=lib.sh
-source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=../lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../lib.sh"
 
 # Outputs: _sh, _bash, _sourced, _zsh and _python, newline-separated tracked files of each language. Files under
 # install/ without a shebang are sourced by install.sh, so they are bash.
@@ -56,14 +56,10 @@ toml_syntax() {
 main() {
   local failed=0 shellcheck actionlint
   cd "$REPO_ROOT"
-  # .shellcheckrc finds the startup files' "$HOME/dotfiles/..." sources through the checkout's parent.
+  # .shellcheckrc finds the startup files' "$HOME/dotfiles/..." sources through the checkout's parent (make validate
+  # checks this too, but shellcheck's errors would not say why).
   [[ "$(basename "$(pwd -P)")" == dotfiles ]] || error "the checkout must be a directory named dotfiles, as install.sh requires"
   f_write_args classify_files _sh _bash _sourced _zsh _python
-
-  info "README.md tree"
-  if have_or_skip python3 "the README.md tree check"; then
-    python3 tests/readme_tree.py || failed=1
-  fi
 
   info "Syntax (sh -n, bash -n, zsh -n)"
   each_file "$_sh" sh -n || failed=1

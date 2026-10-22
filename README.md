@@ -12,7 +12,7 @@ This repository contains configuration files for my linux workspace. The followi
 │       └── macos.yml                --- install tests on macOS (bash 3.2), when the files they test change
 ├── .gitignore                       ---
 ├── .shellcheckrc                    --- shellcheck settings for the repo
-├── Makefile                         --- make lint, make test and make check (see Testing)
+├── Makefile                         --- make validate, lint, test and check (see Testing)
 ├── README.md                        --- dotfiles overview
 ├── Sessionx.vim                     --- useful vim options for maintaining dotfiles
 ├── docs                             ---
@@ -138,11 +138,14 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   └── webterm.socket           --- listens on 127.0.0.1:3000
 │   └── web                          ---
 │       └── tab-keys.html            --- passes browser tab shortcuts through xterm.js
-└── tests                            --- make lint and make test checks (see Testing), plus the webterm smoke test
-    ├── install.sh                   --- install.sh in scratch homes: --dry-run for every variant, rootless installs, idempotency
+└── tests                            --- behavior tests, plus lint and validation (see Testing)
+    ├── install.sh                   --- make test: install.sh in scratch homes: --dry-run, rootless installs, idempotency
     ├── lib.sh                       --- shared helpers, including the pinned tool downloader
-    ├── lint.sh                      --- README tree, syntax, shellcheck, actionlint and TOML checks
-    ├── readme_tree.py               --- checks this tree against the files tracked by git
+    ├── lint                         ---
+    │   └── lint.sh                  --- make lint: syntax, shellcheck, actionlint and TOML checks
+    ├── validation                   ---
+    │   ├── readme_tree.py           --- checks this tree against the files tracked by git
+    │   └── validate.sh              --- make validate: checkout name, README tree, pinned checksums
     ├── versions.env                 --- pinned versions and checksums of shellcheck and actionlint
     └── webterm_smoke.py             --- smoke test for the ttyd and socket proxy chain
 ```
@@ -220,11 +223,13 @@ git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the
 ```
 
 ## Testing
-`make lint` checks the README tree above against the files tracked by git, checks the syntax of every shell, zsh, Python and TOML file, and runs shellcheck and actionlint. The shellcheck and actionlint versions are pinned in `tests/versions.env`; `make lint` downloads them (checked against their SHA-256) into `~/.cache/dotfiles-test` on first use. zsh and python3 checks are skipped with a warning when those are missing, except in CI.
+Checks come in three kinds, each with a make target; `make check` runs all three.
 
-`make test` runs `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every variant, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` for managed variants) for every variant that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `make check` runs both.
+- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, and `tests/versions.env` pins a SHA-256 for every tool on every platform.
+- **Lint** (`make lint`, `tests/lint/`) checks code quality: the syntax of every shell, zsh, Python and TOML file, shellcheck and actionlint. The shellcheck and actionlint versions are pinned in `tests/versions.env`; `make lint` downloads them into `~/.cache/dotfiles-test` on first use and refuses any download that doesn't match its pinned SHA-256.
+- **Tests** (`make test`, `tests/install.sh`) check behavior, so changes don't break what already works. They run `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every variant, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` for managed variants) for every variant that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `tests/webterm_smoke.py` is a separate smoke test for webterm, run by hand.
 
-CI (`.github/workflows/`) runs `make lint` on Ubuntu, and `make test` on Arch Linux (in a container whose packages are pinned to an Arch Linux Archive snapshot), Ubuntu and macOS (only when the files it tests change). Actions are pinned to commit SHAs and kept current by Dependabot; container images, runner labels and `tests/versions.env` are bumped by hand.
+zsh and python3 checks are skipped with a warning when those are missing, except in CI. CI (`.github/workflows/`) runs `make validate` and `make lint` on Ubuntu, and `make test` on Arch Linux (in a container whose packages are pinned to an Arch Linux Archive snapshot), Ubuntu and macOS (only when the files it tests change). Actions are pinned to commit SHAs and kept current by Dependabot; container images, runner labels and `tests/versions.env` are bumped by hand.
 
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.

@@ -1,4 +1,4 @@
-# Lint, plus install tests on Linux. macOS runs in macos.yml, only when files it tests change.
+# Validation and lint, plus install tests on Linux. macOS runs in macos.yml, only when files it tests change.
 name: CI
 
 on:
@@ -14,6 +14,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: make validate
+
   lint:
     runs-on: ubuntu-24.04
     steps:

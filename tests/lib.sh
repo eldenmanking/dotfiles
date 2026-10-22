@@ -1,4 +1,4 @@
-# Shared helpers for tests/lint.sh and tests/install.sh.
+# Shared helpers for tests/install.sh, tests/lint and tests/validation.
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$TEST_DIR")"
