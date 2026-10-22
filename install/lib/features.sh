@@ -31,7 +31,7 @@ feature_description() {
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of a temporary arch distrobox" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units (browser shell on localhost)" ;;
     home_units)  echo "install home-units.service into /etc (sudo, only if the home is encrypted with dirlock)" ;;
-    kde)         echo "set KDE Plasma settings (keyboard repeat) with kwriteconfig" ;;
+    kde)         echo "merge partial KDE config files (e.g. home/.config/kcminputrc) into ~/.config with kwriteconfig" ;;
     distrobox)   echo "create an 'arch' distrobox from archlinux:latest and enter it" ;;
     *)           echo "" ;;
   esac

@@ -1,0 +1,6 @@
+# Merged into ~/.config/kcminputrc key by key by the kde feature (not linked, since KDE rewrites the file).
+# Keyboard repeat matches dump/dconf/arch.dconf (150 ms delay, 10 ms interval).
+[Keyboard]
+KeyRepeat=repeat
+RepeatDelay=150
+RepeatRate=100
