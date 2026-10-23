@@ -298,6 +298,7 @@ link_configs() {
   local paths=(
     .tmux.conf
     .tmux/resurrect/saferestore.sh
+    .tmux/resurrect/claude_save.sh
     .config/nvim/core/autocommands.vim
     .config/nvim/core/commands.vim
     .config/nvim/core/filetypes.vim

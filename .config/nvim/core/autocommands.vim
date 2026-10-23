@@ -18,3 +18,9 @@ augroup accurate_syntax_sync
   autocmd BufRead,BufNewFile * syntax sync fromstart
 augroup end
 
+
+" TODO(andywang): add comment
+augroup session_cwd
+  au!
+  autocmd SessionLoadPost * silent CdToSession
+augroup end
