@@ -111,6 +111,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── system               ---
 │   │   │       ├── auto-suspend.serv--- laptop auto-suspend service to prevent death
 │   │   │       ├── auto-suspend.time--- auto-suspend timer to check if battery is low
+│   │   │       ├── orei-switch-power--- turns the projector off over CEC on poweroff (copied by orei_switch)
 │   │   │       └── orei-switch.servi--- runs orei-switch.sh around sleep (copied by orei_switch)
 │   │   ├── tmpfiles.d               ---
 │   │   │   └── ec-no-wakeup.conf    --- stop the embedded controller (ACPI GPE 0x0B) from waking the laptop from s2idle (copied, not linked)

@@ -1,15 +1,17 @@
 # Feature: hand an OREI HDMI switch to another input while a Framework 16 sleeps, and back on wake, by cutting power
-# to the left USB-C PD controller with Framework's framework_tool (see root/etc/orei-switch/orei-switch.sh).
+# to the left USB-C PD controller with Framework's framework_tool, and turn the projector off over CEC on sleep and
+# poweroff (see root/etc/orei-switch/orei-switch.sh).
 
 OREI_SWITCH_DIR=/etc/orei-switch
-OREI_SWITCH_UNIT=orei-switch.service
+OREI_SWITCH_UNITS="orei-switch.service orei-switch-poweroff.service"
 FRAMEWORK_TOOL_VERSION=v0.6.6
 FRAMEWORK_TOOL_SHA256=ebc2f3ca300dac6f484c02d058833372ff8dd3c23f2a74b63c774f8dc2f86171
 # "<mode> <repo-relative source> <destination>" for each installed file. Copied, not linked: the unit runs when the
 # home may be locked. The keep list makes /etc/orei-switch survive SteamOS updates.
 OREI_SWITCH_FILES=(
   "755 root/etc/orei-switch/orei-switch.sh $OREI_SWITCH_DIR/orei-switch.sh"
-  "644 root/etc/systemd/system/$OREI_SWITCH_UNIT /etc/systemd/system/$OREI_SWITCH_UNIT"
+  "644 root/etc/systemd/system/orei-switch.service /etc/systemd/system/orei-switch.service"
+  "644 root/etc/systemd/system/orei-switch-poweroff.service /etc/systemd/system/orei-switch-poweroff.service"
   "644 root/etc/atomic-update.conf.d/orei-switch.conf /etc/atomic-update.conf.d/orei-switch.conf"
 )
 
@@ -30,14 +32,14 @@ install_framework_tool() {
   rm -f "$tmp"
 }
 
-# Download framework_tool and install the orei-switch script and sleep unit into /etc (sudo). The unit is enabled but
-# not started, since starting it cuts power to the left ports.
+# Download framework_tool and install the orei-switch script, sleep unit and poweroff unit into /etc (sudo). The units
+# are enabled but not started, since starting the sleep unit cuts power to the left ports.
 #
 # @machine framework16
 # @os linux
 # @gui any
 feature_orei_switch() {
-  local entry mode src dest changed=false
+  local entry mode src dest unit changed=false
   install_framework_tool
   for entry in "${OREI_SWITCH_FILES[@]}"; do
     read -r mode src dest <<<"$entry"
@@ -49,20 +51,24 @@ feature_orei_switch() {
     changed=true
   done
   ! $changed || run sudo systemctl daemon-reload
-  if systemctl is-enabled --quiet "$OREI_SWITCH_UNIT" 2>/dev/null; then
-    info "$OREI_SWITCH_UNIT already enabled"
-  else
-    run sudo systemctl enable "$OREI_SWITCH_UNIT"
-  fi
+  for unit in $OREI_SWITCH_UNITS; do
+    if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+      info "$unit already enabled"
+    else
+      run sudo systemctl enable "$unit"
+    fi
+  done
   info "Keep the charger on a right-side port: sleep cuts power to ports 2 and 3. Logs: journalctl -t orei-switch -b"
 }
 
-# Disable the unit and remove the installed files.
+# Disable the units and remove the installed files.
 uninstall_feature_orei_switch() {
-  local entry mode src dest removed=false
-  if systemctl is-enabled --quiet "$OREI_SWITCH_UNIT" 2>/dev/null; then
-    run sudo systemctl disable "$OREI_SWITCH_UNIT"
-  fi
+  local entry mode src dest unit removed=false
+  for unit in $OREI_SWITCH_UNITS; do
+    if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+      run sudo systemctl disable "$unit"
+    fi
+  done
   for entry in "${OREI_SWITCH_FILES[@]}"; do
     read -r mode src dest <<<"$entry"
     [[ -e "$dest" ]] || continue

@@ -1,6 +1,7 @@
 #!/bin/bash
-# Hand the OREI HDMI switch to another input on sleep and back to this laptop on wake. Installed into /etc/orei-switch
-# by the orei_switch feature of ~/dotfiles/install.sh, and run by orei-switch.service.
+# Hand the OREI HDMI switch to another input on sleep and back to this laptop on wake, and turn the projector off on
+# sleep and poweroff. Installed into /etc/orei-switch by the orei_switch feature of ~/dotfiles/install.sh, and run by
+# orei-switch.service (sleep, wake) and orei-switch-poweroff.service (poweroff). See docs/orei-switch.md.
 #
 # The OREI ignores CEC and only switches on a fresh HDMI +5V edge, or falls back to another live input once the
 # selected input's 5V stays gone. Cutting power to the left PD controller (ports 2 and 3, including the HDMI card on
@@ -10,10 +11,22 @@ FWT=/etc/orei-switch/framework_tool
 PD=1      # left PD controller (ports 2,3); right is 0
 UCSI=/sys/kernel/debug/usb/ucsi/USBC000:00
 CONN=3    # UCSI connector for the HDMI card (typec port2 + 1)
+CEC=/dev/cec0
+CONNECT_WAIT=5  # seconds to wait for the display after enabling PD, and after each UCSI reset
 
 log() { logger -t orei-switch "$*"; }
 
 external_connected() { grep -qx connected /sys/class/drm/card*-DP-*/status 2>/dev/null; }
+
+# Return 0 once an external display is connected, or 1 after $1 seconds.
+wait_connected() {
+  local i
+  for (( i = 0; i < $1 * 4; i++ )); do
+    external_connected && return 0
+    sleep 0.25
+  done
+  return 1
+}
 
 # Reset the HDMI card's connector, a software replug.
 ucsi_reset() {
@@ -21,8 +34,25 @@ ucsi_reset() {
   cat "$UCSI/response" >/dev/null
 }
 
+# Press the projector's Power Off key over CEC: it ignores <Standby>. CEC needs HPD, so this only reaches the projector
+# while the OREI shows this laptop, which also keeps it from turning off another input's picture.
+projector_off() {
+  if ! external_connected; then
+    log "no external display; leaving the projector alone"
+    return
+  fi
+  # Claim a playback address if nothing has configured the adapter.
+  cec-ctl -d "$CEC" | grep -Eq 'Logical Address +:' || cec-ctl -s -d "$CEC" --playback >/dev/null
+  log "turning the projector off"
+  if ! cec-ctl -s -d "$CEC" --to 0 --user-control-pressed ui-cmd=power-off-function >/dev/null \
+    || ! cec-ctl -s -d "$CEC" --to 0 --user-control-released >/dev/null; then
+    log "CEC power off failed"
+  fi
+}
+
 case "$1" in
   sleep)
+    projector_off
     log "disabling PD $PD"
     "$FWT" --pd-disable "$PD"
     sleep 1
@@ -30,17 +60,21 @@ case "$1" in
   wake)
     log "enabling PD $PD"
     "$FWT" --pd-enable "$PD"
-    sleep 10
     # The first reset makes the OREI switch, the second gives a clean hotplug so video comes up.
-    if ! external_connected; then
-      log "fallback UCSI resets"
-      ucsi_reset
-      sleep 10
-      ucsi_reset
-    fi
+    for step in "PD enable" "UCSI reset 1" "UCSI reset 2"; do
+      [[ "$step" == "PD enable" ]] || { log "$step"; ucsi_reset; }
+      if wait_connected "$CONNECT_WAIT"; then
+        log "display connected after $step"
+        exit 0
+      fi
+    done
+    log "no display after $step"
+    ;;
+  poweroff)
+    projector_off
     ;;
   *)
-    echo "usage: $0 sleep|wake" >&2
+    echo "usage: $0 sleep|wake|poweroff" >&2
     exit 2
     ;;
 esac
