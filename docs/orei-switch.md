@@ -55,7 +55,7 @@ logical address after resume. On poweroff it only turns the projector off.
 - Remove: `./install.sh --variant steamos --orei_switch --uninstall`
 
 ## Open questions
-- Verify a real poweroff, and the UCSI reset fallback on wake.
+- Verify a real poweroff, and the UCSI reset fallback on wake. (Suspend/resume, including turning the projector off and
+  on, works.) Accidental wakes turning the projector on are fine.
 - Boot: maybe run the wake logic at boot too. The projector shows a blank screen on boot if connected, and the
   encrypted home needs a desktop-mode login first.
-- Accidental wakes grab the projector; consider guarding against that.
