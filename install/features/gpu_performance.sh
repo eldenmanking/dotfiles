@@ -21,7 +21,7 @@ gpu_performance_installed() {
 }
 
 # Install gpu-performance.service into /etc (needs sudo), which sets the 780M to the manual performance level with
-# its full 800-2700 MHz graphics clock range at boot and after each resume.
+# its default (full) graphics clock range committed, at boot and after each resume.
 #
 # @machine framework16
 # @os linux
