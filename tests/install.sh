@@ -292,6 +292,39 @@ test_env_sh() {
     '. "$1"; [ -z "${QT_QPA_PLATFORMTHEME:-}" ]' sh "$env_sh"
 }
 
+# The steam feature sets its hotkeys in an existing Gamescope section and adds the section where it's missing, keeps
+# the other settings, backs up the file and changes nothing on a second run.
+test_steam() {
+  local userdata vdf_a vdf_b first
+  info "steam: hotkeys written into localconfig.vdf"
+  if pgrep -x steam >/dev/null 2>&1; then
+    warn "Steam is running; skipping the steam feature test"
+    return
+  fi
+  new_home
+  userdata="$_home/.local/share/Steam/userdata"
+  vdf_a="$userdata/1/config/localconfig.vdf"
+  vdf_b="$userdata/2/config/localconfig.vdf"
+  mkdir -p "${vdf_a%/*}" "${vdf_b%/*}"
+  printf '"UserLocalConfigStore"\n{\n\t"Gamescope"\n\t{\n\t\t"GameResolutionGlobal"\t\t"Default"\n' > "$vdf_a"
+  printf '\t\t"GuideKeyboardHotkey"\t\t"Ctrl\tWin\tKEY_TAB"\n\t}\n\t"nettickets"\n\t{\n\t}\n}\n' >> "$vdf_a"
+  printf '"UserLocalConfigStore"\n{\n\t"friends"\t\t"1"\n}\n' > "$vdf_b"
+
+  install_ok "$_home" --variant steamos --steam || return
+  check "existing main menu hotkey replaced" grep -qx $'\t\t"GuideKeyboardHotkey"\t\t"Win\tKEY_TAB"' "$vdf_a"
+  check "  ...and set only once" [ "$(grep -c GuideKeyboardHotkey "$vdf_a")" = 1 ]
+  check "missing quick access hotkey added" grep -qx $'\t\t"QAMKeyboardHotkey"\t\t"Shift\tWin\tKEY_TAB"' "$vdf_a"
+  check "other settings kept" grep -q '"GameResolutionGlobal"' "$vdf_a"
+  check "missing Gamescope section added" grep -qx $'\t"Gamescope"' "$vdf_b"
+  check "original backed up" grep -q '"Ctrl' "$REPO_ROOT/.backup$vdf_a"
+  first="$(snapshot "$_home")"
+  install_ok "$_home" --variant steamos --steam || true
+  check_unchanged "  ...the second install changed nothing" "$first" "$(snapshot "$_home")"
+  # Backups land in the checkout (the scratch home links to it).
+  rm -rf "$REPO_ROOT/.backup$SCRATCH"
+  rmdir -p "$(dirname "$REPO_ROOT/.backup$SCRATCH")" 2>/dev/null || true
+}
+
 main() {
   local variants variant
   info "install.sh runs under $("$INSTALL_BASH" -c 'echo "bash $BASH_VERSION"')"
@@ -302,6 +335,7 @@ main() {
     test_dry_run "$variant"
     test_install "$variant"
   done
+  test_steam
   test_env_sh
 
   [[ "$FAILURES" == 0 ]] || error "$FAILURES check(s) failed"

@@ -29,6 +29,7 @@ feature_description() {
     udev)        echo "copy root/etc/udev rules into /etc (not symlinked) and reload udev" ;;
     tmpfiles)    echo "copy root/etc/tmpfiles.d configs into /etc (not symlinked) and apply them" ;;
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of the 'arch' distrobox (created if missing, then kept)" ;;
+    steam)       echo "write Steam settings (game mode menu hotkeys) into localconfig.vdf, while Steam is closed" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units (browser shell on localhost)" ;;
     home_units)  echo "install home-units.service into /etc (sudo, only if the home is encrypted with dirlock)" ;;
     kde)         echo "merge partial KDE config files (e.g. home/.config/kcminputrc) into ~/.config with kwriteconfig" ;;
@@ -105,7 +106,7 @@ gui_supported() {
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip flatpak kde udev tmpfiles webterm home_units distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip flatpak kde steam udev tmpfiles webterm home_units distrobox "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"

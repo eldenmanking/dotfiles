@@ -191,12 +191,12 @@ Each variant declares the `_os` and `_gui` it targets. `tests/validation/feature
 | `udev`, `tmpfiles` | framework16 | linux | any | |
 | `steamos_xclip` | any | steamos | desktop | |
 | `webterm` | any | linux | any | `link` |
-| `home_units` | any | steamos | any | |
+| `home_units`, `steam` | any | steamos | any | |
 | `kde` | any | linux | kde | |
 
 `linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The variants target: `arch` (arch, gnome), `steamos` (steamos, kde), `coder` (linux, no GUI) and `portable` (linux and macos, no GUI).
 
-The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [steamos/README.md](steamos/README.md) and [docs/steamos-setup.md](docs/steamos-setup.md).
+The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `steam` feature sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, only while Steam is closed since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [steamos/README.md](steamos/README.md) and [docs/steamos-setup.md](docs/steamos-setup.md).
 
 Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell startup file subblocks only source files under `home/.config/sh` and `home/.config/zsh`, which the linked startup files (on `arch` and `steamos`) source too. Edit the files outside the section freely.
 
