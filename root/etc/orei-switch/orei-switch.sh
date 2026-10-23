@@ -11,8 +11,9 @@ FWT=/etc/orei-switch/framework_tool
 PD=1      # left PD controller (ports 2,3); right is 0
 UCSI=/sys/kernel/debug/usb/ucsi/USBC000:00
 CONN=3    # UCSI connector for the HDMI card (typec port2 + 1)
-CEC=/dev/cec0
-CONNECT_WAIT=5  # seconds to wait for the display after enabling PD, and after each UCSI reset
+CEC_DRIVER=amdgpu  # find the CEC adapter by driver: it is re-registered on each resume, as /dev/cec0 or /dev/cec1
+PD_WAIT=10    # seconds to wait for the display after enabling PD (5.4s when tested)
+RESET_WAIT=6  # seconds to wait for the display after each UCSI reset
 
 log() { logger -t orei-switch "$*"; }
 
@@ -42,10 +43,10 @@ projector_off() {
     return
   fi
   # Claim a playback address if nothing has configured the adapter.
-  cec-ctl -d "$CEC" | grep -Eq 'Logical Address +:' || cec-ctl -s -d "$CEC" --playback >/dev/null
+  cec-ctl -D "$CEC_DRIVER" | grep -Eq 'Logical Address +:' || cec-ctl -s -D "$CEC_DRIVER" --playback >/dev/null
   log "turning the projector off"
-  if ! cec-ctl -s -d "$CEC" --to 0 --user-control-pressed ui-cmd=power-off-function >/dev/null \
-    || ! cec-ctl -s -d "$CEC" --to 0 --user-control-released >/dev/null; then
+  if ! cec-ctl -s -D "$CEC_DRIVER" --to 0 --user-control-pressed ui-cmd=power-off-function >/dev/null \
+    || ! cec-ctl -s -D "$CEC_DRIVER" --to 0 --user-control-released >/dev/null; then
     log "CEC power off failed"
   fi
 }
@@ -62,8 +63,14 @@ case "$1" in
     "$FWT" --pd-enable "$PD"
     # The first reset makes the OREI switch, the second gives a clean hotplug so video comes up.
     for step in "PD enable" "UCSI reset 1" "UCSI reset 2"; do
-      [[ "$step" == "PD enable" ]] || { log "$step"; ucsi_reset; }
-      if wait_connected "$CONNECT_WAIT"; then
+      secs="$RESET_WAIT"
+      if [[ "$step" == "PD enable" ]]; then
+        secs="$PD_WAIT"
+      else
+        log "$step"
+        ucsi_reset
+      fi
+      if wait_connected "$secs"; then
         log "display connected after $step"
         exit 0
       fi

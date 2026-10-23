@@ -33,15 +33,18 @@ SteamOS keep list for `/etc/orei-switch`, without which an OS update deletes the
 - The projector (a Nebula Cosmos, CEC vendor ID `mtk`) is reachable over CEC through the OREI as the TV (0.0.0.0), and
   the Apple TV answers as Playback Device 1 (1.2.0.0) with its power state. The projector acknowledges `<Standby>`, sent
   to it or broadcast, even after an `<Active Source>`, but ignores it. It does turn off on the remote's Power Off key:
-  `cec-ctl -d /dev/cec0 --to 0 --user-control-pressed ui-cmd=power-off-function`, then `--user-control-released`.
+  `cec-ctl -D amdgpu --to 0 --user-control-pressed ui-cmd=power-off-function`, then `--user-control-released`.
+- The kernel re-registers the CEC adapter on each resume, alternating between `/dev/cec0` and `/dev/cec1`, so the
+  script finds it by driver (`cec-ctl -D amdgpu`). SteamOS's `cecd` configures it (OSD name `steamdeck`).
 - The laptop's CEC adapter needs HPD, so it can only talk on the bus while the OREI shows the laptop, and not at all
   while it sleeps. It can't watch for another device turning on during sleep.
 
 On sleep the script presses the projector's Power Off key over CEC (only while the OREI shows the laptop, so it never
-turns off another input's picture), then disables the PD controller. On wake it re-enables it, waits up to 5s for an
+turns off another input's picture), then disables the PD controller. On wake it re-enables it, waits up to 10s for an
 external display (polling `/sys/class/drm/card*-DP-*/status`), and otherwise does up to two UCSI resets, each followed by
-the same wait. It logs which step brought the display up; tune `CONNECT_WAIT` from those timings
-(`journalctl -t orei-switch -b -o short-precise`). On poweroff it only turns the projector off.
+a 6s wait. It logs which step brought the display up; tune `PD_WAIT` and `RESET_WAIT` from those timings
+(`journalctl -t orei-switch -b -o short-precise`). In the first real suspend/resume, the display connected 5.4s after the
+PD enable, with no resets. On poweroff it only turns the projector off.
 
 ## Operating
 - Logs: `journalctl -t orei-switch -b`
@@ -49,7 +52,7 @@ the same wait. It logs which step brought the display up; tune `CONNECT_WAIT` fr
 - Remove: `./install.sh --variant steamos --orei_switch --uninstall`
 
 ## Open questions
-- Verify with a real suspend/resume and poweroff (only tested by hand while awake so far), and tune `CONNECT_WAIT`.
+- Verify a real poweroff, and the UCSI reset fallback on wake.
 - Turning the projector back on over CEC (`--image-view-on`) is untested.
 - Boot: maybe run the wake logic at boot too. The projector shows a blank screen on boot if connected, and the
   encrypted home needs a desktop-mode login first.
