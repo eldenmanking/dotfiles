@@ -5,6 +5,10 @@ TMPFILES_SRC="root/etc/tmpfiles.d"
 TMPFILES_DST="/etc/tmpfiles.d"
 
 # Copy changed configs (replacing any old symlink), then apply them now so no reboot is needed.
+#
+# @machine framework16
+# @os linux
+# @gui any
 feature_tmpfiles() {
   local target
   f_write_args copy_system_files _changed -- "$DOTFILES_ROOT/$TMPFILES_SRC" "$TMPFILES_DST" '*.conf'

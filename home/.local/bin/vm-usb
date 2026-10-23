@@ -2,10 +2,10 @@
 
 # TODO(andywang): add comment
 
-LIB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../install/lib"
-# shellcheck source=../../install/lib/output.sh
+LIB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../install/lib"
+# shellcheck source=../../../install/lib/output.sh
 source "$LIB_DIR/output.sh"
-# shellcheck source=../../install/lib/fn.sh
+# shellcheck source=../../../install/lib/fn.sh
 source "$LIB_DIR/fn.sh"
 
 VIRSH="flatpak run --command=virsh org.gnome.Boxes"
@@ -117,16 +117,21 @@ main() {
   f_write_args partition_devices _attached _pending -- "$vm" "$_ids"
 
   ATTACHED="$_attached"
+  # shellcheck disable=SC2064 # expand $vm now, while it is set
   trap "detach_all $(printf %q "$vm")" EXIT
   trap 'exit 130' INT TERM
 
   if [[ -z "$_pending" ]]; then
-    echo "All matching devices are already attached to '$vm':"; describe $_ids
+    echo "All matching devices are already attached to '$vm':"
+    # shellcheck disable=SC2086 # $_ids is a space-separated list of ids
+    describe $_ids
     exit 0
   fi
 
   [[ -n "$ATTACHED" ]] && echo "Already attached (will be detached at the end): $(wc -w <<<"$ATTACHED") device(s)"
-  echo "To attach:"; describe $_pending
+  echo "To attach:"
+  # shellcheck disable=SC2086
+  describe $_pending
   confirm "Attach these to '$vm'?" || exit 0
 
   for id in $_pending; do

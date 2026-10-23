@@ -57,8 +57,14 @@ available_variants() {
   printf '%s' "$names"
 }
 
+# Print feature $1's --help line, with the features it requires.
+usage_feature() {
+  f_write_args feature_requirements _machine _os _gui _requires -- "$1"
+  printf '  --%-14s %s%s\n' "$1" "$(feature_description "$1")" "${_requires:+ (requires: --${_requires// / --})}"
+}
+
 usage() {
-  local variant="$1" v features all_exclude uninstallable=""
+  local variant="$1" v features optional uninstallable=""
   cat <<EOF
 Usage: $(basename "$0") --variant NAME [OPTIONS]
 
@@ -74,19 +80,26 @@ EOF
   done
   variant_exists "$variant" || return 0
 
-  f_write_args variant_config _features _all_exclude -- "$variant"
+  f_write_args variant_config _features _optional -- "$variant"
   features="$_features"
-  all_exclude="$_all_exclude"
+  optional="$_optional"
   cat <<EOF
 
 Options for variant '$variant':
   --variant NAME   select the variant
-  --all            install all options${all_exclude:+ (except: $all_exclude)}
+  --all            install all default options
 EOF
   for v in $features; do
-    printf '  --%-14s %s\n' "$v" "$(feature_description "$v")"
     feature_uninstallable "$v" && uninstallable+="${uninstallable:+ }$v"
+    list_contains "$optional" "$v" || usage_feature "$v"
   done
+  if [[ -n "$optional" ]]; then
+    printf '\nOptional (not included in --all):\n'
+    for v in $optional; do
+      usage_feature "$v"
+    done
+    echo
+  fi
   if [[ -n "$uninstallable" ]]; then
     printf '  --%-14s %s (%s)\n' reinstall "uninstall the selected options, then install them" "$uninstallable"
     printf '  --%-14s %s (%s)\n' uninstall "uninstall the selected options" "$uninstallable"
@@ -156,18 +169,18 @@ exit_with_usage_unless_runnable() {
 # Outputs: _enabled, the selected features. Under --uninstall, features
 # without an uninstall function are dropped (with a warning if named).
 resolve_features() {
-  local variant="$1" flags="$2" all="$3" mode="$4" features all_exclude enabled=" " k
+  local variant="$1" flags="$2" all="$3" mode="$4" features optional enabled=" " k
 
-  f_write_args variant_config _features _all_exclude -- "$variant"
+  f_write_args variant_config _features _optional -- "$variant"
   features="$_features"
-  all_exclude="$_all_exclude"
+  optional="$_optional"
 
   for k in $flags; do
     list_contains "$features" "$k" \
       || usage_error "Unknown option for variant '$variant': --$k" "$variant"
   done
   for k in $features; do
-    if list_contains "$flags" "$k" || { $all && ! list_contains "$all_exclude" "$k"; }; then
+    if list_contains "$flags" "$k" || { $all && ! list_contains "$optional" "$k"; }; then
       if [[ "$mode" != install ]] && ! feature_uninstallable "$k"; then
         if list_contains "$flags" "$k"; then
           if [[ "$mode" == uninstall ]]; then
@@ -185,9 +198,30 @@ resolve_features() {
   _enabled="$enabled"
 }
 
+# Print why install.sh in $1 can't install from $2, or nothing if it can. Everything it links points into $2, so it
+# must run from that checkout ($2 may be a symlink to it), and the checkout must be named dotfiles, which the startup
+# files and lint (.shellcheckrc) rely on.
+explain_checkout_problem() {
+  local script_dir="$1" root="$2" script_real root_real
+  script_real="$(cd "$script_dir" && pwd -P)"
+  if [[ ! -d "$root" ]]; then
+    printf 'dotfiles must be checked out at %s' "$root"
+    return
+  fi
+  root_real="$(cd "$root" && pwd -P)"
+  if [[ "$script_real" != "$root_real" ]]; then
+    printf 'this checkout (%s) is not %s (%s); run %s/install.sh instead' "$script_real" "$root" "$root_real" "$root"
+  elif [[ "${root_real##*/}" != dotfiles ]]; then
+    printf "the checkout must be a directory named dotfiles, not '%s' (%s links to %s)" \
+      "${root_real##*/}" "$root" "$root_real"
+  fi
+}
+
 enter_dotfiles_root() {
-  # Ensure dotfiles dir exists and switch to it (no subshell, so cwd persists).
-  [[ -d "$DOTFILES_ROOT" ]] || error "dotfiles must be at $DOTFILES_ROOT."
+  local problem
+  problem="$(explain_checkout_problem "$SCRIPT_DIR" "$DOTFILES_ROOT")"
+  [[ -z "$problem" ]] || error "$problem"
+  # No subshell, so the cwd persists.
   cd "$DOTFILES_ROOT"
 }
 

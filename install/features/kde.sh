@@ -43,6 +43,11 @@ kde_parse_ini() {
   _entries="$entries"
 }
 
+# Merge each partial KDE config file in KDE_CONFIG_FILES into its ~/.config counterpart with kwriteconfig.
+#
+# @machine any
+# @os linux
+# @gui kde
 feature_kde() {
   local writer reader rel file entries group key value rest group_args
   f_write_args kde_config_tools _write _read --

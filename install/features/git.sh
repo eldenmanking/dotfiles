@@ -1,6 +1,10 @@
 # Feature: global git config.
 
-# --- Git config ---
+# Set global git defaults (excludes file, pull, push and fetch behavior, credential store).
+#
+# @machine any
+# @os any
+# @gui any
 feature_gitconfig() {
   local variant="$1" git_fsmonitor
   if ! command -v git &>/dev/null; then

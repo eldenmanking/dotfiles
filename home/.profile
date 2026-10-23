@@ -3,4 +3,4 @@
 # ~/.profile
 #
 
-. ~/dotfiles/home/.config/sh/env.sh
+. "$HOME/dotfiles/home/.config/sh/env.sh"

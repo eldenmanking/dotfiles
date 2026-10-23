@@ -1,0 +1,75 @@
+# Validation and lint, plus install tests on Linux. macOS runs in macos.yml, only when files it tests change.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: make validate
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install zsh
+        run: sudo apt-get update -q && sudo apt-get install -y -q zsh
+      - run: make lint
+
+  test:
+    name: test (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: archlinux
+            runs-on: ubuntu-24.04
+            # Packages come from the Arch Linux Archive snapshot of the image's date, so the whole job is pinned.
+            # Bump the tag, digest and ARCH_ARCHIVE_DATE together.
+            container: archlinux:base-20261018.0.612668@sha256:52dfbd5afb23a220d5ee92dafcb4c788d96c026ed04179890c23adef4c897fa0
+          - name: ubuntu
+            runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runs-on }}
+    container: ${{ matrix.container }}
+    env:
+      ARCH_ARCHIVE_DATE: 2026/10/18
+    steps:
+      - name: Install packages (archlinux)
+        if: matrix.name == 'archlinux'
+        run: |
+          echo "Server = https://archive.archlinux.org/repos/$ARCH_ARCHIVE_DATE/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist
+          pacman -Syu --noconfirm --needed diffutils git make zsh
+          # Run the tests as a normal user, as install.sh is.
+          useradd --create-home tester
+      - name: Install packages (ubuntu)
+        if: matrix.name == 'ubuntu'
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q zsh
+          # The runner image has insecure zsh function directories, so compinit (settings.zsh) asks whether to trust
+          # them, which aborts without a terminal. Secure them the way compaudit wants: root-owned, not group or
+          # world writable.
+          audit() { zsh -c 'autoload -Uz compaudit; compaudit' 2>/dev/null || true; }
+          audit | tee /dev/stderr | xargs -r sudo chown root:root
+          audit | xargs -r sudo chmod g-w,o-w
+          [ -z "$(audit)" ]
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: make test (archlinux)
+        if: matrix.name == 'archlinux'
+        run: |
+          chown -R tester "$GITHUB_WORKSPACE"
+          runuser -u tester -- make test
+      - name: make test
+        if: matrix.name != 'archlinux'
+        run: make test

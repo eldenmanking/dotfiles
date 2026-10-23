@@ -95,6 +95,13 @@ check_socket_activation() {
   fi
 }
 
+# Serve a shell in the browser on localhost: download ttyd and install systemd user units that start it on
+# demand (see steamos/README.md).
+#
+# @machine any
+# @os linux
+# @gui any
+# @requires link
 feature_webterm() {
   require_commands curl sha256sum systemctl
   systemctl --user show-environment >/dev/null 2>&1 \

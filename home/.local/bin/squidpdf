@@ -14,9 +14,9 @@ badfile() { echo "Filename invalid or file does not exist. Input and output file
 # Prompts a positive integer from user input. Returns 1 by default.
 promptnumber() {
   while true; do
-    read -p "" < /dev/tty
+    read -r -p "" < /dev/tty
     [[ -z "$REPLY" ]] && return 1
-    [[ "$REPLY" =~ ^([1-9][0-9]*)$ ]] && return $REPLY
+    [[ "$REPLY" =~ ^([1-9][0-9]*)$ ]] && return "$REPLY"
     echo -n "Enter a valid positive integer. (Default 1) "
   done
 }
@@ -28,7 +28,7 @@ fi
 
 SHORT=o:
 LONG=output:
-OPTS=$(getopt --options $SHORT --long $LONG --name $0 -- "$@")
+OPTS=$(getopt --options $SHORT --long $LONG --name "$0" -- "$@")
 
 if [[ $# -eq 0 ]]; then
   usage
@@ -67,17 +67,17 @@ pages=()
 pagenum=1
 
 while read -r line; do
-  lo=$(sed -E 's/.*b="([0-9.]+)".*/\1/' <<< $line)
-  hi=$(sed -E 's/.*t="([0-9.]+)".*/\1/' <<< $line)
+  lo=$(sed -E 's/.*b="([0-9.]+)".*/\1/' <<< "$line")
+  hi=$(sed -E 's/.*t="([0-9.]+)".*/\1/' <<< "$line")
   length=$(bc <<< "$hi - $lo")
 
-  pages+=( $(mktemp --suffix=".pdf") )
+  pages+=( "$(mktemp --suffix=".pdf")" )
   mutool clean -ggggz "$infile" "${pages[-1]}" $pagenum
 
   partnum=1
   case $length in
-    $one_length ) ;;
-    $five_length ) partnum=5; ;;
+    "$one_length" ) ;;
+    "$five_length" ) partnum=5; ;;
 
     * )
       echo "Page ${pagenum} has length ${length}, which does not match the one-page (${one_length}) or five-page (${five_length}) lengths."
@@ -89,14 +89,14 @@ while read -r line; do
 
   esac
 
-  [[ $partnum -gt 1 ]] && mutool poster -y $partnum "${pages[-1]}" "${pages[-1]}"
+  [[ $partnum -gt 1 ]] && mutool poster -y "$partnum" "${pages[-1]}" "${pages[-1]}"
   pagenum=$((pagenum+1))
 
-done <<< $(mutool pages "$infile" | grep -E "<MediaBox.*/>")
+done <<< "$(mutool pages "$infile" | grep -E "<MediaBox.*/>")"
 
 if [[ -z $(mutool merge -o "$outfile" "${pages[@]}" 2>&1) ]] ; then 
   rm "${pages[@]}"
   echo "Merge successful at $outfile."
 else
-  echo "Merge failed with ${pages[@]}"
+  echo "Merge failed with ${pages[*]}"
 fi

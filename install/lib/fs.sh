@@ -21,6 +21,7 @@ make_symlink() {
   if [[ -e "$target" || -L "$target" ]]; then
     run mkdir -pv "$(dirname "$BACKUPS_ROOT$target")"
     if has_tty; then
+      # shellcheck disable=SC2086 # $sudo_cmd is empty or a command
       run_tty $sudo_cmd mv -vi "$target" "$BACKUPS_ROOT$target"
     else
       run $sudo_cmd mv -v "$target" "$BACKUPS_ROOT$target"

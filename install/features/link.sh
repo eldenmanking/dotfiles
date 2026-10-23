@@ -52,6 +52,11 @@ link_dotfile() {
   esac
 }
 
+# Symlink the variant's _link_paths: home/ into $HOME and root/ into / (with sudo).
+#
+# @machine any
+# @os any
+# @gui any
 feature_link() {
   local variant="$1" link_paths entry file
   f_write_args variant_config _link_paths -- "$variant"

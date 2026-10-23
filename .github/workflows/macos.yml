@@ -1,0 +1,30 @@
+# Install tests on macOS: bash 3.2 and BSD tools. macOS minutes cost more, so this runs only when files it tests change.
+name: macOS
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - install.sh
+      - install/**
+      - home/**
+      - tests/**
+      - Makefile
+      - .github/workflows/macos.yml
+  pull_request:
+    paths: *paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # /bin/bash is 3.2; bash from PATH may be a newer Homebrew one.
+      - run: INSTALL_BASH=/bin/bash make test

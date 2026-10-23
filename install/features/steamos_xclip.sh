@@ -1,6 +1,11 @@
-# TODO(andywang): add comment
+# Feature: xclip on SteamOS, copied out of an arch distrobox.
 
-# --- Install xclip ---
+# Install xclip to ~/.local/bin by copying it out of a temporary arch distrobox, since the SteamOS rootfs is
+# read-only.
+#
+# @machine any
+# @os steamos
+# @gui desktop
 feature_steamos_xclip() {
   local container="tmp-arch"
 

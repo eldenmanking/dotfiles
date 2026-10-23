@@ -11,6 +11,7 @@
 ################################################################################
 
 _vis() {
+  # shellcheck disable=SC3043 # sourced into bash or zsh (alias vis="source vis"), which both have local
   local session="$PWD/Session.vim"
 
   if [ -s "$session" ]; then

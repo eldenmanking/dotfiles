@@ -41,6 +41,12 @@ check_home_units_keep_list() {
   done
 }
 
+# With a dirlock-encrypted home, install home-units.service into /etc (needs sudo) so user units in the home
+# start once it is unlocked.
+#
+# @machine any
+# @os steamos
+# @gui any
 feature_home_units() {
   if home_units_current; then
     info "home-units.service already up to date"

@@ -79,7 +79,7 @@ cmus-remote -C "clear -l"
 cmus-remote -C "add $LIBRARY"  # Note: does not block!
 while read -r playlist; do
   cmus-remote -C "pl-import $playlist"
-done <<< $(find "$PLAYLISTS" -type f -name "*.m3u")
+done <<< "$(find "$PLAYLISTS" -type f -name "*.m3u")"
 cmus-remote -C "update-cache"
 
 # attach cmus tmux session
