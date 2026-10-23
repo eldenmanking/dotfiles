@@ -14,5 +14,5 @@ variant_steamos() {
 }
 
 # TODO(andywang): add steamos-specific features (e.g. read-only rootfs handling, pacman packages)
-# TODO(andywang): udev and tmpfiles are Framework 16 fixes, not SteamOS ones. Consider composing variants
+# TODO(andywang): udev, tmpfiles and gpu_performance are Framework 16 fixes, not SteamOS ones. Consider composing variants
 # (--variant steamos,framework) or a separate machine layer (--machine framework16) that only adds features and paths.

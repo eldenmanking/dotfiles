@@ -1,19 +1,20 @@
-# Feature: force AMD GPUs to manual DPM with the 3D full-screen power profile (steamos).
+# Feature: hold the Framework 16's Radeon 780M at fixed clocks, which fixes choppy HDMI audio.
 
 GPU_PERFORMANCE_UNIT="gpu-performance.service"
 GPU_PERFORMANCE_SRC="steamos/systemd/$GPU_PERFORMANCE_UNIT"
 GPU_PERFORMANCE_DST="/etc/systemd/system/$GPU_PERFORMANCE_UNIT"
+GPU_PERFORMANCE_LEVEL="/sys/bus/pci/devices/0000:c1:00.0/power_dpm_force_performance_level"
 
 gpu_performance_installed() {
   cmp -s "$DOTFILES_ROOT/$GPU_PERFORMANCE_SRC" "$GPU_PERFORMANCE_DST" \
     && systemctl is-enabled --quiet "$GPU_PERFORMANCE_UNIT" 2>/dev/null
 }
 
-# Install gpu-performance.service into /etc (needs sudo), which sets every amdgpu card to the manual performance
-# level and power profile 1 at boot and after each resume.
+# Install gpu-performance.service into /etc (needs sudo), which sets the 780M to the profile_standard performance
+# level at boot and after each resume.
 #
-# @machine any
-# @os steamos
+# @machine framework16
+# @os linux
 # @gui any
 feature_gpu_performance() {
   if gpu_performance_installed; then
@@ -25,10 +26,10 @@ feature_gpu_performance() {
   run sudo systemctl daemon-reload
   run sudo systemctl reenable "$GPU_PERFORMANCE_UNIT"
   run sudo systemctl start "$GPU_PERFORMANCE_UNIT"
-  info "Check with: cat /sys/class/drm/card*/device/power_dpm_force_performance_level"
+  info "Check with: cat $GPU_PERFORMANCE_LEVEL"
 }
 
-# Remove gpu-performance.service and set every amdgpu card back to the auto performance level.
+# Remove gpu-performance.service and set the 780M back to the auto performance level.
 uninstall_feature_gpu_performance() {
   if [[ ! -e "$GPU_PERFORMANCE_DST" ]]; then
     info "$GPU_PERFORMANCE_DST does not exist"
@@ -38,6 +39,7 @@ uninstall_feature_gpu_performance() {
   run sudo systemctl disable "$GPU_PERFORMANCE_UNIT"
   run sudo rm -f "$GPU_PERFORMANCE_DST"
   run sudo systemctl daemon-reload
-  run sudo sh -c 'for f in /sys/class/drm/card*/device/power_dpm_force_performance_level; do
-    [ -e "$f" ] && echo auto > "$f"; done; true'
+  if [[ -e "$GPU_PERFORMANCE_LEVEL" ]]; then
+    run sudo sh -c "echo auto > $GPU_PERFORMANCE_LEVEL"
+  fi
 }
