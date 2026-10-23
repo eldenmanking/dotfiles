@@ -1,4 +1,4 @@
-# Feature: set the Framework 16's Radeon 780M to manual clocks, which fixes choppy HDMI audio.
+# Feature: keep the Framework 16's Radeon 780M SoC clock up, which fixes choppy HDMI audio.
 
 GPU_PERFORMANCE_UNIT="gpu-performance.service"
 GPU_PERFORMANCE_SRC="steamos/systemd/$GPU_PERFORMANCE_UNIT"
@@ -20,8 +20,8 @@ gpu_performance_installed() {
     && systemctl is-enabled --quiet "$GPU_PERFORMANCE_UNIT" 2>/dev/null
 }
 
-# Install gpu-performance.service into /etc (needs sudo), which sets the 780M to the manual performance level with
-# its default (full) graphics clock range committed, at boot and after each resume.
+# Install gpu-performance.service into /etc (needs sudo), which sets a 720 MHz socclk floor on the 780M (at the
+# manual level, with the other clocks left free) at boot and after each resume.
 #
 # @machine framework16
 # @os linux
@@ -36,10 +36,11 @@ feature_gpu_performance() {
   run sudo systemctl daemon-reload
   run sudo systemctl reenable "$GPU_PERFORMANCE_UNIT"
   run sudo systemctl start "$GPU_PERFORMANCE_UNIT"
-  info "Check with: cat /sys/bus/pci/devices/*/pp_od_clk_voltage (OD_SCLK should show 800 and 2700 MHz)"
+  info "Check with: cat /sys/bus/pci/devices/*/pp_dpm_socclk (no level below 720 MHz should be active)"
 }
 
-# Remove gpu-performance.service, then reset the 780M's clock range and set it back to the auto performance level.
+# Remove gpu-performance.service, then reset the 780M's clock range and set it back to the auto performance level,
+# which also lifts the socclk floor.
 uninstall_feature_gpu_performance() {
   if [[ ! -e "$GPU_PERFORMANCE_DST" ]]; then
     info "$GPU_PERFORMANCE_DST does not exist"
