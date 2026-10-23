@@ -1,9 +1,10 @@
 # OREI HDMI switch handoff (Framework 16)
 The `orei_switch` feature (`./install.sh --variant steamos --orei_switch`) makes an OREI 4K 3-input HDMI switch (auto
-mode) follow a Framework 16's sleep and wake, and turns the projector off on sleep and poweroff. It installs
-`/etc/orei-switch/orei-switch.sh`, a pinned `framework_tool` (Framework's EC tool) beside it, `orei-switch.service`
-(enabled, wanted by `sleep.target`), `orei-switch-poweroff.service` (wanted by `poweroff.target`, so not on reboot) and a
-SteamOS keep list for `/etc/orei-switch`, without which an OS update deletes the script and binary.
+mode) follow a Framework 16's sleep and wake, and turns the projector off on sleep and poweroff and back on on wake. It
+installs `/etc/orei-switch/orei-switch.sh`, a pinned `framework_tool` (Framework's EC tool) beside it,
+`orei-switch.service` (enabled, wanted by `sleep.target`), `orei-switch-poweroff.service` (wanted by `poweroff.target`,
+so not on reboot) and a SteamOS keep list for `/etc/orei-switch`, without which an OS update deletes the script and
+binary.
 
 ## Setup
 - Framework 16 (AMD iGPU) on SteamOS. HDMI expansion card on USB-C port 2 (left), the DRM connector `card0-DP-4` and
@@ -44,7 +45,9 @@ turns off another input's picture), then disables the PD controller. On wake it 
 external display (polling `/sys/class/drm/card*-DP-*/status`), and otherwise does up to two UCSI resets, each followed by
 a 6s wait. It logs which step brought the display up; tune `PD_WAIT` and `RESET_WAIT` from those timings
 (`journalctl -t orei-switch -b -o short-precise`). In the first real suspend/resume, the display connected 5.4s after the
-PD enable, with no resets. On poweroff it only turns the projector off.
+PD enable, with no resets (9.5s in a later one). Once the display is connected it wakes the projector with `<Image View
+On>`, which works where SteamOS's `cecd` wake on resume does not. CEC calls first wait up to 5s for `cecd` to claim a
+logical address after resume. On poweroff it only turns the projector off.
 
 ## Operating
 - Logs: `journalctl -t orei-switch -b`
@@ -53,7 +56,6 @@ PD enable, with no resets. On poweroff it only turns the projector off.
 
 ## Open questions
 - Verify a real poweroff, and the UCSI reset fallback on wake.
-- Turning the projector back on over CEC (`--image-view-on`) is untested.
 - Boot: maybe run the wake logic at boot too. The projector shows a blank screen on boot if connected, and the
   encrypted home needs a desktop-mode login first.
 - Accidental wakes grab the projector; consider guarding against that.

@@ -1,7 +1,8 @@
 #!/bin/bash
 # Hand the OREI HDMI switch to another input on sleep and back to this laptop on wake, and turn the projector off on
-# sleep and poweroff. Installed into /etc/orei-switch by the orei_switch feature of ~/dotfiles/install.sh, and run by
-# orei-switch.service (sleep, wake) and orei-switch-poweroff.service (poweroff). See docs/orei-switch.md.
+# sleep and poweroff and back on on wake. Installed into /etc/orei-switch by the orei_switch feature of
+# ~/dotfiles/install.sh, and run by orei-switch.service (sleep, wake) and orei-switch-poweroff.service (poweroff). See
+# docs/orei-switch.md.
 #
 # The OREI ignores CEC and only switches on a fresh HDMI +5V edge, or falls back to another live input once the
 # selected input's 5V stays gone. Cutting power to the left PD controller (ports 2 and 3, including the HDMI card on
@@ -42,13 +43,31 @@ projector_off() {
     log "no external display; leaving the projector alone"
     return
   fi
-  # Claim a playback address if nothing has configured the adapter.
-  cec-ctl -D "$CEC_DRIVER" | grep -Eq 'Logical Address +:' || cec-ctl -s -D "$CEC_DRIVER" --playback >/dev/null
+  cec_ready
   log "turning the projector off"
   if ! cec-ctl -s -D "$CEC_DRIVER" --to 0 --user-control-pressed ui-cmd=power-off-function >/dev/null \
     || ! cec-ctl -s -D "$CEC_DRIVER" --to 0 --user-control-released >/dev/null; then
     log "CEC power off failed"
   fi
+}
+
+# Wake the projector with <Image View On>. SteamOS's cecd also tries on resume, but the projector doesn't respond to it.
+projector_on() {
+  cec_ready
+  log "turning the projector on"
+  cec-ctl -s -D "$CEC_DRIVER" --to 0 --image-view-on >/dev/null || log "CEC power on failed"
+}
+
+# Wait up to 5s for a CEC logical address. SteamOS's cecd claims one about half a second after the adapter appears on
+# resume; claim a playback address only if it hasn't, rather than race it.
+cec_ready() {
+  local i
+  for (( i = 0; i < 20; i++ )); do
+    cec-ctl -D "$CEC_DRIVER" 2>/dev/null | grep -Eq 'Logical Address +:' && return
+    sleep 0.25
+  done
+  log "no CEC logical address; claiming one"
+  cec-ctl -s -D "$CEC_DRIVER" --playback >/dev/null
 }
 
 case "$1" in
@@ -72,6 +91,7 @@ case "$1" in
       fi
       if wait_connected "$secs"; then
         log "display connected after $step"
+        projector_on
         exit 0
       fi
     done
