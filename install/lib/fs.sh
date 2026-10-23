@@ -15,20 +15,19 @@ make_symlink() {
     return
   fi
 
-  run $sudo_cmd mkdir -pv "$(dirname "$target")"
+  run ${sudo_cmd:+"$sudo_cmd"} mkdir -pv "$(dirname "$target")"
 
   # Back up anything in the way (regular file OR symlink pointing elsewhere).
   if [[ -e "$target" || -L "$target" ]]; then
     run mkdir -pv "$(dirname "$BACKUPS_ROOT$target")"
     if has_tty; then
-      # shellcheck disable=SC2086 # $sudo_cmd is empty or a command
-      run_tty $sudo_cmd mv -vi "$target" "$BACKUPS_ROOT$target"
+      run_tty ${sudo_cmd:+"$sudo_cmd"} mv -vi "$target" "$BACKUPS_ROOT$target"
     else
-      run $sudo_cmd mv -v "$target" "$BACKUPS_ROOT$target"
+      run ${sudo_cmd:+"$sudo_cmd"} mv -v "$target" "$BACKUPS_ROOT$target"
     fi
   fi
 
-  run $sudo_cmd ln -snfv "$src" "$target"
+  run ${sudo_cmd:+"$sudo_cmd"} ln -snfv "$src" "$target"
 }
 
 # Copy each file in $src_dir matching $glob into $dst_dir with sudo, replacing

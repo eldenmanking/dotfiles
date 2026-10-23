@@ -225,13 +225,13 @@ enter_dotfiles_root() {
   cd "$DOTFILES_ROOT"
 }
 
-# Outputs: _reversed, the words of $1 in reverse order.
+# Print the words of $1 in reverse order.
 reverse_words() {
   local word reversed=""
   for word in $1; do
     reversed="$word${reversed:+ $reversed}"
   done
-  _reversed="$reversed"
+  printf '%s' "$reversed"
 }
 
 # Run the enabled features in variant order: install runs feature_<name>,
@@ -243,8 +243,7 @@ run_features() {
   f_write_args variant_config _features -- "$variant"
   features="$_features"
   if [[ "$mode" == uninstall ]]; then
-    f_write_args reverse_words _reversed -- "$features"
-    features="$_reversed"
+    features="$(reverse_words "$features")"
   fi
 
   info "Beginning dotfiles $mode (variant: $variant)..."

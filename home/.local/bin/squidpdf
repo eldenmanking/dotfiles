@@ -11,13 +11,14 @@
 usage() { echo "Usage: $0 [-o filename] file.pdf"; }
 badfile() { echo "Filename invalid or file does not exist. Input and output files must be .pdf files."; }
 
-# Prompts a positive integer from user input. Returns 1 by default.
+# Prompts for a positive integer on the terminal and prints it, or 1 if the answer is empty.
 promptnumber() {
+  local reply
   while true; do
-    read -r -p "" < /dev/tty
-    [[ -z "$REPLY" ]] && return 1
-    [[ "$REPLY" =~ ^([1-9][0-9]*)$ ]] && return "$REPLY"
-    echo -n "Enter a valid positive integer. (Default 1) "
+    read -r reply < /dev/tty
+    [[ -z "$reply" ]] && { echo 1; return; }
+    [[ "$reply" =~ ^[1-9][0-9]*$ ]] && { echo "$reply"; return; }
+    echo -n "Enter a valid positive integer. (Default 1) " >&2
   done
 }
 

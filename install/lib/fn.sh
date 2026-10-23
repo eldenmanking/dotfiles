@@ -21,22 +21,22 @@ f_end() {
   done
 }
 
-# TODO(andywang): update comment
+# Call fn with args, then error unless it set each named output. Outputs are reset to F_NULL first, so a value left
+# over from an earlier call doesn't count. Each must start with a single underscore.
+# Usage: f_write_args fn _out1 [_out2...] [-- args...]
 f_write_args() {
-  local fn="$1" outs=""
+  local fn="$1" outs=()
   shift
   while [[ $# -gt 0 && "$1" != "--" ]]; do
     [[ "$1" == _[!_]* ]] || error "f_write_args $fn: output '$1' must start with a single underscore"
-    outs+="${outs:+ }$1"
+    outs+=("$1")
     shift
   done
   [[ $# -gt 0 ]] && shift
-  [[ -n "$outs" ]] || error "f_write_args $fn: no outputs given"
-  # shellcheck disable=SC2086 # $outs is a list of variable names
-  f_prepare_args $outs
+  [[ ${#outs[@]} -gt 0 ]] || error "f_write_args $fn: no outputs given"
+  f_prepare_args "${outs[@]}"
   "$fn" "$@"
-  # shellcheck disable=SC2086
-  f_end "$fn" $outs
+  f_end "$fn" "${outs[@]}"
 }
 
 # Return 0 if space-separated list $1 contains word $2.

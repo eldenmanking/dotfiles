@@ -42,34 +42,40 @@ install_ttyd() {
   info "Installed $TTYD_BIN"
 }
 
-# Path of systemd-socket-proxyd, or empty if it isn't installed.
+# Print the path of systemd-socket-proxyd, or nothing if it isn't installed.
 find_proxyd() {
   local p
-  _proxyd=""
   for p in /usr/lib/systemd/systemd-socket-proxyd /lib/systemd/systemd-socket-proxyd; do
-    [[ -x "$p" ]] && _proxyd="$p" && break
+    if [[ -x "$p" ]]; then
+      printf '%s' "$p"
+      return
+    fi
   done
 }
 
-# URL the socket serves the terminal on, under the secret token if there is one.
+# Print the URL the socket serves the terminal on, under the secret token $1 if there is one.
 webterm_url() {
   local token="$1" listen
   listen="$(sed -n 's/^ListenStream=//p' "$WEBTERM_SOCKET")"
-  _url="http://$listen/${token:+$token/}"
+  printf '%s' "http://$listen/${token:+$token/}"
 }
 
-# Secret URL path: keeps other sites (incl. DNS rebinding) from finding the shell.
-# Kept in its own file, not env, so the settings in env can be linked from the repo.
-ensure_token() {
-  local token
+# Print the saved token (the secret URL path), or a new random one if none is saved yet. The token keeps other sites
+# (incl. DNS rebinding) from finding the shell. It is kept in its own file, not env, so env can be linked from the repo.
+webterm_token() {
   if [[ -f "$WEBTERM_TOKEN_FILE" ]]; then
-    token="$(sed -n 's/^WEBTERM_TOKEN=//p' "$WEBTERM_TOKEN_FILE")"
+    sed -n 's/^WEBTERM_TOKEN=//p' "$WEBTERM_TOKEN_FILE"
   else
-    token="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
-    run mkdir -p "$WEBTERM_CONF_DIR"
-    (umask 077 && printf 'WEBTERM_TOKEN=%s\n' "$token" | write_file "$WEBTERM_TOKEN_FILE")
+    od -An -N16 -tx1 /dev/urandom | tr -d ' \n'
   fi
-  _token="$token"
+}
+
+# Save token $1 to the token file, unless one is saved already.
+save_token() {
+  local token="$1"
+  [[ ! -f "$WEBTERM_TOKEN_FILE" ]] || return 0
+  run mkdir -p "$WEBTERM_CONF_DIR"
+  (umask 077 && printf 'WEBTERM_TOKEN=%s\n' "$token" | write_file "$WEBTERM_TOKEN_FILE")
 }
 
 # Render the unit templates into ~/.config/systemd/user.
@@ -103,18 +109,20 @@ check_socket_activation() {
 # @gui any
 # @requires link
 feature_webterm() {
+  local proxyd token url
   require_commands curl sha256sum systemctl
   systemctl --user show-environment >/dev/null 2>&1 \
     || error "no systemd user session (log in graphically or via ssh, not su/sudo)"
-  f_write_args find_proxyd _proxyd
-  [[ -n "$_proxyd" ]] || error "systemd-socket-proxyd not found"
+  proxyd="$(find_proxyd)"
+  [[ -n "$proxyd" ]] || error "systemd-socket-proxyd not found"
   [[ -f "$WEBTERM_ENV" ]] || $DRY_RUN || error "$WEBTERM_ENV not found; run with --link first"
 
   install_ttyd
   run "$WEBTERM_DIR/bin/webterm-index" \
     || warn "could not build the webterm page; ttyd will serve its stock page"
-  f_write_args ensure_token _token
-  install_webterm_units "$_proxyd"
+  token="$(webterm_token)"
+  save_token "$token"
+  install_webterm_units "$proxyd"
 
   run systemctl --user daemon-reload
   run systemctl --user enable --now webterm.socket
@@ -122,8 +130,8 @@ feature_webterm() {
   # Open tabs reconnect on their own (their shells are restarted).
   run systemctl --user try-restart "${WEBTERM_SERVICES[@]}"
 
-  f_write_args webterm_url _url -- "$_token"
-  info "Installed. Open $_url"
+  url="$(webterm_url "$token")"
+  info "Installed. Open $url"
   info "(server starts on first visit, exits when idle)"
-  check_socket_activation "$_url"
+  check_socket_activation "$url"
 }

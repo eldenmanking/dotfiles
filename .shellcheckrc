@@ -5,7 +5,11 @@ source-path=SCRIPTDIR
 # Startup files in home/ source "$HOME/dotfiles/...". shellcheck drops the leading $HOME/ and looks for the rest here,
 # in the directory holding the checkout, which install.sh requires to be named dotfiles.
 source-path=SCRIPTDIR/../..
-# Functions return values through _-prefixed output variables (see f_write_args in install/lib/fn.sh), which
-# shellcheck reports as unused where they are set and unassigned where they are read: it checks one file at a time,
-# and install.sh sources install/ through a glob it can't follow.
-disable=SC2034,SC2154
+# Checks that mostly misfire in this repo, so they are off everywhere:
+#   SC2034, SC2154: globals and _-prefixed output variables (see f_write_args in install/lib/fn.sh) are set in one
+#     file and read in another, which shellcheck reports as unused or unassigned: it checks one file at a time, and
+#     install.sh sources install/ through a glob it can't follow.
+#   SC2016: $ in single quotes, which is how scripts for another shell are written (sh -c '...').
+#   SC2064: trap strings in double quotes, which expand when the trap is set; done on purpose to capture arguments.
+#   SC1003: a backslash before a closing single quote, which printf escapes like '\033\\' end with.
+disable=SC2034,SC2154,SC2016,SC2064,SC1003

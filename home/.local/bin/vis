@@ -11,15 +11,12 @@
 ################################################################################
 
 _vis() {
-  # shellcheck disable=SC3043 # sourced into bash or zsh (alias vis="source vis"), which both have local
-  local session="$PWD/Session.vim"
-
-  if [ -s "$session" ]; then
-    vi -S "$session"
+  if [ -s "$PWD/Session.vim" ]; then
+    vi -S "$PWD/Session.vim"
   else
     # -S needs an existing file; Obsession then starts tracking it
-    : > "$session"
-    vi -S "$session" -c Obsession
+    : > "$PWD/Session.vim"
+    vi -S "$PWD/Session.vim" -c Obsession
   fi
 }
 _vis

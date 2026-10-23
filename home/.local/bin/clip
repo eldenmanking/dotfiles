@@ -72,10 +72,8 @@ copy_via_osc52() {
     if [ -n "${TMUX:-}" ]; then
         # DCS-wrapped, ESCs inside the wrap doubled. Unwrapped by tmux to:
         #   ESC ]52;c;<payload> ESC \
-        # shellcheck disable=SC1003 # the backslashes are printf escapes
         printf '\033Ptmux;\033\033]52;c;%s\033\033\\\033\\' "$payload"
     else
-        # shellcheck disable=SC1003
         printf '\033]52;c;%s\033\\' "$payload"
     fi
 }

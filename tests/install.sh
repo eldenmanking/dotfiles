@@ -120,14 +120,14 @@ repo_status() {
   git -C "$REPO_ROOT" status --porcelain --untracked-files=all --ignored
 }
 
-# Outputs: _variants, the name of every variant in install/variants.
+# Print the name of every variant in install/variants.
 all_variants() {
   local f names=""
   for f in "$REPO_ROOT"/install/variants/*.sh; do
     f="${f##*/}"
     names+="${names:+ }${f%.sh}"
   done
-  _variants="$names"
+  printf '%s' "$names"
 }
 
 test_usage() {
@@ -196,9 +196,9 @@ test_dry_run() {
 
 # Check that every file under the variant's link paths is linked into home $1.
 check_links() {
-  local variant="$1" home="$2" file target count=0 bad=0
+  local variant="$1" home="$2" file target count=0 bad=0 paths
   variant_info "$variant"
-  # shellcheck disable=SC2086 # $_link_paths is a list of paths
+  read -r -a paths <<< "$_link_paths"
   while IFS= read -r file; do
     target="$home/${file#home/}"
     count=$((count + 1))
@@ -206,7 +206,7 @@ check_links() {
       fail "link missing or wrong: ~/${file#home/} should point to ~/dotfiles/$file"
       bad=$((bad + 1))
     fi
-  done < <(git -C "$REPO_ROOT" ls-files -- $_link_paths)
+  done < <(git -C "$REPO_ROOT" ls-files -- "${paths[@]}")
   [[ "$bad" != 0 ]] || pass "all $count files under the link paths are linked into ~"
 }
 
@@ -280,27 +280,22 @@ test_env_sh() {
   info "env.sh: sourcing it twice leaves PATH unchanged"
   for shell in sh bash zsh; do
     have_or_skip "$shell" "sourcing env.sh with $shell" || continue
-    # shellcheck disable=SC2016 # expanded by $shell
     check "$shell" env -i HOME="$SCRATCH" PATH=/usr/bin:/bin "$shell" -c \
       '. "$1"; first=$PATH; . "$1"; [ "$PATH" = "$first" ]' sh "$env_sh"
   done
 
   # The gnome Qt theme overrides other desktops' themes (e.g. Plasma's icons and colors), so only gnome gets it.
   info "env.sh: sets QT_QPA_PLATFORMTHEME only in gnome"
-  # shellcheck disable=SC2016 # expanded by sh
   check "set in gnome" env -i HOME="$SCRATCH" PATH=/usr/bin:/bin XDG_CURRENT_DESKTOP=ubuntu:GNOME sh -c \
     '. "$1"; [ "${QT_QPA_PLATFORMTHEME:-}" = gnome ]' sh "$env_sh"
-  # shellcheck disable=SC2016 # expanded by sh
   check "unset in KDE" env -i HOME="$SCRATCH" PATH=/usr/bin:/bin XDG_CURRENT_DESKTOP=KDE sh -c \
     '. "$1"; [ -z "${QT_QPA_PLATFORMTHEME:-}" ]' sh "$env_sh"
 }
 
 main() {
   local variants variant
-  # shellcheck disable=SC2016 # expanded by $INSTALL_BASH
   info "install.sh runs under $("$INSTALL_BASH" -c 'echo "bash $BASH_VERSION"')"
-  f_write_args all_variants _variants
-  variants="$_variants"
+  variants="$(all_variants)"
   test_usage "$variants"
   test_checkout_location
   for variant in $variants; do

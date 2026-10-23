@@ -63,7 +63,7 @@ install_tmux_binary() {
   fi
 
   # tmux only provides source tarballs — we need to build from source.
-  local missing=()
+  local cmd missing=()
   for cmd in gcc make pkg-config; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
   done
