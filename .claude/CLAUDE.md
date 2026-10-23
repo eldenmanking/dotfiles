@@ -1,6 +1,6 @@
 # Added by dotfiles
 ## Git
-- Use `git -c commit.gpgsign=false ...` when making commits
+- For draft PRs or branches without a PR, always use `git -c commit.gpgsign=false ...` when making commits. For PRs that are ready for review, always sign commits.
 - When making branches, name then "andywang/..." where ... is the intended change
 - Always make sure that you're working with the right branch locally. If the user asks for changes to a particular PR, then you should check out that PR first locally before making your changes.
   - If there are untracked/unstaged changes, prompt the user for further instruction.
