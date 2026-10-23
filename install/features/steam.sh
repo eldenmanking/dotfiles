@@ -2,62 +2,46 @@
 
 STEAM_USERDATA="$HOME/.local/share/Steam/userdata"
 
-# Settings as "section|key|value" in the top level of each Steam user's config/localconfig.vdf. Hotkeys are the
-# modifiers and the key separated by tabs, as Steam writes them.
+# Settings as "key|value" in each Steam user's config/localconfig.vdf (the hotkeys are in its "Gamescope" section).
+# Hotkeys are the modifiers and the key separated by tabs, as Steam writes them.
 STEAM_SETTINGS=(
-  "Gamescope|GuideKeyboardHotkey|Win	KEY_TAB"         # main menu (Steam button)
-  "Gamescope|QAMKeyboardHotkey|Shift	Win	KEY_TAB"     # quick access menu (... button)
+  "GuideKeyboardHotkey|Win	KEY_TAB"         # main menu (Steam button)
+  "QAMKeyboardHotkey|Shift	Win	KEY_TAB"     # quick access menu (... button)
 )
 
-# Read a localconfig.vdf on stdin and print it with "key" "value" set in top-level section $1, adding the key or the
-# section if missing. Steam writes one token pair or brace per line, indented with one tab per level.
-steam_vdf_set() {
-  SECTION="$1" KEY="$2" VALUE="$3" awk '
-    function pair(indent) { return indent "\"" ENVIRON["KEY"] "\"\t\t\"" ENVIRON["VALUE"] "\"" }
+# Read a localconfig.vdf on stdin and print it with the value on each "key" line replaced by $2. Fails if no line has
+# the key, after printing the file unchanged. Steam writes each "key"<tab><tab>"value" pair on its own line.
+steam_vdf_replace() {
+  KEY="$1" VALUE="$2" awk '
     {
-      line = $0
-      sub(/^\t+/, "", line)
-      if (line == "{") {
-        depth++
-        if (pending) { in_section = 1; pending = 0 }
-      } else if (line == "}") {
-        if (in_section && depth == 2) {
-          if (!done) print pair("\t\t")
-          done = 1
-          in_section = 0
-        } else if (depth == 1 && !done) {
-          print "\t\"" ENVIRON["SECTION"] "\""
-          print "\t{"
-          print pair("\t\t")
-          print "\t}"
-          done = 1
-        }
-        depth--
-      } else if (depth == 1 && line == "\"" ENVIRON["SECTION"] "\"") {
-        pending = 1
-      } else if (in_section && depth == 2 && index(line, "\"" ENVIRON["KEY"] "\"\t") == 1) {
-        if (!done) print pair("\t\t")
-        done = 1
-        next
+      match($0, /^\t*/)
+      if (index($0, "\"" ENVIRON["KEY"] "\"\t") == RLENGTH + 1) {
+        $0 = substr($0, 1, RLENGTH) "\"" ENVIRON["KEY"] "\"\t\t\"" ENVIRON["VALUE"] "\""
+        found = 1
       }
       print
     }
+    END { exit !found }
   '
 }
 
-# Print the localconfig.vdf on stdin with every STEAM_SETTINGS entry applied.
+# Outputs: _content, localconfig.vdf $1 with every STEAM_SETTINGS value replaced, and _missing, the space-separated
+# keys it lacks.
+# Usage: f_write_args steam_apply_settings _content _missing -- <file>
 steam_apply_settings() {
-  local content entry section key value
-  content="$(cat)"
+  local file="$1" content entry key value missing=""
+  content="$(cat "$file")"
   for entry in "${STEAM_SETTINGS[@]}"; do
-    IFS='|' read -r section key value <<< "$entry"
-    content="$(steam_vdf_set "$section" "$key" "$value" <<< "$content")"
+    IFS='|' read -r key value <<< "$entry"
+    content="$(steam_vdf_replace "$key" "$value" <<< "$content")" || missing+="${missing:+ }$key"
   done
-  printf '%s\n' "$content"
+  _content="$content"
+  _missing="$missing"
 }
 
-# Write STEAM_SETTINGS into each Steam user's localconfig.vdf. Steam rewrites the file from memory when it exits, so
-# this only edits it while Steam isn't running; the settings apply the next time Steam starts.
+# Replace the STEAM_SETTINGS values in each Steam user's localconfig.vdf. Only keys Steam already wrote are replaced,
+# so a missing one must be set once in Steam first. Steam rewrites the file from memory when it exits, so this only
+# edits it while Steam isn't running; the settings apply the next time Steam starts.
 #
 # @machine any
 # @os steamos
@@ -67,8 +51,10 @@ feature_steam() {
   for file in "$STEAM_USERDATA"/*/config/localconfig.vdf; do
     [[ -f "$file" ]] || continue
     found=true
+    f_write_args steam_apply_settings _content _missing -- "$file"
+    [[ -z "$_missing" ]] || warn "$file has no $_missing; set it once in Steam (Settings > In Game), then rerun with --steam."
     tmp="$(mktemp)"
-    steam_apply_settings < "$file" > "$tmp"
+    printf '%s\n' "$_content" > "$tmp"
     if cmp -s "$file" "$tmp"; then
       info "$file already up to date"
     elif pgrep -x steam >/dev/null 2>&1; then

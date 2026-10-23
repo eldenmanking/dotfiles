@@ -292,11 +292,11 @@ test_env_sh() {
     '. "$1"; [ -z "${QT_QPA_PLATFORMTHEME:-}" ]' sh "$env_sh"
 }
 
-# The steam feature sets its hotkeys in an existing Gamescope section and adds the section where it's missing, keeps
-# the other settings, backs up the file and changes nothing on a second run.
+# The steam feature replaces the hotkeys Steam already wrote, keeps the other settings, warns about missing keys
+# instead of adding them, backs up the file and changes nothing on a second run.
 test_steam() {
-  local userdata vdf_a vdf_b first
-  info "steam: hotkeys written into localconfig.vdf"
+  local userdata vdf_a vdf_b b_before first
+  info "steam: hotkeys replaced in localconfig.vdf"
   if pgrep -x steam >/dev/null 2>&1; then
     warn "Steam is running; skipping the steam feature test"
     return
@@ -307,15 +307,17 @@ test_steam() {
   vdf_b="$userdata/2/config/localconfig.vdf"
   mkdir -p "${vdf_a%/*}" "${vdf_b%/*}"
   printf '"UserLocalConfigStore"\n{\n\t"Gamescope"\n\t{\n\t\t"GameResolutionGlobal"\t\t"Default"\n' > "$vdf_a"
-  printf '\t\t"GuideKeyboardHotkey"\t\t"Ctrl\tWin\tKEY_TAB"\n\t}\n\t"nettickets"\n\t{\n\t}\n}\n' >> "$vdf_a"
+  printf '\t\t"GuideKeyboardHotkey"\t\t"Ctrl\tWin\tKEY_TAB"\n\t\t"QAMKeyboardHotkey"\t\t"Shift\tKEY_TAB"\n' >> "$vdf_a"
+  printf '\t}\n}\n' >> "$vdf_a"
   printf '"UserLocalConfigStore"\n{\n\t"friends"\t\t"1"\n}\n' > "$vdf_b"
+  b_before="$(cat "$vdf_b")"
 
   install_ok "$_home" --variant steamos --steam || return
-  check "existing main menu hotkey replaced" grep -qx $'\t\t"GuideKeyboardHotkey"\t\t"Win\tKEY_TAB"' "$vdf_a"
-  check "  ...and set only once" [ "$(grep -c GuideKeyboardHotkey "$vdf_a")" = 1 ]
-  check "missing quick access hotkey added" grep -qx $'\t\t"QAMKeyboardHotkey"\t\t"Shift\tWin\tKEY_TAB"' "$vdf_a"
+  check "main menu hotkey replaced" grep -qx $'\t\t"GuideKeyboardHotkey"\t\t"Win\tKEY_TAB"' "$vdf_a"
+  check "quick access hotkey replaced" grep -qx $'\t\t"QAMKeyboardHotkey"\t\t"Shift\tWin\tKEY_TAB"' "$vdf_a"
   check "other settings kept" grep -q '"GameResolutionGlobal"' "$vdf_a"
-  check "missing Gamescope section added" grep -qx $'\t"Gamescope"' "$vdf_b"
+  check "missing keys not added" [ "$(cat "$vdf_b")" = "$b_before" ]
+  check "  ...but warned about" grep -q "$vdf_b has no GuideKeyboardHotkey QAMKeyboardHotkey" "$LOG"
   check "original backed up" grep -q '"Ctrl' "$REPO_ROOT/.backup$vdf_a"
   first="$(snapshot "$_home")"
   install_ok "$_home" --variant steamos --steam || true
