@@ -18,6 +18,11 @@ font_installed_elsewhere() {
   [[ ! -d "$FONT_DEST" ]] && command -v fc-list >/dev/null && fc-list : family | grep -qF "$FONT_FAMILY"
 }
 
+# Install the pinned JetBrainsMono Nerd Font to ~/.local/share/fonts, unless it is already installed elsewhere.
+#
+# @machine any
+# @os linux
+# @gui any
 feature_font() {
   if font_up_to_date; then
     info "$FONT_FAMILY $FONT_NF_VERSION already installed"
@@ -46,6 +51,12 @@ feature_font() {
   info "Installed $FONT_FAMILY to $FONT_DEST (restart the browser if it was open)"
 }
 
+# Build logiops (Logitech mouse and keyboard daemon) from source and enable logid.service, which reads
+# root/etc/logid.cfg.
+#
+# @machine any
+# @os arch
+# @gui any
 feature_logiops() {
   if ! systemctl list-unit-files | grep -q "logid.service"; then
     info "Installing PixlOne/logiops..."
@@ -71,15 +82,31 @@ feature_logiops() {
   fi
 }
 
+# Enable the auto-suspend timer (suspends when the battery is low) and bluetooth.
+#
+# @machine laptop
+# @os linux
+# @gui any
+# @requires link
 feature_services() {
   run systemctl enable --now auto-suspend.timer
   run systemctl enable --now bluetooth.service
 }
 
+# Edit files that can't be symlinked in place, e.g. turn on bluetooth at boot in /etc/bluetooth/main.conf.
+#
+# @machine any
+# @os linux
+# @gui any
 feature_manual() {
   confirmsed /etc/bluetooth/main.conf "#AutoEnable=false" "AutoEnable=true" sudo
 }
 
+# Back up the current dconf settings, then load dump/dconf/arch.dconf (GNOME settings).
+#
+# @machine any
+# @os linux
+# @gui gnome
 feature_dconf() {
   local dump_file="$DOTFILES_ROOT/dump/dconf/arch.dconf"
 
@@ -101,6 +128,12 @@ feature_dconf() {
   info "dconf configuration loaded."
 }
 
+# Create the XDG user directories and set default apps for PDFs, images, audio and text.
+#
+# @machine any
+# @os linux
+# @gui gnome
+# @requires pacman
 feature_xdg() {
   info "Running xdg-user-dirs-update..."
   run xdg-user-dirs-update
@@ -118,6 +151,11 @@ feature_xdg() {
   info "xdg update complete."
 }
 
+# Print the settings in dump/ that must be imported by hand.
+#
+# @machine any
+# @os any
+# @gui any
 feature_info() {
   cat <<EOF
 

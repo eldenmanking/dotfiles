@@ -1,6 +1,10 @@
 # Feature: arch distrobox (steamos).
 
 # Create the arch distrobox and enter it once to finish its setup.
+#
+# @machine any
+# @os linux
+# @gui any
 feature_distrobox() {
   local name="$DISTROBOX_NAME"
 

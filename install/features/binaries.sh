@@ -100,17 +100,30 @@ Install them first (e.g. apt install build-essential pkg-config libevent-dev ncu
   info "tmux installed to $LOCAL_BIN/tmux"
 }
 
+# Install neovim (prebuilt) and tmux (built from source) into ~/.local when they aren't already on the PATH.
+#
+# @machine any
+# @os linux macos
+# @gui any
 feature_binaries() {
   install_neovim
   install_tmux_binary
 }
 
-# Just neovim, for variants whose tmux comes from elsewhere (building it needs gcc).
+# Install just neovim (prebuilt) into ~/.local, for variants whose tmux comes from elsewhere (building it needs gcc).
+#
+# @machine any
+# @os linux macos
+# @gui any
 feature_neovim() {
   install_neovim
 }
 
-# --- Install gng ---
+# Clone gng (a Gradle wrapper launcher, run as gw) into ~/.local/gng and run its installer with sudo.
+#
+# @machine any
+# @os any
+# @gui any
 feature_gng() {
   if command -v gw &>/dev/null; then
     info "gng already available: $(command -v gw)"
@@ -132,7 +145,11 @@ feature_gng() {
   info "gng installed"
 }
 
-# --- Install tre ---
+# Build tre (a tree alternative) from source with cargo and install it to ~/.local/bin.
+#
+# @machine any
+# @os any
+# @gui any
 feature_tre() {
   if command -v tre &>/dev/null; then
     info "tre already available: $(command -v tre)"

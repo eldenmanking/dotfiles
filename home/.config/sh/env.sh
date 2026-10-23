@@ -16,7 +16,11 @@ case ":${LS_COLORS:-}:" in
   *) export LS_COLORS="${LS_COLORS:-}:ow=0:ex=0" ;;
 esac
 export EDITOR=nvim                                              # Change default editor
-export QT_QPA_PLATFORMTHEME=gnome                               # Make QT applications use gnome theme when launched from terminal
+# Make Qt applications use the gnome theme, but only in gnome: elsewhere (e.g. KDE Plasma on SteamOS, which sources
+# ~/.profile) it replaces the desktop's own Qt theme, icons and colors.
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+  *:GNOME:*) export QT_QPA_PLATFORMTHEME=gnome ;;
+esac
 
 # Color man pages
 esc="$(printf '\033')"

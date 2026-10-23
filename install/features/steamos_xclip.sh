@@ -1,8 +1,12 @@
-# Feature: xclip (steamos). SteamOS has no xclip and its rootfs is read-only, so
-# copy the binary out of the arch distrobox that the distrobox feature creates.
-# The distrobox is kept; --distrobox --uninstall removes it.
+# Feature: xclip on SteamOS, copied out of the arch distrobox. The distrobox is kept; --distrobox --uninstall
+# removes it.
 
-# --- Install xclip ---
+# Install xclip to ~/.local/bin by copying it out of the arch distrobox (created if missing), since the SteamOS
+# rootfs is read-only.
+#
+# @machine any
+# @os steamos
+# @gui desktop
 feature_steamos_xclip() {
   local name="$DISTROBOX_NAME"
 

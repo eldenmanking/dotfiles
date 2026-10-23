@@ -8,7 +8,11 @@ FLATPAK_APPS=(
   "io.github.pwr_solaar.solaar"                                 # logitech pairing software
 )
 
-# Install apps per-user, so no root is needed on the read-only rootfs.
+# Install the flathub apps in FLATPAK_APPS per-user, so no root is needed on the read-only rootfs.
+#
+# @machine any
+# @os linux
+# @gui desktop
 feature_flatpak() {
   if ! command -v flatpak &>/dev/null; then
     warn "flatpak command not found, skipping flatpak setup."

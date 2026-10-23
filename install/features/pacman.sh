@@ -106,6 +106,11 @@ ensure_yay() {
   rm -rf /tmp/yay
 }
 
+# Install the terminal, GNOME and LaTeX pacman packages.
+#
+# @machine any
+# @os arch
+# @gui any
 feature_pacman() {
   info "Installing pacman packages for terminal..."
   run_tty sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"
@@ -115,13 +120,22 @@ feature_pacman() {
   run_tty sudo pacman --needed -Sq "${LATEX_PACMAN[@]}"
 }
 
+# Install yay if missing, then the AUR packages (themes, Insync, Chrome, Zoom).
+#
+# @machine any
+# @os arch
+# @gui gnome
 feature_yay() {
   ensure_yay
   info "Installing yay packages for gnome..."
   run_tty yay --answerclean None --answerdiff None --needed -Sq "${GNOME_YAY[@]}"
 }
 
-# Install only the terminal packages, unless --pacman already covers them.
+# Install only the terminal packages, unless --pacman already covers them, plus starship.
+#
+# @machine any
+# @os arch
+# @gui any
 feature_terminal() {
   local enabled="$2"
   if ! list_contains "$enabled" pacman; then
@@ -132,6 +146,11 @@ feature_terminal() {
   install_starship_binary
 }
 
+# Install CUPS and the HP printer drivers and enable the cups service.
+#
+# @machine any
+# @os arch
+# @gui any
 feature_printer() {
   info "Installing pacman packages for printer..."
   run_tty sudo pacman --needed -Sq "${PRINTER_PACMAN[@]}"

@@ -46,6 +46,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── alacritty.toml       --- alacritty terminal emulator configuration file
 │   │   ├── git                      ---
 │   │   │   └── ignore               --- default ignored git files
+│   │   ├── kcminputrc               --- KDE input settings (keyboard repeat), merged by the kde feature (not linked)
 │   │   ├── nvim                     ---
 │   │   │   ├── core                 ---
 │   │   │   │   ├── autocommands.vim --- global autocommands
@@ -144,21 +145,58 @@ This repository contains configuration files for my linux workspace. The followi
     ├── lint                         ---
     │   └── lint.sh                  --- make lint: syntax, shellcheck, actionlint and TOML checks
     ├── validation                   ---
+    │   ├── features.sh              --- checks feature docs, and that variants suit and order their features
     │   ├── readme_tree.py           --- checks this tree against the files tracked by git
-    │   └── validate.sh              --- make validate: checkout name, README tree, pinned checksums
+    │   └── validate.sh              --- make validate: checkout name, README tree, checksums, features
     ├── versions.env                 --- pinned versions and checksums of shellcheck and actionlint
     └── webterm_smoke.py             --- smoke test for the ttyd and socket proxy chain
 ```
 
 ## Installation
-`install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`. Files under `home/` are linked into `$HOME` and files under `root/` into `/`; everything else at the top level stays in the repo.
+`install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of its default ones. Optional features (listed under "Optional" in `--help`, e.g. `--printer` on `arch`) are skipped by `--all` and run only when named. With no arguments it prints usage. Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`. Files under `home/` are linked into `$HOME` and files under `root/` into `/`; everything else at the top level stays in the repo.
 
 The repo must live at `~/dotfiles`, since everything `install.sh` links points there, and `install.sh` refuses to run from any other checkout. `~/dotfiles` may be a symlink, but the checkout itself must be a directory named `dotfiles`, which lint relies on. On a fresh machine, `install.sh` can be run straight from GitHub: when it isn't inside a checkout, it clones the repo to `~/dotfiles` (unless already there) and re-runs that copy with the same arguments. Set `DOTFILES_REPO` to clone a different URL and `DOTFILES_REF` to check out a branch or tag.
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/main/install.sh)" -- --variant coder --all
 ```
 
-The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [steamos/README.md](steamos/README.md) and [docs/steamos-setup.md](docs/steamos-setup.md).
+#### Feature Requirements
+Each `feature_<name>` function has a doc comment directly above it: a brief description, a bare `#` line, then tags naming the machines, OS and GUI it works on and the features it requires (`@requires` is optional):
+
+```bash
+# Serve a shell in the browser on localhost: download ttyd and install systemd user units that start it on
+# demand (see steamos/README.md).
+#
+# @machine any
+# @os linux
+# @gui any
+# @requires link
+feature_webterm() {
+```
+
+Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes.
+
+| Feature | Machine | OS | GUI | Requires |
+|---|---|---|---|---|
+| `pacman`, `terminal`, `printer`, `logiops` | any | arch | any | |
+| `yay` | any | arch | gnome | |
+| `font`, `manual`, `distrobox` | any | linux | any | |
+| `link`, `info`, `shell`, `starship`, `zsh`, `gng`, `tre`, `claude`, `gitconfig` | any | any | any | |
+| `services` | laptop | linux | any | `link` |
+| `dconf` | any | linux | gnome | |
+| `xdg` | any | linux | gnome | `pacman` |
+| `tmux` | any | any | any | `link` |
+| `binaries`, `neovim` | any | linux, macos | any | |
+| `flatpak` | any | linux | desktop | |
+| `udev`, `tmpfiles` | framework16 | linux | any | |
+| `steamos_xclip` | any | steamos | desktop | |
+| `webterm` | any | linux | any | `link` |
+| `home_units` | any | steamos | any | |
+| `kde` | any | linux | kde | |
+
+`linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The variants target: `arch` (arch, gnome), `steamos` (steamos, kde), `coder` (linux, no GUI) and `portable` (linux and macos, no GUI).
+
+The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [steamos/README.md](steamos/README.md) and [docs/steamos-setup.md](docs/steamos-setup.md).
 
 Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell startup file subblocks only source files under `home/.config/sh` and `home/.config/zsh`, which the linked startup files (on `arch` and `steamos`) source too. Edit the files outside the section freely.
 
@@ -225,7 +263,7 @@ git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the
 ## Testing
 Checks come in three kinds, each with a make target; `make check` runs all three.
 
-- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, and `tests/versions.env` pins a SHA-256 for every tool on every platform.
+- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, `tests/versions.env` pins a SHA-256 for every tool on every platform, and every feature is documented and suits the variants that use it (see Feature Requirements).
 - **Lint** (`make lint`, `tests/lint/`) checks code quality: the syntax of every shell, zsh, Python and TOML file, shellcheck and actionlint. The shellcheck and actionlint versions are pinned in `tests/versions.env`; `make lint` downloads them into `~/.cache/dotfiles-test` on first use and refuses any download that doesn't match its pinned SHA-256.
 - **Tests** (`make test`, `tests/install.sh`) check behavior, so changes don't break what already works. They run `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every variant, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` for managed variants) for every variant that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `tests/webterm_smoke.py` is a separate smoke test for webterm, run by hand.
 

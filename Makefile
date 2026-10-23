@@ -6,7 +6,7 @@ help: ## list the targets
 
 check: validate lint test ## run validate, lint and test
 
-validate: ## repo structure that must hold: checkout name, README tree, pinned checksums
+validate: ## repo structure that must hold: checkout name, README tree, pinned checksums, feature docs and requirements
 	@tests/validation/validate.sh
 
 lint: ## code quality: syntax, shellcheck, actionlint and TOML (downloads pinned tools on first use)
