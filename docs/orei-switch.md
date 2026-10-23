@@ -41,7 +41,7 @@ binary.
   while it sleeps. It can't watch for another device turning on during sleep.
 
 On sleep the script presses the projector's Power Off key over CEC (only while the OREI shows the laptop, so it never
-turns off another input's picture), then disables the PD controller. On wake it re-enables it, waits up to 10s for an
+turns off another input's picture), then disables the PD controller. On wake it re-enables it, waits up to 15s for an
 external display (polling `/sys/class/drm/card*-DP-*/status`), and otherwise does up to two UCSI resets, each followed by
 a 6s wait. It logs which step brought the display up; tune `PD_WAIT` and `RESET_WAIT` from those timings
 (`journalctl -t orei-switch -b -o short-precise`). In the first real suspend/resume, the display connected 5.4s after the

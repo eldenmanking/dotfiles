@@ -13,7 +13,7 @@ PD=1      # left PD controller (ports 2,3); right is 0
 UCSI=/sys/kernel/debug/usb/ucsi/USBC000:00
 CONN=3    # UCSI connector for the HDMI card (typec port2 + 1)
 CEC_DRIVER=amdgpu  # find the CEC adapter by driver: it is re-registered on each resume, as /dev/cec0 or /dev/cec1
-PD_WAIT=10    # seconds to wait for the display after enabling PD (5.4s when tested)
+PD_WAIT=15    # seconds to wait for the display after enabling PD (5.4s and 9.5s when tested)
 RESET_WAIT=6  # seconds to wait for the display after each UCSI reset
 
 log() { logger -t orei-switch "$*"; }
