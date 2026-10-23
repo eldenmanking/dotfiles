@@ -1,0 +1,14 @@
+# Installed by the orei_switch feature of ~/dotfiles/install.sh. Started before sleep and stopped (wake) after it.
+[Unit]
+Description=OREI HDMI switch handoff on sleep/wake
+Before=sleep.target
+StopWhenUnneeded=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/orei-switch/orei-switch.sh sleep
+ExecStop=/etc/orei-switch/orei-switch.sh wake
+
+[Install]
+WantedBy=sleep.target
