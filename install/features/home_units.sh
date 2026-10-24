@@ -1,23 +1,23 @@
 # Feature: install home-units.service system-wide (steamos). With a dirlock-encrypted home, the user manager starts
 # before the home is unlocked and can't see ~/.config/systemd/user; this unit starts those units once it is unlocked.
 # A SteamOS keep list makes the files survive OS updates: SteamOS's default list keeps system units in
-# /etc/systemd/system, but nothing in /etc/systemd/user. See steamos/README.md.
+# /etc/systemd/system, but nothing in /etc/systemd/user. See Webterm in README.md.
 
-HOME_UNITS_SRC="steamos"
-# "<mode> <repo-relative source> <destination>" for each installed file.
+# "<mode> <repo-relative source>" for each installed file. Each is copied to its path under root/, not linked: the
+# user manager reads them before the home directory, and the checkout in it, is unlocked.
 HOME_UNITS_FILES=(
-  "755 $HOME_UNITS_SRC/bin/home-units-start /etc/dotfiles/home-units-start"
-  "644 $HOME_UNITS_SRC/systemd/home-units.service /etc/systemd/user/home-units.service"
+  "755 root/etc/dotfiles/home-units-start"
+  "644 root/etc/systemd/user/home-units.service"
 )
 # The link 'systemctl --global enable' makes, from the unit's WantedBy=default.target.
 HOME_UNITS_ENABLED_LINK=/etc/systemd/user/default.target.wants/home-units.service
 
 # Installed copies are compared with the repo, so updates get reinstalled too.
 home_units_current() {
-  local entry mode src dest
+  local entry mode src
   for entry in "${HOME_UNITS_FILES[@]}"; do
-    read -r mode src dest <<<"$entry"
-    cmp -s "$DOTFILES_ROOT/$src" "$dest" || return 1
+    read -r mode src <<<"$entry"
+    cmp -s "$DOTFILES_ROOT/$src" "/${src#root/}" || return 1
   done
 }
 
@@ -27,10 +27,10 @@ home_is_encrypted() {
 
 # Print the destination of each installed file, then the enablement link, one per line.
 home_units_paths() {
-  local entry mode src dest
+  local entry mode src
   for entry in "${HOME_UNITS_FILES[@]}"; do
-    read -r mode src dest <<<"$entry"
-    printf '%s\n' "$dest"
+    read -r mode src <<<"$entry"
+    printf '%s\n' "/${src#root/}"
   done
   printf '%s\n' "$HOME_UNITS_ENABLED_LINK"
 }
@@ -50,10 +50,10 @@ feature_home_units() {
     return
   else
     info "Your home directory is encrypted: installing home-units.service (needs sudo) so units in it start after a reboot."
-    local entry mode src dest
+    local entry mode src
     for entry in "${HOME_UNITS_FILES[@]}"; do
-      read -r mode src dest <<<"$entry"
-      run sudo install -Dm"$mode" "$DOTFILES_ROOT/$src" "$dest"
+      read -r mode src <<<"$entry"
+      run sudo install -Dm"$mode" "$DOTFILES_ROOT/$src" "/${src#root/}"
     done
     run sudo systemctl --global enable home-units.service
     info "Installed. From the next login on, units in your home directory start"

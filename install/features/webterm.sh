@@ -1,16 +1,17 @@
 # Feature: webterm, a browser shell served by ttyd and started on demand by systemd socket activation (steamos).
-# See steamos/README.md.
+# See Webterm in README.md.
 
-WEBTERM_DIR="$DOTFILES_ROOT/steamos"
-WEBTERM_UNIT_DIR="$HOME/.config/systemd/user"
+WEBTERM_UNITS_SRC="$DOTFILES_ROOT/home/.config/systemd/user"
+WEBTERM_SOCKET="$WEBTERM_UNITS_SRC/webterm.socket"
+WEBTERM_SERVICES=(webterm.service webterm-ttyd.service)
 WEBTERM_CONF_DIR="$HOME/.config/webterm"
 WEBTERM_ENV="$WEBTERM_CONF_DIR/env"
 WEBTERM_TOKEN_FILE="$WEBTERM_CONF_DIR/token"
-WEBTERM_SOCKET="$WEBTERM_DIR/systemd/webterm.socket"
-WEBTERM_SERVICES=(webterm.service webterm-ttyd.service)
+# webterm.service runs this; it ships with systemd.
+WEBTERM_PROXYD=/usr/lib/systemd/systemd-socket-proxyd
 
 TTYD_VERSION=1.7.7
-TTYD_BIN="$WEBTERM_DIR/bin/ttyd"
+TTYD_BIN="$LOCAL_BIN/ttyd"
 
 # Pinned static ttyd release asset and its SHA-256 for this machine.
 ttyd_asset() {
@@ -21,7 +22,7 @@ ttyd_asset() {
   esac
 }
 
-# Download the pinned ttyd to steamos/bin/ttyd (git ignores it), unless it is already there.
+# Download the pinned ttyd to ~/.local/bin/ttyd, next to the linked webterm scripts, unless it is already there.
 install_ttyd() {
   f_write_args ttyd_asset _asset _sha256
   local asset="$_asset" sha256="$_sha256"
@@ -33,6 +34,7 @@ install_ttyd() {
 
   info "Downloading ttyd $TTYD_VERSION ($asset)"
   local tmp
+  run mkdir -p "$LOCAL_BIN"
   tmp="$(mktemp "$TTYD_BIN.XXXXXX")"
   download_verified "https://github.com/tsl0922/ttyd/releases/download/$TTYD_VERSION/$asset" \
     "$sha256" "$tmp" ttyd || { rm -f "$tmp"; error "could not download ttyd"; }
@@ -40,17 +42,6 @@ install_ttyd() {
   run mv "$tmp" "$TTYD_BIN"
   rm -f "$tmp"
   info "Installed $TTYD_BIN"
-}
-
-# Print the path of systemd-socket-proxyd, or nothing if it isn't installed.
-find_proxyd() {
-  local p
-  for p in /usr/lib/systemd/systemd-socket-proxyd /lib/systemd/systemd-socket-proxyd; do
-    if [[ -x "$p" ]]; then
-      printf '%s' "$p"
-      return
-    fi
-  done
 }
 
 # Print the URL the socket serves the terminal on, under the secret token $1 if there is one.
@@ -78,17 +69,6 @@ save_token() {
   (umask 077 && printf 'WEBTERM_TOKEN=%s\n' "$token" | write_file "$WEBTERM_TOKEN_FILE")
 }
 
-# Render the unit templates into ~/.config/systemd/user.
-install_webterm_units() {
-  local proxyd="$1"
-  run mkdir -p "$WEBTERM_UNIT_DIR"
-  render_template "$WEBTERM_DIR/systemd/webterm.service.template" "PROXYD=$proxyd" \
-    | write_file "$WEBTERM_UNIT_DIR/webterm.service"
-  render_template "$WEBTERM_DIR/systemd/webterm-ttyd.service.template" "WEBTERM_DIR=$WEBTERM_DIR" \
-    | write_file "$WEBTERM_UNIT_DIR/webterm-ttyd.service"
-  run cp "$WEBTERM_SOCKET" "$WEBTERM_UNIT_DIR/webterm.socket"
-}
-
 # Poke the socket once to prove activation works (it exits again when idle)
 check_socket_activation() {
   local url="$1"
@@ -102,29 +82,27 @@ check_socket_activation() {
 }
 
 # Serve a shell in the browser on localhost: download ttyd and install systemd user units that start it on
-# demand (see steamos/README.md).
+# demand (see Webterm in README.md).
 #
 # @machine any
 # @os linux
 # @gui any
 # @requires link
 feature_webterm() {
-  local proxyd token url
+  local token url
   require_commands curl sha256sum systemctl
   systemctl --user show-environment >/dev/null 2>&1 \
     || error "no systemd user session (log in graphically or via ssh, not su/sudo)"
-  proxyd="$(find_proxyd)"
-  [[ -n "$proxyd" ]] || error "systemd-socket-proxyd not found"
+  [[ -x "$WEBTERM_PROXYD" ]] || error "$WEBTERM_PROXYD not found"
   [[ -f "$WEBTERM_ENV" ]] || $DRY_RUN || error "$WEBTERM_ENV not found; run with --link first"
 
   install_ttyd
-  run "$WEBTERM_DIR/bin/webterm-index" \
+  run "$LOCAL_BIN/webterm-index" \
     || warn "could not build the webterm page; ttyd will serve its stock page"
   token="$(webterm_token)"
   save_token "$token"
-  install_webterm_units "$proxyd"
+  f_write_args install_user_units _changed -- "$WEBTERM_UNITS_SRC" webterm.socket "${WEBTERM_SERVICES[@]}"
 
-  run systemctl --user daemon-reload
   run systemctl --user enable --now webterm.socket
   # If it's running, restart it so the new units and settings apply right away.
   # Open tabs reconnect on their own (their shells are restarted).

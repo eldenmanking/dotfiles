@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Builds the page that bin/webterm-ttyd passes to ttyd with -I: ttyd's stock page with web/tab-keys.html appended.
+# Builds the page that webterm-ttyd passes to ttyd with -I: ttyd's stock page with webterm/tab-keys.html appended.
 # The stock page bundles ttyd's browser client, so it is fetched from a throwaway ttyd on a temporary UNIX socket and
-# saved under the hash of bin/ttyd. Runs from the webterm feature of ~/dotfiles/install.sh, so it is redone whenever ttyd is (re)installed.
+# saved under the hash of ~/.local/bin/ttyd. Runs from the webterm feature of ~/dotfiles/install.sh, so it is redone
+# whenever ttyd is (re)installed.
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TTYD="$REPO_DIR/bin/ttyd"
-SNIPPET="$REPO_DIR/web/tab-keys.html"
+TTYD="$HOME/.local/bin/ttyd"
+SNIPPET="${XDG_DATA_HOME:-$HOME/.local/share}/webterm/tab-keys.html"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/webterm"
 
 [ -x "$TTYD" ] || { echo "error: $TTYD not found" >&2; exit 1; }

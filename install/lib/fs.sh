@@ -276,16 +276,6 @@ write_file() {
   fi
 }
 
-# Print $template with each __KEY__ replaced by VALUE, for each KEY=VALUE arg.
-render_template() {
-  local template="$1" pair args=()
-  shift
-  for pair in "$@"; do
-    args+=(-e "s|__${pair%%=*}__|${pair#*=}|g")
-  done
-  sed "${args[@]}" "$template"
-}
-
 # Return 0 if $file exists and has SHA-256 $sha256.
 sha256_matches() {
   local file="$1" sha256="$2"
