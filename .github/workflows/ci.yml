@@ -1,4 +1,4 @@
-# Validation and lint, plus install tests on Linux. macOS runs in macos.yml, only when files it tests change.
+# Validation and lint, plus install tests and fixtures on Linux. macOS runs in macos.yml, only when files it tests change.
 name: CI
 
 on:
@@ -31,6 +31,13 @@ jobs:
         run: sudo apt-get update -q && sudo apt-get install -y -q zsh
       - run: make lint
 
+  fixtures:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Each fixture picks its container image from tests/images (see tests/fixtures.sh).
+      - run: make fixtures
+
   test:
     name: test (${{ matrix.name }})
     strategy:
@@ -40,7 +47,7 @@ jobs:
           - name: archlinux
             runs-on: ubuntu-24.04
             # Packages come from the Arch Linux Archive snapshot of the image's date, so the whole job is pinned.
-            # Bump the tag, digest and ARCH_ARCHIVE_DATE together.
+            # Bump the tag, digest and ARCH_ARCHIVE_DATE together, here and in tests/images/*/Dockerfile.
             container: archlinux:base-20261018.0.612668@sha256:52dfbd5afb23a220d5ee92dafcb4c788d96c026ed04179890c23adef4c897fa0
           - name: ubuntu
             runs-on: ubuntu-24.04

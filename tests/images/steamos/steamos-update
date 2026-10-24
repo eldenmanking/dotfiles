@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# Mock SteamOS update for tests/fixtures.sh, installed as /usr/bin/steamos-update in tests/images/steamos. A real
+# update boots a new read-only root filesystem and, since SteamOS 3.6, keeps only the changes to /etc that a keep list
+# names, moving the rest into /etc/previous. This does the same against the state the image was built in:
+#  - /etc: each file or symlink added or changed since then that no keep list names is moved to /etc/previous/<path>,
+#    and the original, if there was one, is restored; files removed since then come back unless kept. New directories
+#    left empty are removed.
+#  - /usr: everything added since then is removed, as a new root filesystem would drop it.
+# A keep list names one absolute path or glob per line ('#' starts a comment), as SteamOS's do: '*' and '?' match
+# within one path component and '**' across them, and an entry ending in '/' keeps that directory and everything
+# under it. The lists are /usr/lib/rauc/atomic-update-keep.conf (a stand-in for SteamOS's default list) and
+# /etc/atomic-update.conf.d/*.conf. Runs as root: `steamos-update --snapshot` when building the image records its
+# state, then `steamos-update` updates.
+
+set -euo pipefail
+
+STATE=/var/lib/steamos-update-mock
+DEFAULT_KEEP_LIST=/usr/lib/rauc/atomic-update-keep.conf
+KEEP_DIR=/etc/atomic-update.conf.d
+PREVIOUS=/etc/previous
+
+# Print each entry of the keep lists as an anchored extended regex, one per line.
+keep_patterns() {
+  local list
+  for list in "$DEFAULT_KEEP_LIST" "$KEEP_DIR"/*.conf; do
+    [[ -f "$list" ]] || continue
+    sed -e 's/#.*//' -e 's/[[:space:]]*$//' "$list" | grep '^/' || true
+  done | sed -e 's/[].+^$(){}|\\[]/\\&/g' -e 's/\*\*/\x01/g' -e 's/\*/[^\/]*/g' -e 's/?/[^\/]/g' \
+    -e 's/\x01/.*/g' -e 's|^\(.*\)/$|^\1(/.*)?$|' -e '/^\^/!s/.*/^&$/'
+}
+
+# Return 0 if path $1 matches a regex in newline-separated list $2.
+kept() {
+  local path="$1" keep="$2" pattern
+  while IFS= read -r pattern; do
+    [[ -n "$pattern" && "$path" =~ $pattern ]] && return 0
+  done <<< "$keep"
+  return 1
+}
+
+# Return 0 if paths $1 and $2 are the same symlink or file.
+same() {
+  if [[ -L "$1" || -L "$2" ]]; then
+    [[ -L "$1" && -L "$2" && "$(readlink "$1")" == "$(readlink "$2")" ]]
+  else
+    [[ -f "$1" && -f "$2" ]] && cmp -s "$1" "$2"
+  fi
+}
+
+snapshot() {
+  rm -rf "$STATE"
+  mkdir -p "$STATE"
+  cp -a /etc "$STATE/etc"
+  find /usr -xdev | LC_ALL=C sort > "$STATE/usr.list"
+}
+
+update() {
+  local keep path original
+  [[ -d "$STATE" ]] || { echo "steamos-update: no snapshot; run steamos-update --snapshot first" >&2; exit 1; }
+  # Read the keep lists before the update touches /etc.
+  keep="$(keep_patterns)"
+  rm -rf "$PREVIOUS"
+
+  while IFS= read -r path; do
+    kept "$path" "$keep" && continue
+    original="$STATE$path"
+    same "$path" "$original" && continue
+    mkdir -p "$(dirname "$PREVIOUS${path#/etc}")"
+    mv "$path" "$PREVIOUS${path#/etc}"
+    if [[ -e "$original" || -L "$original" ]]; then
+      cp -a "$original" "$path"
+      echo "reset $path (your version is in $PREVIOUS)"
+    else
+      echo "dropped $path (moved to $PREVIOUS)"
+    fi
+  done < <(find /etc -path "$PREVIOUS" -prune -o \( -type f -o -type l \) -print | LC_ALL=C sort)
+
+  while IFS= read -r path; do
+    path="/etc${path#.}"
+    [[ -e "$path" || -L "$path" ]] && continue
+    kept "$path" "$keep" && continue
+    mkdir -p "$(dirname "$path")"
+    cp -a "$STATE$path" "$path"
+    echo "restored $path"
+  done < <(cd "$STATE/etc" && find . \( -type f -o -type l \) | LC_ALL=C sort)
+
+  while IFS= read -r path; do
+    [[ -d "$STATE$path" ]] || kept "$path" "$keep" || rmdir "$path"
+  done < <(find /etc -path "$PREVIOUS" -prune -o -type d -empty -print | LC_ALL=C sort -r)
+
+  while IFS= read -r path; do
+    [[ -e "$path" || -L "$path" ]] || continue
+    rm -rf "$path"
+    echo "dropped $path (not in the new root filesystem)"
+  done < <(find /usr -xdev | LC_ALL=C sort | LC_ALL=C comm -13 "$STATE/usr.list" - | LC_ALL=C sort -r)
+}
+
+case "${1:-}" in
+  --snapshot) snapshot ;;
+  "") update ;;
+  *) echo "usage: steamos-update [--snapshot]" >&2; exit 2 ;;
+esac

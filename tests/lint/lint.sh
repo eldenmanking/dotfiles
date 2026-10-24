@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib.sh"
 
 # Outputs: _sh, _bash, _sourced, _zsh and _python, newline-separated tracked files of each language. Files under
-# install/ without a shebang are sourced by install.sh, so they are bash.
+# install/ without a shebang are sourced by install.sh, and fixtures' case.sh by tests/fixtures.sh, so they are bash.
 classify_files() {
   local sh="" bash="" sourced="" zsh="" python="" file first
   while IFS= read -r file; do
@@ -20,7 +20,7 @@ classify_files() {
       '#!'*python*)        python+="$file"$'\n' ;;
       *)
         case "$file" in
-          install/*.sh) sourced+="$file"$'\n' ;;
+          install/*.sh|tests/fixtures/*/case.sh) sourced+="$file"$'\n' ;;
           *.zsh)        zsh+="$file"$'\n' ;;
           *.py)         python+="$file"$'\n' ;;
         esac

@@ -46,7 +46,7 @@ Expect few suspend entries and a long last_hw_sleep. A wake IRQ of 7 means anoth
 
 ### Undo fix 1
 ```sh
-sudo rm /etc/udev/rules.d/90-touchpad-nowake.rules; echo enabled | sudo tee /sys/bus/i2c/devices/i2c-PIXA3854:00/power/wakeup
+sudo rm -f /etc/udev/rules.d/90-touchpad-nowake.rules; sudo sed -i '/^## feature udev$/,/^$/d' /etc/atomic-update.conf.d/dotfiles.conf; echo enabled | sudo tee /sys/bus/i2c/devices/i2c-PIXA3854:00/power/wakeup
 ```
 
 ## Fix 2 (disable embedded controller wake)
@@ -82,7 +82,8 @@ cat /sys/module/acpi/parameters/ec_no_wakeup
 ### Undo fix 2
 The parameter stays `Y` until the reboot:
 ```sh
-sudo rm /etc/tmpfiles.d/ec-no-wakeup.conf
+sudo rm -f /etc/tmpfiles.d/ec-no-wakeup.conf
+sudo sed -i '/^## feature tmpfiles$/,/^$/d' /etc/atomic-update.conf.d/dotfiles.conf
 ```
 then reboot.
 

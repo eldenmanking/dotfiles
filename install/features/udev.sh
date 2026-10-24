@@ -4,12 +4,16 @@
 UDEV_RULES_SRC="root/etc/udev/rules.d"
 UDEV_RULES_DST="/etc/udev/rules.d"
 
-# Copy changed rules (replacing any old symlink), then reload udev and re-apply rules to i2c devices.
+# Copy changed rules (replacing any old symlink), keep them across SteamOS updates, then reload udev and re-apply rules
+# to i2c devices.
 #
 # @machine framework16
 # @os linux
 # @gui any
 feature_udev() {
+  local targets
+  targets="$(system_file_targets "$DOTFILES_ROOT/$UDEV_RULES_SRC" '*.rules' "$UDEV_RULES_DST")"
+  keep_across_steamos_updates udev $targets
   f_write_args copy_system_files _changed -- "$DOTFILES_ROOT/$UDEV_RULES_SRC" "$UDEV_RULES_DST" '*.rules'
   [[ -n "$_changed" ]] || return 0
 

@@ -12,4 +12,7 @@ source-path=SCRIPTDIR/../..
 #   SC2016: $ in single quotes, which is how scripts for another shell are written (sh -c '...').
 #   SC2064: trap strings in double quotes, which expand when the trap is set; done on purpose to capture arguments.
 #   SC1003: a backslash before a closing single quote, which printf escapes like '\033\\' end with.
-disable=SC2034,SC2154,SC2016,SC2064,SC1003
+#   SC2086, SC2046: an unquoted $variable or $(command), which splits into words and expands globs. Lists of words
+#     are passed unquoted on purpose (feature lists, paths printed one per line, install.sh arguments), so quote every
+#     expansion that isn't meant to split rather than relying on these checks.
+disable=SC2034,SC2154,SC2016,SC2064,SC1003,SC2086,SC2046

@@ -212,13 +212,13 @@ directory, so it can't see `~/.config/systemd/user` and skips
 just webterm, in Game Mode and Desktop Mode. It is the one piece installed
 outside your home directory, so `--home_units` installs it with sudo. It does
 so only when your home directory is encrypted, and reinstalls it when the repo
-has a newer version. It also removes the files the standalone steamos-config
-repo used to install under the old names. To remove it:
+has a newer version. To remove it:
 
 ```sh
 sudo systemctl --global disable home-units.service
-sudo rm -f /etc/systemd/user/home-units.service /etc/atomic-update.conf.d/dotfiles.conf
+sudo rm -f /etc/systemd/user/home-units.service
 sudo rm -rf /etc/dotfiles
+sudo sed -i '/^## feature home_units$/,/^$/d' /etc/atomic-update.conf.d/dotfiles.conf
 ```
 
 What it installs:
@@ -235,11 +235,17 @@ except the unit itself, which must sit where systemd looks for units:
   SteamOS's own units that already ran aren't run again. A target that isn't
   up yet, like `graphical-session.target` before Desktop Mode, starts its units
   itself later.
-- `/etc/atomic-update.conf.d/dotfiles.conf`, a keep list. Since SteamOS
-  3.6 an update drops every change in `/etc` that isn't on a keep list (into
-  `/etc/previous`). The default list, `/usr/lib/rauc/atomic-update-keep.conf`,
-  covers `/etc/systemd/system` but not `/etc/systemd/user`, so this one names
-  the unit, its enablement symlink and `/etc/dotfiles/home-units-start`.
+- A `## feature home_units` subblock in the keep list
+  `/etc/atomic-update.conf.d/dotfiles.conf`. Since SteamOS 3.6 an update drops
+  every change in `/etc` that isn't on a keep list (into `/etc/previous`). The
+  default list, `/usr/lib/rauc/atomic-update-keep.conf`, keeps system units in
+  `/etc/systemd/system` (services, sockets and mounts, with their drop-ins and
+  enablement links) but nothing in `/etc/systemd/user`, so this subblock names the
+  unit, its enablement symlink and `/etc/dotfiles/home-units-start`.
+  `keep_across_steamos_updates` (`install/lib/fs.sh`) writes it from the files
+  the feature installs, on every run. The Framework 16 fixes keep their files
+  in their own subblocks of the same list, and the `steamos-update` fixture
+  (`make fixtures`) checks that a mock update keeps all of them.
 
 Which units it starts is up to you: `systemctl --user enable foo.service`
 adds a link under the target named in the unit's `WantedBy=`, and
