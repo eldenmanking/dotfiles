@@ -322,10 +322,15 @@ test_publish() {
   info "bootstrap: scripts/bootstrap.sh --publish moves the install branch forward"
   origin="$SCRATCH/publish-origin.git"
   work="$SCRATCH/publish-work"
-  clone_working_tree "$work"
+  # A fresh repo rather than a clone, which would be shallow in CI and so couldn't be pushed to a new repo.
+  git init --quiet "$work"
+  git -C "$work" checkout --quiet -b main
+  cp -R "$REPO_ROOT/install" "$REPO_ROOT/bootstrap" "$REPO_ROOT/scripts" "$work/"
+  git -C "$work" add -A
+  test_commit "$work" "first"
   test_commit "$work" "second"
   git init --quiet --bare "$origin"
-  git -C "$work" remote set-url origin "$origin"
+  git -C "$work" remote add origin "$origin"
   git -C "$work" push --quiet origin main
   first="$(git -C "$work" rev-parse HEAD^1)"
   second="$(git -C "$work" rev-parse HEAD)"
