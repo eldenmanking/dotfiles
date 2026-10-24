@@ -229,6 +229,31 @@ upsert_block() {
   _replace_contents "$file" "$tmp" "$sudo_cmd"
 }
 
+# Remove the <name> subblock from the dotfiles section in <file>, if it is there. The section itself is left, even if
+# empty. <sudo> is an optional sudo-style prefix, as for upsert_block.
+# Usage: remove_block <file> <name> [sudo]
+remove_block() {
+  local file="$1" name="$2" sudo_cmd="${3:-}"
+  local header="$DOTFILES_SUBBLOCK_PREFIX$name"
+  [[ -f "$file" ]] && grep -qxF "$header" "$file" || return 0
+  if $DRY_RUN; then
+    info "[dry-run] would remove block '$name' from $file"
+    return 0
+  fi
+  local tmp
+  tmp="$(mktemp)"
+  awk -v start="$DOTFILES_BLOCK_START" -v end="$DOTFILES_BLOCK_END" \
+      -v prefix="$DOTFILES_SUBBLOCK_PREFIX" -v header="$header" '
+    $0 == start { insec = 1 }
+    insec && $0 == end { insec = 0; skip = 0 }
+    insec && index($0, prefix) == 1 { skip = ($0 == header) }
+    skip { next }
+    { print }
+  ' "$file" > "$tmp"
+  info "Removing block '$name' from $file"
+  _replace_contents "$file" "$tmp" "$sudo_cmd"
+}
+
 # Set the <name> subblock of <file> to source each repo-relative <path>. Shell
 # startup files only ever source files, so the same logic can be shared with the
 # directly linked ones. Uses POSIX '.' since sh may read ~/.profile.
@@ -261,6 +286,12 @@ keep_across_steamos_updates() {
     content+="${content:+$'\n'}$path"
   done
   upsert_block "$STEAMOS_KEEP_LIST" "$name" "$content" "" sudo
+}
+
+# Remove feature <name>'s subblock from STEAMOS_KEEP_LIST (with sudo), if the list exists.
+# Usage: forget_across_steamos_updates <name>
+forget_across_steamos_updates() {
+  remove_block "$STEAMOS_KEEP_LIST" "$1" sudo
 }
 
 # --- File writing and downloads (honor DRY_RUN) ---

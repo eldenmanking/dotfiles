@@ -1,13 +1,17 @@
 #!/bin/sh
 # Run by home-units.service. Installed to /etc/dotfiles/home-units-start,
 # outside the encrypted home. Waits for dirlock to unlock the home directory,
-# reloads the user manager so it sees ~/.config/systemd/user, then starts
-# exactly the units enabled there. Nothing else is started, so units that
-# already ran and exited are not run again.
+# then starts exactly the units enabled in ~/.config/systemd/user. Nothing else
+# is started, so units that already ran and exited are not run again.
 #
-# Units are started only for targets that are already up. A target that comes
-# up later (e.g. graphical-session.target when you switch to Desktop Mode)
-# starts its own units then, since the reload made them visible.
+# It doesn't reload the user manager: the unlock happens at login, and a
+# daemon-reload then raced the session's own startup (it hung SteamOS's
+# start-gamescope-session, whose session was killed 90s after login). So the
+# units' files must be somewhere the manager has seen since boot, like
+# /etc/systemd/user, where the webterm feature puts them; only the enable links
+# need to be in the home. The manager can't see those links either, so units
+# are started only for targets that are already up, and those wanted by a
+# target that comes up later aren't started.
 set -u
 
 dir="$HOME/.config/systemd/user"
@@ -22,7 +26,7 @@ target_is_up() {
   state="$(systemctl --user show -P ActiveState "$1")"
   case "$state" in
     active|activating) ;;
-    *) echo "$1 is $state: leaving its units for when it starts"; return 1 ;;
+    *) echo "$1 is $state: not starting its units" >&2; return 1 ;;
   esac
 }
 
@@ -44,7 +48,6 @@ start_target_units() {
 
 main() {
   wait_for_home
-  systemctl --user daemon-reload || exit 1
   for wants in "$dir"/*.target.wants "$dir"/*.target.requires; do
     [ -d "$wants" ] || continue
     start_target_units "$wants"

@@ -1,8 +1,15 @@
 # Feature: webterm, a browser shell served by ttyd and started on demand by systemd socket activation (steamos).
-# See steamos/README.md.
+# The unit files go into /etc/systemd/user, outside an encrypted home, so the user manager sees them from boot and
+# home-units-start can start them after the unlock without a daemon-reload. See steamos/README.md.
 
 WEBTERM_DIR="$DOTFILES_ROOT/steamos"
-WEBTERM_UNIT_DIR="$HOME/.config/systemd/user"
+WEBTERM_UNIT_DIR="/etc/systemd/user"
+# Where the units used to be installed, and where the per-user enable links still go.
+WEBTERM_HOME_UNIT_DIR="$HOME/.config/systemd/user"
+WEBTERM_UNITS=(webterm.socket webterm.service webterm-ttyd.service)
+# The link 'systemctl --user enable webterm.socket' makes, from its WantedBy=sockets.target.
+WEBTERM_ENABLED_LINK="$WEBTERM_HOME_UNIT_DIR/sockets.target.wants/webterm.socket"
+WEBTERM_STATE_DIR="$HOME/.local/state/webterm"
 WEBTERM_CONF_DIR="$HOME/.config/webterm"
 WEBTERM_ENV="$WEBTERM_CONF_DIR/env"
 WEBTERM_TOKEN_FILE="$WEBTERM_CONF_DIR/token"
@@ -78,15 +85,31 @@ save_token() {
   (umask 077 && printf 'WEBTERM_TOKEN=%s\n' "$token" | write_file "$WEBTERM_TOKEN_FILE")
 }
 
-# Render the unit templates into ~/.config/systemd/user.
-install_webterm_units() {
-  local proxyd="$1"
-  run mkdir -p "$WEBTERM_UNIT_DIR"
-  render_template "$WEBTERM_DIR/systemd/webterm.service.template" "PROXYD=$proxyd" \
-    | write_file "$WEBTERM_UNIT_DIR/webterm.service"
+# Render the units into directory $2, for systemd-socket-proxyd at $1.
+render_webterm_units() {
+  local proxyd="$1" dir="$2"
+  render_template "$WEBTERM_DIR/systemd/webterm.service.template" "PROXYD=$proxyd" >"$dir/webterm.service"
   render_template "$WEBTERM_DIR/systemd/webterm-ttyd.service.template" "WEBTERM_DIR=$WEBTERM_DIR" \
-    | write_file "$WEBTERM_UNIT_DIR/webterm-ttyd.service"
-  run cp "$WEBTERM_SOCKET" "$WEBTERM_UNIT_DIR/webterm.socket"
+    >"$dir/webterm-ttyd.service"
+  cp "$WEBTERM_SOCKET" "$dir/webterm.socket"
+}
+
+# Copy the rendered units into /etc/systemd/user with sudo, and remove the copies older versions installed into
+# ~/.config/systemd/user, which would shadow them. Keep them across SteamOS updates, whose default keep list
+# covers nothing in /etc/systemd/user.
+install_webterm_units() {
+  local proxyd="$1" rendered unit
+  rendered="$(mktemp -d)"
+  render_webterm_units "$proxyd" "$rendered"
+  f_write_args copy_system_files _changed -- "$rendered" "$WEBTERM_UNIT_DIR" "webterm*"
+  rm -rf "$rendered"
+  for unit in "${WEBTERM_UNITS[@]}"; do
+    if [[ -e "$WEBTERM_HOME_UNIT_DIR/$unit" || -L "$WEBTERM_HOME_UNIT_DIR/$unit" ]]; then
+      info "Removing $WEBTERM_HOME_UNIT_DIR/$unit (now in $WEBTERM_UNIT_DIR)"
+      run rm -f "$WEBTERM_HOME_UNIT_DIR/$unit"
+    fi
+  done
+  keep_across_steamos_updates webterm "${WEBTERM_UNITS[@]/#/$WEBTERM_UNIT_DIR/}"
 }
 
 # Poke the socket once to prove activation works (it exits again when idle)
@@ -101,8 +124,8 @@ check_socket_activation() {
   fi
 }
 
-# Serve a shell in the browser on localhost: download ttyd and install systemd user units that start it on
-# demand (see steamos/README.md).
+# Serve a shell in the browser on localhost: download ttyd and install systemd user units into /etc (needs sudo)
+# that start it on demand (see steamos/README.md).
 #
 # @machine any
 # @os linux
@@ -125,7 +148,9 @@ feature_webterm() {
   install_webterm_units "$proxyd"
 
   run systemctl --user daemon-reload
-  run systemctl --user enable --now webterm.socket
+  # reenable, so an enable link left pointing at the old copy in ~/.config/systemd/user points at the new one.
+  run systemctl --user reenable webterm.socket
+  run systemctl --user start webterm.socket
   # If it's running, restart it so the new units and settings apply right away.
   # Open tabs reconnect on their own (their shells are restarted).
   run systemctl --user try-restart "${WEBTERM_SERVICES[@]}"
@@ -134,4 +159,39 @@ feature_webterm() {
   info "Installed. Open $url"
   info "(server starts on first visit, exits when idle)"
   check_socket_activation "$url"
+}
+
+# Stop webterm and remove its units, its enable link and the page it built. The URL token is kept.
+uninstall_feature_webterm() {
+  local unit session=false installed=false
+  systemctl --user show-environment >/dev/null 2>&1 && session=true
+  for unit in "${WEBTERM_UNITS[@]}"; do
+    [[ -e "$WEBTERM_UNIT_DIR/$unit" || -e "$WEBTERM_HOME_UNIT_DIR/$unit" ]] && installed=true
+  done
+  # Stopping units that aren't loaded fails, so only while their files are there.
+  if $installed && $session; then
+    run systemctl --user stop webterm.socket "${WEBTERM_SERVICES[@]}"
+  elif $installed; then
+    info "No systemd user session: webterm keeps running until the next login"
+  fi
+  if [[ -L "$WEBTERM_ENABLED_LINK" ]]; then
+    run rm -f "$WEBTERM_ENABLED_LINK"
+  fi
+  for unit in "${WEBTERM_UNITS[@]}"; do
+    if [[ -e "$WEBTERM_HOME_UNIT_DIR/$unit" || -L "$WEBTERM_HOME_UNIT_DIR/$unit" ]]; then
+      run rm -f "$WEBTERM_HOME_UNIT_DIR/$unit"
+    fi
+    if [[ -e "$WEBTERM_UNIT_DIR/$unit" || -L "$WEBTERM_UNIT_DIR/$unit" ]]; then
+      info "Removing $WEBTERM_UNIT_DIR/$unit..."
+      run sudo rm -f "$WEBTERM_UNIT_DIR/$unit"
+    fi
+  done
+  forget_across_steamos_updates webterm
+  if [[ -d "$WEBTERM_STATE_DIR" ]]; then
+    run rm -rf "$WEBTERM_STATE_DIR"
+  fi
+  if $session; then
+    run systemctl --user daemon-reload
+  fi
+  info "Removed webterm. Your URL token stays in $WEBTERM_TOKEN_FILE."
 }

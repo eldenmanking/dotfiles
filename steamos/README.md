@@ -12,8 +12,9 @@ webterm gives you a real shell in the browser. It runs
 to your shell. systemd starts it the first time you open the page and stops
 it once no browser has been connected for 30 s.
 
-There is nothing to compile and no Node, npm, Python or root access needed.
-That's handy on SteamOS, where the root filesystem is read-only.
+There is nothing to compile and no Node, npm or Python needed. That's handy on
+SteamOS, where the root filesystem is read-only. The only thing outside your
+home directory is the three unit files, which go into `/etc` with sudo.
 
 ## How it works
 
@@ -75,19 +76,22 @@ What gets installed:
   It does nothing if `fc-list` already lists the font.
 - **ttyd and units** (`--webterm`): downloads ttyd 1.7.7 to `steamos/bin/ttyd`
   (git ignores it), checks it against a pinned SHA-256, and installs the units
-  into `~/.config/systemd/user/`. Everything stays in your home directory, so
-  SteamOS updates don't remove it.
+  into `/etc/systemd/user/` with sudo, so the user manager sees them from boot
+  even with an [encrypted home](#encrypted-home-directory-dirlock). They are
+  user units, so they only start for users who enable them; `--webterm`
+  enables them for you, with a link in `~/.config/systemd/user/`. On SteamOS it
+  also names them in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`,
+  since updates otherwise drop everything in `/etc/systemd/user`. Older
+  versions installed the units into `~/.config/systemd/user/`, which would
+  override the ones in `/etc`; `--webterm` removes those.
 - **home-units** (`--home_units`): only with an encrypted home directory; see
   [Encrypted home directory](#encrypted-home-directory-dirlock).
 
-`--dry-run` prints what would change. To remove webterm:
+`--dry-run` prints what would change. To remove webterm (with sudo for the
+units in `/etc`):
 
 ```sh
-systemctl --user disable --now webterm.socket
-systemctl --user stop webterm.service webterm-ttyd.service
-rm -f ~/.config/systemd/user/webterm{.socket,.service,-ttyd.service}
-rm -rf ~/.local/state/webterm
-systemctl --user daemon-reload
+~/dotfiles/install.sh --variant steamos --webterm --uninstall
 ```
 
 Your URL token stays in `~/.config/webterm/token`.
@@ -112,6 +116,12 @@ Change the environment settings with a drop-in, for example:
 systemctl --user edit webterm.service       # [Service] Environment=WEBTERM_IDLE=5min
 ```
 
+That drop-in lives in `~/.config/systemd/user/`, so with an encrypted home
+the user manager doesn't see it after a reboot, until something reloads it
+(running `--webterm` does). For a setting that holds from boot, put the
+drop-in in `/etc` instead with `sudo systemctl --global edit webterm.service`;
+on SteamOS, also add it to a keep list, or an update drops it.
+
 To change the port, edit `steamos/systemd/webterm.socket`. After any change, apply it
 as described in [Applying changes](#applying-changes).
 
@@ -124,7 +134,7 @@ as described in [Applying changes](#applying-changes).
 You don't need to close the browser. The script:
 
 1. re-renders the units from the repo (so edited templates and a `git pull`
-   take effect),
+   take effect) and copies those that changed into `/etc/systemd/user/`,
 2. reloads systemd, and
 3. restarts the proxy and ttyd, but only if they're running. If they aren't,
    the next visit starts them with the new settings anyway.
@@ -208,8 +218,10 @@ directory, so it can't see `~/.config/systemd/user` and skips
 `webterm.socket`. `systemctl --user status webterm.socket` then shows
 `inactive (dead)` with no log entries for this boot.
 
-`home-units.service` fixes this for every unit in your home directory, not
-just webterm, in Game Mode and Desktop Mode. It is the one piece installed
+`home-units.service` fixes this for every unit enabled in your home
+directory, in Game Mode and Desktop Mode, as long as its unit file lives
+outside the home (see below). webterm's units are in `/etc/systemd/user` for
+this reason. It is the one piece installed
 outside your home directory, so `--home_units` installs it with sudo. It does
 so only when your home directory is encrypted, and reinstalls it when the repo
 has a newer version. To remove it:
@@ -229,12 +241,26 @@ except the unit itself, which must sit where systemd looks for units:
 - `/etc/systemd/user/home-units.service`, enabled for all users. Each user
   manager sees it while the home directory is still locked. It runs
   `/etc/dotfiles/home-units-start` (from `steamos/bin/home-units-start`), which
-  waits until `~/.config` is readable and runs `systemctl --user daemon-reload`.
-  Then, for each `~/.config/systemd/user/<target>.wants/` (and `.requires/`)
-  whose target is already up, it starts the units linked there. Nothing else is started, so
-  SteamOS's own units that already ran aren't run again. A target that isn't
-  up yet, like `graphical-session.target` before Desktop Mode, starts its units
-  itself later.
+  waits until `~/.config` is readable. Then, for each
+  `~/.config/systemd/user/<target>.wants/` (and `.requires/`) whose target is
+  already up, it starts the units linked there with
+  `systemctl --user start --no-block`. Nothing else is started, so SteamOS's
+  own units that already ran aren't run again.
+
+  It doesn't run `systemctl --user daemon-reload`, which older versions did to
+  make `~/.config/systemd/user` visible. Logging in is what unlocks the home,
+  so that reload ran while the session was starting: when it landed in the
+  middle of SteamOS's `start-gamescope-session`, the launcher's `systemctl`
+  calls hung for 30s and the session was killed 90s after login. Without the
+  reload the user manager knows only the unit files it found at boot, so:
+  - a unit started this way must have its file outside the home, such as in
+    `/etc/systemd/user` (like webterm's) or `/usr/lib/systemd/user` (like
+    `gamemoded.service`); one whose file is in `~/.config/systemd/user` fails
+    to start, with a warning in the journal;
+  - drop-ins in `~/.config/systemd/user/<unit>.d/` don't apply until the next
+    reload;
+  - the manager doesn't see the enable links either, so the units of a target
+    that isn't up yet when the home unlocks aren't started.
 - A `## feature home_units` subblock in the keep list
   `/etc/atomic-update.conf.d/dotfiles.conf`. Since SteamOS 3.6 an update drops
   every change in `/etc` that isn't on a keep list (into `/etc/previous`). The
@@ -250,7 +276,7 @@ except the unit itself, which must sit where systemd looks for units:
 Which units it starts is up to you: `systemctl --user enable foo.service`
 adds a link under the target named in the unit's `WantedBy=`, and
 `systemctl --user disable` removes it. `journalctl --user -b -u home-units`
-shows what it started this boot.
+shows what it started this boot, and should show no reload.
 
 To check it after a reboot: `systemctl --user status home-units.service`
 should be `active (exited)` and `webterm.socket` `active (listening)`. To test

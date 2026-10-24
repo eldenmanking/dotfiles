@@ -30,7 +30,7 @@ feature_description() {
     tmpfiles)    echo "copy root/etc/tmpfiles.d configs into /etc (not symlinked) and apply them" ;;
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of the 'arch' distrobox (created if missing, then kept)" ;;
     steam)       echo "write Steam settings (game mode menu hotkeys) into localconfig.vdf, while Steam is closed" ;;
-    webterm)     echo "download ttyd and install the webterm systemd user units (browser shell on localhost)" ;;
+    webterm)     echo "download ttyd and install the webterm systemd user units into /etc (browser shell on localhost)" ;;
     home_units)  echo "install home-units.service into /etc (sudo, only if the home is encrypted with dirlock)" ;;
     hdmi_audio_fix) echo "install hdmi-audio-fix.service into /etc (sudo): a socclk floor on the Framework 16 780M, for HDMI audio" ;;
     kde)         echo "merge partial KDE config files (e.g. home/.config/kcminputrc) into ~/.config with kwriteconfig" ;;
