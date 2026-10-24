@@ -10,15 +10,16 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
-INSTALL_DIR="$SCRIPT_DIR/install"
-DOTFILES_ROOT="$HOME/dotfiles"
 # The repo and commit cloned when install.sh runs outside a checkout (e.g. with curl), unless DOTFILES_REPO or
 # DOTFILES_REF is set. PINNED_COMMIT is already on main, since a file can't name the commit that adds it.
 # BEGIN GENERATED PIN: run 'make pin' to update; checked by 'make validate'
 PINNED_REPO="https://github.com/eldenmanking/dotfiles.git"
 PINNED_COMMIT="0bbd5caa343b1ac80d7cf81416fa43840d1577eb"
 # END GENERATED PIN
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
+INSTALL_DIR="$SCRIPT_DIR/install"
+DOTFILES_ROOT="$HOME/dotfiles"
 DOTFILES_REPO="${DOTFILES_REPO:-$PINNED_REPO}"
 BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
 LOCAL_PREFIX="$HOME/.local"
@@ -27,11 +28,12 @@ INSTALL_CONFIG="${DOTFILES_INSTALL_CONFIG:-$HOME/.config/dotfiles/install.conf}"
 
 # When run without its install/ directory beside it (e.g. fetched with curl), clone the repo to $DOTFILES_ROOT unless
 # it is already there, then re-run its install.sh with the same arguments. A clone of PINNED_REPO without DOTFILES_REF
-# checks out PINNED_COMMIT on the default branch, so it can still be pulled. Runs before install/lib is loaded, so it
+# checks out PINNED_COMMIT on the default branch, so it can still be pulled (detached if the repo's HEAD is detached,
+# as in a CI checkout). Runs before install/lib is loaded, so it
 # prints its own messages. Stdin is reattached to the terminal when it isn't one (as with 'curl ... | bash -s -- ARGS'),
 # so features that prompt still can.
 bootstrap() {
-  local pinned=false branch
+  local pinned=false branch checkout_args
   if [[ -f "$INSTALL_DIR/lib/fn.sh" ]]; then
     clone_checkout_to_root "$@"
     return 0
@@ -42,10 +44,12 @@ bootstrap() {
     [[ -n "${DOTFILES_REF:-}" || "$DOTFILES_REPO" != "$PINNED_REPO" ]] || pinned=true
     printf '[info] Cloning %s%s into %s\n' "$DOTFILES_REPO" \
       "$($pinned && printf ' at %s' "$PINNED_COMMIT")${DOTFILES_REF:+ at $DOTFILES_REF}" "$DOTFILES_ROOT"
-    git clone --quiet ${DOTFILES_REF:+--branch "$DOTFILES_REF"} "$DOTFILES_REPO" "$DOTFILES_ROOT"
+    git -c advice.detachedHead=false clone --quiet ${DOTFILES_REF:+--branch "$DOTFILES_REF"} "$DOTFILES_REPO" "$DOTFILES_ROOT"
     if $pinned; then
-      branch="$(git -C "$DOTFILES_ROOT" symbolic-ref --short HEAD)"
-      git -C "$DOTFILES_ROOT" checkout --quiet -B "$branch" "$PINNED_COMMIT" \
+      branch="$(git -C "$DOTFILES_ROOT" symbolic-ref --short -q HEAD || true)"
+      checkout_args=(--detach)
+      [[ -z "$branch" ]] || checkout_args=(-B "$branch")
+      git -C "$DOTFILES_ROOT" checkout --quiet "${checkout_args[@]}" "$PINNED_COMMIT" \
         || { printf '[error] %s has no commit %s\n' "$DOTFILES_REPO" "$PINNED_COMMIT" >&2; exit 1; }
     fi
   fi
@@ -74,7 +78,7 @@ clone_checkout_to_root() {
   [[ -z "$(git -C "$SCRIPT_DIR" status --porcelain)" ]] \
     || printf '[warn] %s has uncommitted changes, which are not copied to %s\n' "$SCRIPT_DIR" "$DOTFILES_ROOT" >&2
   printf '[info] Cloning %s (%s) into %s\n' "$SCRIPT_DIR" "${branch:-${head:0:12}}" "$DOTFILES_ROOT"
-  git clone --quiet --no-checkout "$SCRIPT_DIR" "$DOTFILES_ROOT"
+  git -c advice.detachedHead=false clone --quiet --no-checkout "$SCRIPT_DIR" "$DOTFILES_ROOT"
   if [[ -n "$branch" ]]; then
     git -C "$DOTFILES_ROOT" checkout --quiet -B "$branch" "$head"
   else

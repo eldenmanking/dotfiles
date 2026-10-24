@@ -202,11 +202,12 @@ test_commit() {
     commit --quiet --allow-empty -m "$2"
 }
 
-# Clone this checkout to $1 and commit the working tree's install.sh and install/ there, so tests that clone it test
-# them rather than the last commit.
+# Clone this checkout to $1 on branch main, as a GitHub repo would be (CI checks out a detached HEAD), and commit the
+# working tree's install.sh and install/ there, so tests that clone it test them rather than the last commit.
 clone_working_tree() {
   local src="$1"
-  git clone --quiet "$REPO_ROOT" "$src"
+  git -c advice.detachedHead=false clone --quiet "$REPO_ROOT" "$src"
+  git -C "$src" checkout --quiet -B main
   cp -R "$REPO_ROOT/install.sh" "$REPO_ROOT/install" "$src/"
   git -C "$src" add -A
   test_commit "$src" "working tree"
@@ -261,6 +262,19 @@ test_bootstrap_pin() {
     fail "install.sh on its own"
     sed 's/^/       | /' "$LOG" >&2
   fi
+
+  # A repo whose HEAD is detached gets the pinned commit detached.
+  git -C "$src" checkout --quiet --detach
+  home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
+  if env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$script" --variant coder --gitconfig \
+    </dev/null >"$LOG" 2>&1; then
+    pass "install.sh on its own, from a repo with a detached HEAD"
+    check "  ...checked out the pinned commit" test "$(git -C "$home/dotfiles" rev-parse HEAD)" = "$pinned"
+  else
+    fail "install.sh on its own, from a repo with a detached HEAD"
+    sed 's/^/       | /' "$LOG" >&2
+  fi
+  git -C "$src" checkout --quiet main
 
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
   if env -i HOME="$home" PATH="$PATH" TERM=dumb DOTFILES_REPO="file://$src" "$INSTALL_BASH" "$script" \
