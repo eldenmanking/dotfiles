@@ -17,7 +17,7 @@ wait_for_home() {
   until [ -d "$HOME/.config" ]; do sleep 2; done
 }
 
-# TODO(andywang): add comment
+# Succeeds if user target $1 is active or activating, else says why it is skipped
 target_is_up() {
   state="$(systemctl --user show -P ActiveState "$1")"
   case "$state" in
@@ -26,7 +26,8 @@ target_is_up() {
   esac
 }
 
-# TODO(andywang): add comment
+# Starts the units linked in $1, a <target>.wants or .requires directory, if its
+# target is up. Broken links still count: systemd starts units by name
 start_target_units() {
   wants="$1"
   target="$(basename "${wants%.*}")"
