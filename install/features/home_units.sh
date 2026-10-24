@@ -11,13 +11,6 @@ HOME_UNITS_FILES=(
 )
 # The link 'systemctl --global enable' makes, from the unit's WantedBy=default.target.
 HOME_UNITS_ENABLED_LINK=/etc/systemd/user/default.target.wants/home-units.service
-# Files the standalone steamos-config repo installed, before it moved into dotfiles. (keep_across_steamos_updates
-# replaces the keep list this feature used to install whole.)
-HOME_UNITS_OLD_FILES=(
-  /etc/steamos-config/home-units-start
-  /etc/atomic-update.conf.d/steamos-config.conf
-  /etc/atomic-update.conf.d/home-units.conf
-)
 
 # Installed copies are compared with the repo, so updates get reinstalled too.
 home_units_current() {
@@ -42,20 +35,6 @@ home_units_paths() {
   printf '%s\n' "$HOME_UNITS_ENABLED_LINK"
 }
 
-# Remove whichever of HOME_UNITS_OLD_FILES are still there, and the old directory once empty.
-remove_old_home_units_files() {
-  local file old=()
-  for file in "${HOME_UNITS_OLD_FILES[@]}"; do
-    [[ -e "$file" ]] && old+=("$file")
-  done
-  if [[ ${#old[@]} -gt 0 ]]; then
-    info "Removing files installed under older names: ${old[*]}"
-    run sudo rm -f "${old[@]}"
-  fi
-  if [[ -d /etc/steamos-config ]]; then
-    run sudo rmdir /etc/steamos-config 2>/dev/null || true
-  fi
-}
 
 # With a dirlock-encrypted home, install home-units.service into /etc (needs sudo) so user units in the home
 # start once it is unlocked, and keep it across SteamOS updates.
@@ -81,8 +60,7 @@ feature_home_units() {
     info "once it is unlocked. Check with: systemctl --user status home-units.service"
   fi
 
-  # Also when up to date, so installs from before the keep list moved get the new one.
+  # Also when up to date, so the keep list always names what is installed.
   # shellcheck disable=SC2046 # one path per word
   keep_across_steamos_updates home_units $(home_units_paths)
-  remove_old_home_units_files
 }

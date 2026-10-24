@@ -212,8 +212,7 @@ directory, so it can't see `~/.config/systemd/user` and skips
 just webterm, in Game Mode and Desktop Mode. It is the one piece installed
 outside your home directory, so `--home_units` installs it with sudo. It does
 so only when your home directory is encrypted, and reinstalls it when the repo
-has a newer version. It also removes the files the standalone steamos-config
-repo used to install under the old names. To remove it:
+has a newer version. To remove it:
 
 ```sh
 sudo systemctl --global disable home-units.service

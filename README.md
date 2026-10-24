@@ -144,7 +144,6 @@ This repository contains configuration files for my linux workspace. The followi
     │   ├── portable-existing-rc     --- portable install over the same files
     │   ├── portable-old-markers     --- portable install over files with an older version's single-# section
     │   ├── steamos-existing-rc      --- steamos install over the same files
-    │   ├── steamos-home-units-migrati--- --home_units moving an older install to its new keep list
     │   ├── steamos-kde-config       --- --kde merging keyboard repeat into an existing kcminputrc
     │   └── steamos-update           --- steamos install with the Framework 16 fixes surviving a (mock) SteamOS update
     ├── fixtures.sh                  --- make fixtures: runs each fixture in its container image and compares after/

@@ -251,8 +251,7 @@ STEAMOS_KEEP_DIR=/etc/atomic-update.conf.d
 STEAMOS_KEEP_LIST="$STEAMOS_KEEP_DIR/dotfiles.conf"
 
 # On SteamOS, set feature <name>'s subblock of STEAMOS_KEEP_LIST to the absolute <path>s (with sudo), so OS updates
-# keep those files. Does nothing where the keep list directory doesn't exist. A STEAMOS_KEEP_LIST with no dotfiles
-# section is the list home_units used to install whole, so it is removed first.
+# keep those files. Does nothing where the keep list directory doesn't exist.
 # Usage: keep_across_steamos_updates <name> <path>...
 keep_across_steamos_updates() {
   local name="$1" content="" path
@@ -261,11 +260,6 @@ keep_across_steamos_updates() {
   for path in "$@"; do
     content+="${content:+$'\n'}$path"
   done
-  if [[ -f "$STEAMOS_KEEP_LIST" ]] \
-    && ! grep -qxF -e "$DOTFILES_BLOCK_START" -e "$DOTFILES_OLD_BLOCK_START" "$STEAMOS_KEEP_LIST"; then
-    info "Replacing $STEAMOS_KEEP_LIST, the keep list home_units used to install"
-    run sudo rm -f "$STEAMOS_KEEP_LIST"
-  fi
   upsert_block "$STEAMOS_KEEP_LIST" "$name" "$content" "" sudo
 }
 
