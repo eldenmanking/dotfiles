@@ -84,11 +84,16 @@ projector_off() {
 }
 
 # Wake the projector with <Image View On> (SteamOS's cecd also tries on resume, but the projector doesn't respond to
-# it), and keep trying for up to $ON_WAIT seconds until it reports on: one still shutting down may ignore it.
+# it), and keep trying for up to $ON_WAIT seconds until it reports on: one still shutting down may ignore it. Each try
+# re-checks the logical address, since cecd can drop and reclaim it for a few seconds after resume.
 projector_on() {
-  local i state
+  local i state=""
   log "turning the projector on"
   for (( i = 0; i < ON_WAIT / 3; i++ )); do
+    if ! cec_ready 1; then
+      sleep 2
+      continue
+    fi
     state="$(tv_power)"
     case "$state" in
       on) log "projector on"; return ;;
