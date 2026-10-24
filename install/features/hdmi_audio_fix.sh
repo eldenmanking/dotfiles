@@ -1,6 +1,6 @@
 # Feature: keep the Framework 16's Radeon 780M SoC clock up, which fixes choppy HDMI audio.
 
-HDMI_AUDIO_FIX_SRC="steamos/systemd"
+HDMI_AUDIO_FIX_SRC="root/etc/systemd/system"
 HDMI_AUDIO_FIX_UNIT="hdmi-audio-fix.service"
 # PCI vendor:device ID of the 780M, matched instead of its address or card number, which can change.
 HDMI_AUDIO_FIX_ID="0x1002:0x15bf"

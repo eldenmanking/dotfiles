@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Runs ttyd with the arguments given, adding -I with the page bin/webterm-index built for this exact ttyd binary.
+# Runs ttyd with the arguments given, adding -I with the page webterm-index built for this exact ttyd binary.
 # If there is none (ttyd changed since the last install), ttyd serves its stock page: the terminal works, just without
 # the tab shortcuts in fullscreen. exec keeps ttyd as the service's main process.
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TTYD="$REPO_DIR/bin/ttyd"
+TTYD="$HOME/.local/bin/ttyd"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/webterm"
 
 index="$STATE_DIR/index-$(sha256sum < "$TTYD" | cut -d' ' -f1).html"

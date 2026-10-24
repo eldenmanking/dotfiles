@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Validate the feature and variant registry without installing anything: every feature_<name> function in
 # install/features is documented (a feature_description entry, and a doc comment with a description and @machine, @os
-# and @gui tags), and every variant's features exist, suit the variant's OS and GUI, and come after the features they
-# require. Run via `make validate`.
+# and @gui tags), every variant's features exist, suit the variant's OS and GUI, and come after the features they
+# require, and every variant's link paths exist, naming single files under root/. Run via `make validate`.
 
 set -euo pipefail
 
@@ -114,9 +114,9 @@ check_feature() {
 
 # Outputs: _problems, one line per problem with variant $1.
 check_variant() {
-  local variant="$1" problems="" earlier=" " feature k
-  f_write_args variant_config _features _optional _os _gui -- "$variant"
-  local features="$_features" optional="$_optional" variant_os="$_os" variant_gui="$_gui"
+  local variant="$1" problems="" earlier=" " feature k path
+  f_write_args variant_config _features _optional _os _gui _link_paths -- "$variant"
+  local features="$_features" optional="$_optional" variant_os="$_os" variant_gui="$_gui" link_paths="$_link_paths"
 
   for feature in $features; do
     f_write_args check_feature _problems -- "$variant" "$feature" "$variant_os" "$variant_gui" "$earlier"
@@ -125,6 +125,14 @@ check_variant() {
   done
   for k in $optional; do
     list_contains "$features" "$k" || problems+="$variant: _optional names unknown feature '$k'"$'\n'
+  done
+  # Features copy some files under root/ into place, so a linked directory there could link them too.
+  for path in $link_paths; do
+    if [[ ! -e "$REPO_ROOT/$path" ]]; then
+      problems+="$variant: link path $path does not exist"$'\n'
+    elif [[ "$path" == root/* && ! -f "$REPO_ROOT/$path" ]]; then
+      problems+="$variant: link path $path is a directory; list the files under root/ to link one by one"$'\n'
+    fi
   done
 
   _problems="$problems"

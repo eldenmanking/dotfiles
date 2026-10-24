@@ -18,7 +18,8 @@ import sys
 import tempfile
 import time
 
-REPO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "steamos")
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BIN = os.path.join(REPO, "home", ".local", "bin")
 PORT = 3999
 TOKEN = "smoketoken"
 FONT = "JetBrainsMono Nerd Font Mono, JetBrainsMono Nerd Font, monospace"
@@ -111,7 +112,7 @@ class WS:
 
 
 def main():
-    ttyd = os.path.join(REPO, "bin", "ttyd")
+    ttyd = os.path.expanduser("~/.local/bin/ttyd")
     if not os.access(ttyd, os.X_OK):
         fail(f"{ttyd} not found; run ~/dotfiles/install.sh --variant steamos --webterm first")
     if not shutil.which("systemd-socket-activate"):
@@ -120,9 +121,13 @@ def main():
     rundir = tempfile.mkdtemp()
     sock = os.path.join(rundir, "webterm.sock")
     env = {**os.environ, "SHELL": "/bin/bash"}
-    env = {**env, "XDG_RUNTIME_DIR": rundir, "XDG_STATE_HOME": rundir}
-    launcher = os.path.join(REPO, "bin", "webterm-ttyd")
-    with open(os.path.join(REPO, "web", "tab-keys.html"), "rb") as f:
+    # The scripts read the tab-key script from $XDG_DATA_HOME, so point it at a copy of this checkout's.
+    data = os.path.join(rundir, "data")
+    os.makedirs(os.path.join(data, "webterm"))
+    shutil.copy(os.path.join(REPO, "home", ".local", "share", "webterm", "tab-keys.html"), os.path.join(data, "webterm"))
+    env = {**env, "XDG_RUNTIME_DIR": rundir, "XDG_STATE_HOME": rundir, "XDG_DATA_HOME": data}
+    launcher = os.path.join(BIN, "webterm-ttyd")
+    with open(os.path.join(data, "webterm", "tab-keys.html"), "rb") as f:
         snippet = f.read()
 
     fallback_sock = os.path.join(rundir, "fallback.sock")
@@ -142,7 +147,7 @@ def main():
         fail("without a built page, the launcher did not serve the stock page")
     print("ok: no page built, stock page served")
 
-    subprocess.run([os.path.join(REPO, "bin", "webterm-index")], check=True, env=env,
+    subprocess.run([os.path.join(BIN, "webterm-index")], check=True, env=env,
                    stdout=subprocess.DEVNULL)
     with open(ttyd, "rb") as f:
         index = os.path.join(rundir, "webterm", f"index-{hashlib.sha256(f.read()).hexdigest()}.html")
@@ -151,7 +156,7 @@ def main():
     procs.append(subprocess.Popen(
         [launcher, "-i", sock, "-b", f"/{TOKEN}", "-W", "-O", "-P", "10",
          "-t", "titleFixed=Web Terminal", "-t", f"fontFamily={FONT}",
-         os.path.join(REPO, "bin", "webterm-shell")],
+         os.path.join(BIN, "webterm-shell")],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
     for _ in range(50):
         if os.path.exists(sock):
