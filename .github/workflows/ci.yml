@@ -44,7 +44,7 @@ jobs:
           - name: archlinux
             runs-on: ubuntu-24.04
             # Packages come from the Arch Linux Archive snapshot of the image's date, so the whole job is pinned.
-            # Bump the tag, digest and ARCH_ARCHIVE_DATE together, here and in tests/images/arch/Dockerfile.
+            # Bump the tag, digest and ARCH_ARCHIVE_DATE together, here and in tests/images/*/Dockerfile.
             container: archlinux:base-20261018.0.612668@sha256:52dfbd5afb23a220d5ee92dafcb4c788d96c026ed04179890c23adef4c897fa0
           - name: ubuntu
             runs-on: ubuntu-24.04

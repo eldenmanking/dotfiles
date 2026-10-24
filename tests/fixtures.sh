@@ -4,7 +4,7 @@
 # from the results instead, for review with git diff. Name fixtures to run only those. Each tests/fixtures/<name>/
 # holds:
 #   case.sh  IMAGE, the image to run in (a directory under tests/images); ARGS, install.sh's arguments; and optionally
-#            FILES, the paths under ~ to compare (default: the shell startup files). ~/dotfiles/.backup, where
+#            FILES, the paths under ~ to compare (it starts out as the shell startup files, so a case can add to it). ~/dotfiles/.backup, where
 #            install.sh moves files it replaces, is always compared.
 #   before/  files copied into the home first
 #   after/   the compared files once install.sh has run, symlinks kept as symlinks (missing files are left out)

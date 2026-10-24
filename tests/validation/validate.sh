@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Validate the repo's structure, which must keep holding as files are added, moved or removed: the checkout is named
 # dotfiles, the README tree matches the tracked files, tests/versions.env pins a SHA-256 for every tool on every
-# platform, and the fixtures' Arch image matches CI's. Run via `make validate`.
+# platform, and the fixtures' Arch-based images match CI's. Run via `make validate`.
 
 set -euo pipefail
 
@@ -33,7 +33,7 @@ missing_checksums() {
 }
 
 main() {
-  local failed=0 missing ci image
+  local failed=0 missing ci image dockerfile
   cd "$REPO_ROOT"
 
   info "checkout is a directory named dotfiles"
@@ -54,13 +54,15 @@ main() {
     failed=1
   fi
 
-  info "tests/images/arch pins the same Arch Linux image and archive snapshot as CI"
+  info "tests/images pin the same Arch Linux image and archive snapshot as CI"
   ci="$(arch_pins .github/workflows/ci.yml 's/^ *container: \(archlinux:.*\)$/\1/p' 's/^ *ARCH_ARCHIVE_DATE: //p')"
-  image="$(arch_pins tests/images/arch/Dockerfile 's/^FROM \(archlinux:.*\)$/\1/p' 's/^ARG ARCH_ARCHIVE_DATE=//p')"
-  if [[ "$ci" != "$image" || "$ci" == *" " || "$ci" == " "* ]]; then
-    warn "ci.yml pins '$ci' but tests/images/arch/Dockerfile pins '$image' (image date)"
-    failed=1
-  fi
+  for dockerfile in tests/images/*/Dockerfile; do
+    image="$(arch_pins "$dockerfile" 's/^FROM \(archlinux:.*\)$/\1/p' 's/^ARG ARCH_ARCHIVE_DATE=//p')"
+    if [[ "$ci" != "$image" || "$ci" == *" " || "$ci" == " "* ]]; then
+      warn "ci.yml pins '$ci' but $dockerfile pins '$image' (image date)"
+      failed=1
+    fi
+  done
 
   info "features suit their variants and run after the features they require"
   tests/validation/features.sh || failed=1

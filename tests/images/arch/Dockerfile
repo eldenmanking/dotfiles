@@ -1,7 +1,7 @@
 # Arch Linux image for tests/fixtures.sh: the image CI tests on, with packages pinned to the same Arch Linux Archive
 # snapshot. It comes with the tools install.sh would otherwise download (neovim, starship, tmux), so fixtures only
 # reach GitHub (zsh plugins, tpm, tools repos). Bump the tag, digest and ARCH_ARCHIVE_DATE together with
-# .github/workflows/ci.yml (make validate checks they match).
+# .github/workflows/ci.yml and tests/images/steamos (make validate checks they match).
 FROM archlinux:base-20261018.0.612668@sha256:52dfbd5afb23a220d5ee92dafcb4c788d96c026ed04179890c23adef4c897fa0
 
 ARG ARCH_ARCHIVE_DATE=2026/10/18
