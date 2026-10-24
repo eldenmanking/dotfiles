@@ -111,6 +111,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── system               ---
 │   │   │       ├── auto-suspend.serv--- laptop auto-suspend service to prevent death
 │   │   │       ├── auto-suspend.time--- auto-suspend timer to check if battery is low
+│   │   │       ├── orei-switch-boot.--- re-enables the left ports and turns the projector on at boot (copied by orei_switch)
 │   │   │       ├── orei-switch-power--- turns the projector off over CEC on poweroff (copied by orei_switch)
 │   │   │       └── orei-switch.servi--- runs orei-switch.sh around sleep (copied by orei_switch)
 │   │   ├── tmpfiles.d               ---

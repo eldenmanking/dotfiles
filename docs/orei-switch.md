@@ -40,14 +40,36 @@ binary.
 - The laptop's CEC adapter needs HPD, so it can only talk on the bus while the OREI shows the laptop, and not at all
   while it sleeps. It can't watch for another device turning on during sleep.
 
-On sleep the script presses the projector's Power Off key over CEC (only while the OREI shows the laptop, so it never
-turns off another input's picture), then disables the PD controller. On wake it re-enables it, waits up to 15s for an
-external display (polling `/sys/class/drm/card*-DP-*/status`), and otherwise does up to two UCSI resets, each followed by
-a 6s wait. It logs which step brought the display up; tune `PD_WAIT` and `RESET_WAIT` from those timings
-(`journalctl -t orei-switch -b -o short-precise`). In the first real suspend/resume, the display connected 5.4s after the
-PD enable, with no resets (9.5s in a later one). Once the display is connected it wakes the projector with `<Image View
-On>`, which works where SteamOS's `cecd` wake on resume does not. CEC calls first wait up to 5s for `cecd` to claim a
-logical address after resume. On poweroff it only turns the projector off.
+- The projector reports its power state over CEC, and the display stays connected for a while after it goes to standby
+  (the OREI keeps HPD up), so the laptop can wake it with `<Image View On>`. After roughly 30s in standby, HPD drops.
+- An ordinary monitor doesn't answer CEC at logical address 0. Behind the OREI, the laptop's physical address is
+  `1.1.0.0` (two levels deep); plugged straight into a TV it would be `1.0.0.0`.
+- While asleep the laptop can't react to anything on the ports: Type-C events arrive through the EC, whose wakeups are
+  disabled (`root/etc/tmpfiles.d/ec-no-wakeup.conf`), and a wake would be a full resume anyway.
+
+## What the script does
+It only touches a CEC TV, so sleeping away from the projector or on a plain monitor changes nothing.
+
+- **Sleep:** if the external display answers as a CEC TV, press its Power Off key (CEC only works while the OREI shows
+  the laptop, so it never turns off another input's picture) and mark `/run/orei-switch/projector-off`. If the laptop is
+  also behind a switch, disable the PD controller and mark `/var/lib/orei-switch/pd-disabled`.
+- **Wake:** if the ports were cut, re-enable them and wait up to 15s for the display (polling
+  `/sys/class/drm/card*-DP-*/status`), otherwise do up to two UCSI resets, each followed by a 6s wait. If the projector
+  was turned off, wake it with `<Image View On>` and check its power state every 3s, resending until it reports on, for
+  up to 60s, in case it is still shutting down. SteamOS's `cecd` also tries to wake the TV on resume, but this projector
+  doesn't respond to it. CEC calls first wait for `cecd` to claim a logical address after resume.
+- **Boot:** if the PD marker survived (the laptop died or was forced off while asleep; the EC keeps running), re-enable
+  the ports. If a CEC TV is connected, turn it on as on wake. This runs in the background, so it doesn't hold up boot.
+- **Poweroff:** if a CEC TV is connected, turn it off.
+
+It logs each step; tune `PD_WAIT` and `RESET_WAIT` from the timings (`journalctl -t orei-switch -b -o short-precise`).
+In real suspend/resumes the display connected 5.4s and 9.5s after the PD enable, with no resets.
+
+Known gaps:
+- Connecting to the OREI while the laptop sleeps makes the OREI switch to the sleeping laptop (its card is powered), and
+  nothing can hand it back until the laptop wakes. Use the OREI remote, or wake and sleep the laptop again.
+- If the projector has been in standby long enough to drop HPD (e.g. turned off with its own remote), a sleep finds no
+  TV and leaves the ports on, so another source can't take over. Use the OREI remote.
 
 ## Operating
 - Logs: `journalctl -t orei-switch -b`
@@ -55,7 +77,8 @@ logical address after resume. On poweroff it only turns the projector off.
 - Remove: `./install.sh --variant steamos --orei_switch --uninstall`
 
 ## Open questions
-- Verify a real poweroff, and the UCSI reset fallback on wake. (Suspend/resume, including turning the projector off and
-  on, works.) Accidental wakes turning the projector on are fine.
-- Boot: maybe run the wake logic at boot too. The projector shows a blank screen on boot if connected, and the
-  encrypted home needs a desktop-mode login first.
+- Verify a real poweroff and boot, the UCSI reset fallback on wake, and turning on a projector that is still shutting
+  down. (Suspend/resume, including turning the projector off and on, works.) Accidental wakes turning the projector on
+  are fine.
+- Boot: the projector shows a blank screen on boot if connected, and the encrypted home needs a desktop-mode login
+  first.

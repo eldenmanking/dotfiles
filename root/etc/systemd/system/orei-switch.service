@@ -9,6 +9,8 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/etc/orei-switch/orei-switch.sh sleep
 ExecStop=/etc/orei-switch/orei-switch.sh wake
+# Reconnecting and retrying the projector can take about 100s.
+TimeoutStopSec=3min
 
 [Install]
 WantedBy=sleep.target

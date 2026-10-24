@@ -1,9 +1,10 @@
 # Feature: hand an OREI HDMI switch to another input while a Framework 16 sleeps, and back on wake, by cutting power
 # to the left USB-C PD controller with Framework's framework_tool, and turn the projector off over CEC on sleep and
-# poweroff (see root/etc/orei-switch/orei-switch.sh).
+# poweroff and back on on wake and boot (see root/etc/orei-switch/orei-switch.sh).
 
 OREI_SWITCH_DIR=/etc/orei-switch
-OREI_SWITCH_UNITS="orei-switch.service orei-switch-poweroff.service"
+OREI_SWITCH_STATE_DIR=/var/lib/orei-switch
+OREI_SWITCH_UNITS="orei-switch.service orei-switch-boot.service orei-switch-poweroff.service"
 FRAMEWORK_TOOL_VERSION=v0.6.6
 FRAMEWORK_TOOL_SHA256=ebc2f3ca300dac6f484c02d058833372ff8dd3c23f2a74b63c774f8dc2f86171
 # "<mode> <repo-relative source> <destination>" for each installed file. Copied, not linked: the unit runs when the
@@ -11,6 +12,7 @@ FRAMEWORK_TOOL_SHA256=ebc2f3ca300dac6f484c02d058833372ff8dd3c23f2a74b63c774f8dc2
 OREI_SWITCH_FILES=(
   "755 root/etc/orei-switch/orei-switch.sh $OREI_SWITCH_DIR/orei-switch.sh"
   "644 root/etc/systemd/system/orei-switch.service /etc/systemd/system/orei-switch.service"
+  "644 root/etc/systemd/system/orei-switch-boot.service /etc/systemd/system/orei-switch-boot.service"
   "644 root/etc/systemd/system/orei-switch-poweroff.service /etc/systemd/system/orei-switch-poweroff.service"
   "644 root/etc/atomic-update.conf.d/orei-switch.conf /etc/atomic-update.conf.d/orei-switch.conf"
 )
@@ -32,8 +34,8 @@ install_framework_tool() {
   rm -f "$tmp"
 }
 
-# Download framework_tool and install the orei-switch script, sleep unit and poweroff unit into /etc (sudo). The units
-# are enabled but not started, since starting the sleep unit cuts power to the left ports.
+# Download framework_tool and install the orei-switch script and its sleep, boot and poweroff units into /etc (sudo).
+# The units are enabled but not started, since starting the sleep unit can cut power to the left ports.
 #
 # @machine framework16
 # @os linux
@@ -77,6 +79,9 @@ uninstall_feature_orei_switch() {
   done
   if [[ -d "$OREI_SWITCH_DIR" ]]; then
     run sudo rm -rfv "$OREI_SWITCH_DIR"
+  fi
+  if [[ -d "$OREI_SWITCH_STATE_DIR" ]]; then
+    run sudo rm -rfv "$OREI_SWITCH_STATE_DIR"
   fi
   ! $removed || run sudo systemctl daemon-reload
 }
