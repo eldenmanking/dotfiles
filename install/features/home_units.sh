@@ -61,6 +61,5 @@ feature_home_units() {
   fi
 
   # Also when up to date, so the keep list always names what is installed.
-  # shellcheck disable=SC2046 # one path per word
   keep_across_steamos_updates home_units $(home_units_paths)
 }
