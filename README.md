@@ -140,6 +140,13 @@ This repository contains configuration files for my linux workspace. The followi
 │   └── web                          ---
 │       └── tab-keys.html            --- passes browser tab shortcuts through xterm.js
 └── tests                            --- behavior tests, plus lint and validation (see Testing)
+    ├── fixtures                     --- before and after files of install.sh, one directory per case (see Testing)
+    │   ├── arch-existing-rc         --- arch install over an existing .bashrc, .bash_profile and .zshrc
+    │   └── portable-existing-rc     --- portable install over the same files
+    ├── fixtures.sh                  --- make fixtures: runs each fixture in its container image and compares after/
+    ├── images                       --- container images for the fixtures
+    │   └── arch                     ---
+    │       └── Dockerfile           --- Arch Linux, pinned to the same image and snapshot as CI
     ├── install.sh                   --- make test: install.sh in scratch homes: --dry-run, rootless installs, idempotency
     ├── lib.sh                       --- shared helpers, including the pinned tool downloader
     ├── lint                         ---
@@ -261,13 +268,14 @@ git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the
 ```
 
 ## Testing
-Checks come in three kinds, each with a make target; `make check` runs all three.
+Checks come in three kinds, each with a make target; `make check` runs all three. Fixtures (`make fixtures`) are a fourth, kept out of `make check` since they need docker and network access.
 
 - **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, `tests/versions.env` pins a SHA-256 for every tool on every platform, and every feature is documented and suits the variants that use it (see Feature Requirements).
 - **Lint** (`make lint`, `tests/lint/`) checks code quality: the syntax of every shell, zsh, Python and TOML file, shellcheck and actionlint. The shellcheck and actionlint versions are pinned in `tests/versions.env`; `make lint` downloads them into `~/.cache/dotfiles-test` on first use and refuses any download that doesn't match its pinned SHA-256.
 - **Tests** (`make test`, `tests/install.sh`) check behavior, so changes don't break what already works. They run `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every variant, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` for managed variants) for every variant that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `tests/webterm_smoke.py` is a separate smoke test for webterm, run by hand.
+- **Fixtures** (`make fixtures`, `tests/fixtures.sh`, needs docker) show and pin exactly what an install does to existing files. Each case in `tests/fixtures/<name>/` has a `case.sh` that names a container image from `tests/images/` (`IMAGE`), the `install.sh` arguments (`ARGS`) and optionally the files to compare (`FILES`, by default the shell startup files), plus two trees that mirror `~`: `before/`, copied into an otherwise empty home, and `after/`, the compared files once `install.sh` has run, with symlinks kept as symlinks and whatever `install.sh` moved into `~/dotfiles/.backup`. Each case runs in a fresh container from a copy of the checkout, and runs `install.sh` twice, since the second run must change nothing. After changing what an install writes, run `tests/fixtures.sh --update [name...]` to rewrite `after/`, and review the change with `git diff`. The Arch image has neovim, starship, tmux and zsh installed so the features don't download them, so fixtures only need GitHub (zsh plugins, tpm, tools repos). Features that need a real desktop (pacman, systemd, dconf) are left out of the cases.
 
-zsh and python3 checks are skipped with a warning when those are missing, except in CI. CI (`.github/workflows/`) runs `make validate` and `make lint` on Ubuntu, and `make test` on Arch Linux (in a container whose packages are pinned to an Arch Linux Archive snapshot), Ubuntu and macOS (only when the files it tests change). Actions are pinned to commit SHAs and kept current by Dependabot; container images, runner labels and `tests/versions.env` are bumped by hand.
+zsh and python3 checks are skipped with a warning when those are missing, except in CI. CI (`.github/workflows/`) runs `make validate`, `make lint` and `make fixtures` on Ubuntu, and `make test` on Arch Linux (in a container whose packages are pinned to an Arch Linux Archive snapshot), Ubuntu and macOS (only when the files it tests change). Actions are pinned to commit SHAs and kept current by Dependabot; container images, runner labels and `tests/versions.env` are bumped by hand.
 
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.
