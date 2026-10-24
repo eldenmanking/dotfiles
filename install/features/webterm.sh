@@ -12,8 +12,6 @@ WEBTERM_PROXYD=/usr/lib/systemd/systemd-socket-proxyd
 
 TTYD_VERSION=1.7.7
 TTYD_BIN="$LOCAL_BIN/ttyd"
-# Where ttyd was downloaded before webterm's files moved from steamos/ into home/.
-OLD_TTYD_BIN="$DOTFILES_ROOT/steamos/bin/ttyd"
 
 # Pinned static ttyd release asset and its SHA-256 for this machine.
 ttyd_asset() {
@@ -99,11 +97,6 @@ feature_webterm() {
   [[ -f "$WEBTERM_ENV" ]] || $DRY_RUN || error "$WEBTERM_ENV not found; run with --link first"
 
   install_ttyd
-  if [[ -e "$OLD_TTYD_BIN" ]]; then
-    info "Removing the old download $OLD_TTYD_BIN"
-    run rm -f "$OLD_TTYD_BIN"
-    run rmdir -p "$(dirname "$OLD_TTYD_BIN")" 2>/dev/null || true
-  fi
   run "$LOCAL_BIN/webterm-index" \
     || warn "could not build the webterm page; ttyd will serve its stock page"
   token="$(webterm_token)"
