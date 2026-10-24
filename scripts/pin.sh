@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Write the repo and commit that install.sh clones when run outside a checkout (e.g. with curl) into its generated pin
-# block. Run via `make pin`, then commit install.sh. The pinned commit must already be on main, since a file can't name
-# the commit that adds it: by default it is origin/main's tip, fetched first. tests/validation/pin.sh (make validate)
-# checks the block.
+# block. Run via `make pin` in every change, then commit install.sh with it. A file can't name the commit that adds it,
+# so the pin names main's tip before the change: by default origin/main's tip, fetched first, which is what
+# tests/validation/pin.sh (make validate) requires.
 #
 # Usage: scripts/pin.sh [--commit REV] [--repo URL]   write the block (repo defaults to origin, normalized)
 #        scripts/pin.sh --print REPO COMMIT           print the block for REPO and COMMIT

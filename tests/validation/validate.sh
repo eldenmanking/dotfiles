@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Validate the repo's structure, which must keep holding as files are added, moved or removed: the checkout is named
 # dotfiles, the README tree matches the tracked files, tests/versions.env pins a SHA-256 for every tool on every
-# platform, the fixtures' Arch-based images match CI's, features suit their variants, and install.sh pins this repo at a
-# commit on main. Run via `make validate`.
+# platform, the fixtures' Arch-based images match CI's, features suit their variants, and install.sh pins this repo at
+# main's tip before this change. Run via `make validate`.
 
 set -euo pipefail
 
@@ -68,7 +68,7 @@ main() {
   info "features suit their variants and run after the features they require"
   tests/validation/features.sh || failed=1
 
-  info "install.sh pins this repo at a commit on main"
+  info "install.sh pins this repo at main's tip before this change"
   tests/validation/pin.sh || failed=1
 
   [[ "$failed" == 0 ]] || error "validation failed"

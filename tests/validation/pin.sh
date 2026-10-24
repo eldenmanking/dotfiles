@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Validate install.sh's generated pin block: it is exactly what `make pin` (scripts/pin.sh) writes, names this repo (the
-# one CI runs in, or origin locally), and pins a commit that exists and is an ancestor of HEAD, so a curl install gets
-# a commit that has been on main. Run via `make validate`; CI checks out full history so the commit can be found.
+# one CI runs in, or origin locally), and pins main's tip before this change (see expected_commit), so a curl install
+# gets the newest commit that has been on main. Run via `make validate`; CI checks out full history so the commit can be
+# found.
 
 set -euo pipefail
 
@@ -29,8 +30,23 @@ expected_repo() {
   fi
 }
 
+# Print the commit the pin must name: main's tip before this change. In CI that is HEAD's first parent, the base tip of
+# the merge commit a pull request is tested as, or main's previous tip on a push to main. Locally it is where HEAD
+# meets origin/main, unless that is HEAD itself with nothing uncommitted (HEAD is the change, already on main), then
+# HEAD's first parent. Prints nothing if that commit isn't here.
+expected_commit() {
+  local base=""
+  if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
+    base="$(git -C "$REPO_ROOT" merge-base HEAD origin/main 2>/dev/null || true)"
+    if [[ "$base" == "$(git -C "$REPO_ROOT" rev-parse HEAD)" && -z "$(git -C "$REPO_ROOT" status --porcelain)" ]]; then
+      base=""
+    fi
+  fi
+  git -C "$REPO_ROOT" rev-parse --verify --quiet "${base:-HEAD^1}^{commit}" || true
+}
+
 main() {
-  local failed=0 block repo commit expected
+  local failed=0 block repo commit expected latest
   block="$(current_block "$REPO_ROOT/install.sh")"
   repo="$(block_value PINNED_REPO "$block")"
   commit="$(block_value PINNED_COMMIT "$block")"
@@ -58,9 +74,15 @@ main() {
       warn "PINNED_COMMIT $commit doesn't exist in this repo; run 'make pin'"
       failed=1
     fi
-  elif ! git -C "$REPO_ROOT" merge-base --is-ancestor "$commit" HEAD; then
-    warn "PINNED_COMMIT $commit is not an ancestor of HEAD; run 'make pin'"
-    failed=1
+  else
+    latest="$(expected_commit)"
+    if [[ -z "$latest" ]]; then
+      [[ -z "${CI:-}" ]] || { warn "can't find main's tip before HEAD"; failed=1; }
+      warn "can't find main's tip before HEAD; skipping the check that PINNED_COMMIT is up to date"
+    elif [[ "$commit" != "$latest" ]]; then
+      warn "PINNED_COMMIT is $commit, but main's tip before this change is $latest; run 'make pin'"
+      failed=1
+    fi
   fi
   return "$failed"
 }

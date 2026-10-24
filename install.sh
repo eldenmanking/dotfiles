@@ -14,7 +14,7 @@ set -euo pipefail
 # DOTFILES_REF is set. PINNED_COMMIT is already on main, since a file can't name the commit that adds it.
 # BEGIN GENERATED PIN: run 'make pin' to update; checked by 'make validate'
 PINNED_REPO="https://github.com/eldenmanking/dotfiles.git"
-PINNED_COMMIT="0bbd5caa343b1ac80d7cf81416fa43840d1577eb"
+PINNED_COMMIT="713ad6b566312b11e257f25eead85135cdc693ad"
 # END GENERATED PIN
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
