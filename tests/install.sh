@@ -196,6 +196,22 @@ expect_refused() {
   fi
 }
 
+# Commit to repo $1 with message $2, as a test user.
+test_commit() {
+  git -C "$1" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false \
+    commit --quiet --allow-empty -m "$2"
+}
+
+# Clone this checkout to $1 and commit the working tree's install.sh and install/ there, so tests that clone it test
+# them rather than the last commit.
+clone_working_tree() {
+  local src="$1"
+  git clone --quiet "$REPO_ROOT" "$src"
+  cp -R "$REPO_ROOT/install.sh" "$REPO_ROOT/install" "$src/"
+  git -C "$src" add -A
+  test_commit "$src" "working tree"
+}
+
 # Run from a git checkout elsewhere with no ~/dotfiles, install.sh clones that checkout's commit to ~/dotfiles, keeps
 # its origin, and installs from the clone.
 test_clone_checkout() {
@@ -203,12 +219,7 @@ test_clone_checkout() {
   info "checkout location: install.sh clones a checkout elsewhere to ~/dotfiles"
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
   src="$SCRATCH/coder-checkout"
-  git clone --quiet "$REPO_ROOT" "$src"
-  # Commit the working tree's install.sh and install/, so this tests them rather than the last commit.
-  cp -R "$REPO_ROOT/install.sh" "$REPO_ROOT/install" "$src/"
-  git -C "$src" add -A
-  git -C "$src" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false \
-    commit --quiet --allow-empty -m "working tree"
+  clone_working_tree "$src"
   git -C "$src" remote set-url origin https://example.com/dotfiles.git
   printf 'local change\n' > "$src/uncommitted"
   if env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$src/install.sh" --variant coder --gitconfig \
@@ -224,6 +235,43 @@ test_clone_checkout() {
   check "  ...kept the origin" test "$(git -C "$home/dotfiles" remote get-url origin)" = https://example.com/dotfiles.git
   check "  ...warned about uncommitted changes" grep -q "uncommitted changes" "$LOG"
   check "  ...installed from the clone" grep -q "$home/dotfiles/home/.config/git/ignore" "$home/.gitconfig"
+}
+
+# Run on its own (as with curl), install.sh clones PINNED_REPO at PINNED_COMMIT, on the default branch so it can be
+# pulled; with DOTFILES_REPO naming another repo it clones that repo's tip instead.
+test_bootstrap_pin() {
+  local src pinned script home
+  info "bootstrap: install.sh on its own clones its pinned commit to ~/dotfiles"
+  src="$SCRATCH/pinned-repo"
+  clone_working_tree "$src"
+  pinned="$(git -C "$src" rev-parse HEAD)"
+  test_commit "$src" "after the pin"
+  mkdir "$SCRATCH/standalone"
+  script="$SCRATCH/standalone/install.sh"
+  sed -e "s#^PINNED_REPO=.*#PINNED_REPO=\"$src\"#" -e "s#^PINNED_COMMIT=.*#PINNED_COMMIT=\"$pinned\"#" \
+    "$REPO_ROOT/install.sh" > "$script"
+
+  home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
+  if env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$script" --variant coder --gitconfig \
+    </dev/null >"$LOG" 2>&1; then
+    pass "install.sh on its own"
+    check "  ...checked out the pinned commit" test "$(git -C "$home/dotfiles" rev-parse HEAD)" = "$pinned"
+    check "  ...on the default branch" test -n "$(git -C "$home/dotfiles" symbolic-ref -q HEAD)"
+  else
+    fail "install.sh on its own"
+    sed 's/^/       | /' "$LOG" >&2
+  fi
+
+  home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
+  if env -i HOME="$home" PATH="$PATH" TERM=dumb DOTFILES_REPO="file://$src" "$INSTALL_BASH" "$script" \
+    --variant coder --gitconfig </dev/null >"$LOG" 2>&1; then
+    pass "install.sh on its own with DOTFILES_REPO"
+    check "  ...checked out that repo's tip" \
+      test "$(git -C "$home/dotfiles" rev-parse HEAD)" = "$(git -C "$src" rev-parse HEAD)"
+  else
+    fail "install.sh on its own with DOTFILES_REPO"
+    sed 's/^/       | /' "$LOG" >&2
+  fi
 }
 
 # install.sh must run from ~/dotfiles (or a link to it), and the checkout must be named dotfiles.
@@ -409,6 +457,7 @@ main() {
   test_defaults
   test_checkout_location
   test_clone_checkout
+  test_bootstrap_pin
   for variant in $variants; do
     test_dry_run "$variant"
     test_install "$variant"

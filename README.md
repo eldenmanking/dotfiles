@@ -122,6 +122,8 @@ This repository contains configuration files for my linux workspace. The followi
 │           └── kbd                  ---
 │               └── keymaps          ---
 │                   └── us-caps.map  --- keymap for linux console remapping caps to escape
+├── scripts                          ---
+│   └── pin.sh                       --- make pin: writes the repo and commit install.sh's bootstrap clones
 ├── steamos                          --- webterm and home-units (formerly the steamos-config repo)
 │   ├── .gitignore                   ---
 │   ├── LICENSE                      --- MIT license for this directory
@@ -147,8 +149,9 @@ This repository contains configuration files for my linux workspace. The followi
     │   └── lint.sh                  --- make lint: syntax, shellcheck, actionlint and TOML checks
     ├── validation                   ---
     │   ├── features.sh              --- checks feature docs, and that variants suit and order their features
+    │   ├── pin.sh                   --- checks install.sh's pin block names this repo and a commit on main
     │   ├── readme_tree.py           --- checks this tree against the files tracked by git
-    │   └── validate.sh              --- make validate: checkout name, README tree, checksums, features
+    │   └── validate.sh              --- make validate: checkout name, README tree, checksums, features, pin
     ├── versions.env                 --- pinned versions and checksums of shellcheck and actionlint
     └── webterm_smoke.py             --- smoke test for the ttyd and socket proxy chain
 ```
@@ -156,7 +159,9 @@ This repository contains configuration files for my linux workspace. The followi
 ## Installation
 `install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of its default ones. Optional features (listed under "Optional" in `--help`, e.g. `--printer` on `arch`) are skipped by `--all` and run only when named. With no arguments it prints usage, unless defaults are set (see [Defaults](#defaults)). Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`. Files under `home/` are linked into `$HOME` and files under `root/` into `/`; everything else at the top level stays in the repo.
 
-The repo must live at `~/dotfiles`, since everything `install.sh` links points there, and `install.sh` refuses to run from any other checkout. `~/dotfiles` may be a symlink, but the checkout itself must be a directory named `dotfiles`, which lint relies on. When run from a git checkout elsewhere (such as the one Coder clones to `~/.config/coderv2/dotfiles`) and `~/dotfiles` doesn't exist, `install.sh` clones that checkout's current commit to `~/dotfiles`, sets the clone's `origin` to the checkout's, and re-runs from the clone with the same arguments; uncommitted changes aren't copied. On a fresh machine, `install.sh` can be run straight from GitHub: when it isn't inside a checkout, it clones the repo to `~/dotfiles` (unless already there) and re-runs that copy with the same arguments. Set `DOTFILES_REPO` to clone a different URL and `DOTFILES_REF` to check out a branch or tag.
+The repo must live at `~/dotfiles`, since everything `install.sh` links points there, and `install.sh` refuses to run from any other checkout. `~/dotfiles` may be a symlink, but the checkout itself must be a directory named `dotfiles`, which lint relies on. When run from a git checkout elsewhere (such as the one Coder clones to `~/.config/coderv2/dotfiles`) and `~/dotfiles` doesn't exist, `install.sh` clones that checkout's current commit to `~/dotfiles`, sets the clone's `origin` to the checkout's, and re-runs from the clone with the same arguments; uncommitted changes aren't copied. On a fresh machine, `install.sh` can be run straight from GitHub: when it isn't inside a checkout, it clones the repo to `~/dotfiles` (unless already there) and re-runs that copy with the same arguments. It clones the repo and commit pinned in its generated block (`PINNED_REPO` and `PINNED_COMMIT`), checking the commit out on the default branch so later pulls still work. Set `DOTFILES_REPO` to clone a different URL (at its default branch's tip) and `DOTFILES_REF` to check out a branch or tag instead.
+
+The pin is generated: `make pin` writes this checkout's `origin` and the tip of `origin/main` (or `make pin COMMIT=<rev>`) into `install.sh`, and `make validate` fails unless the block is exactly what `make pin` writes, names the repo it runs in (in CI, the GitHub repo; locally, `origin`), and pins a commit that is an ancestor of `HEAD`. A file can't name the commit that adds it, so the pin always names a commit already on `main`: run `make pin` after merging and commit the result to move curl installs forward. A fork must run `make pin` once so that it pins itself.
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/main/install.sh)" -- --variant coder --all
 ```
@@ -277,7 +282,7 @@ git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the
 ## Testing
 Checks come in three kinds, each with a make target; `make check` runs all three.
 
-- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, `tests/versions.env` pins a SHA-256 for every tool on every platform, and every feature is documented and suits the variants that use it (see Feature Requirements).
+- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, `tests/versions.env` pins a SHA-256 for every tool on every platform, every feature is documented and suits the variants that use it (see Feature Requirements), and `install.sh` pins this repo at a commit on `main` (see Installation; CI's validate job checks out full history for this).
 - **Lint** (`make lint`, `tests/lint/`) checks code quality: the syntax of every shell, zsh, Python and TOML file, shellcheck and actionlint. The shellcheck and actionlint versions are pinned in `tests/versions.env`; `make lint` downloads them into `~/.cache/dotfiles-test` on first use and refuses any download that doesn't match its pinned SHA-256.
 - **Tests** (`make test`, `tests/install.sh`) check behavior, so changes don't break what already works. They run `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every variant, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` for managed variants) for every variant that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `tests/webterm_smoke.py` is a separate smoke test for webterm, run by hand.
 
