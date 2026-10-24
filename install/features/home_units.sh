@@ -1,7 +1,7 @@
 # Feature: install home-units.service system-wide (steamos). With a dirlock-encrypted home, the user manager starts
 # before the home is unlocked and can't see ~/.config/systemd/user; this unit starts those units once it is unlocked.
-# A SteamOS keep list makes the files survive OS updates: SteamOS's default list covers /etc/systemd/system but not
-# /etc/systemd/user. See steamos/README.md.
+# A SteamOS keep list makes the files survive OS updates: SteamOS's default list keeps system units in
+# /etc/systemd/system, but nothing in /etc/systemd/user. See steamos/README.md.
 
 HOME_UNITS_SRC="steamos"
 # "<mode> <repo-relative source> <destination>" for each installed file.

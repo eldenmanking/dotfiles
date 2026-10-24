@@ -238,8 +238,9 @@ except the unit itself, which must sit where systemd looks for units:
 - A `## feature home_units` subblock in the keep list
   `/etc/atomic-update.conf.d/dotfiles.conf`. Since SteamOS 3.6 an update drops
   every change in `/etc` that isn't on a keep list (into `/etc/previous`). The
-  default list, `/usr/lib/rauc/atomic-update-keep.conf`, covers
-  `/etc/systemd/system` but not `/etc/systemd/user`, so this subblock names the
+  default list, `/usr/lib/rauc/atomic-update-keep.conf`, keeps system units in
+  `/etc/systemd/system` (services, sockets and mounts, with their drop-ins and
+  enablement links) but nothing in `/etc/systemd/user`, so this subblock names the
   unit, its enablement symlink and `/etc/dotfiles/home-units-start`.
   `keep_across_steamos_updates` (`install/lib/fs.sh`) writes it from the files
   the feature installs, on every run. The Framework 16 fixes keep their files
