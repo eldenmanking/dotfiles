@@ -4,7 +4,7 @@ Personal Linux/macOS dotfiles plus `install.sh`, which links them into place and
 `.claude/` holds Claude Code config for working on this repo only (this file, plus any repo-specific skills or settings). Machine-wide config (the global CLAUDE.md, skills, hook scripts, settings) lives in separate tools repos (by default eldenmanking/tools; see `DOTFILES_TOOLS` in `README.md`), which the `claude` feature installs into `~/.claude`.
 
 ## No company-specific information
-This repo is public and edited from work machines. Never commit company, team or product names, internal hostnames, URLs, repo or org names, or ticket IDs, including in commit messages, branch names and PR text. Keep such details in `~/.config/dotfiles/tools.conf` or a private tools repo instead.
+This repo is public and edited from work machines. Never commit company, team or product names, internal hostnames, URLs, repo or org names, or ticket IDs, including in commit messages, branch names and PR text.
 
 ## install.sh layout
 - `install/lib/`: shared helpers (`fn.sh` output variables, `exec.sh` dry-run aware execution, `fs.sh` symlinks and managed blocks, `systemd.sh` system units copied into `/etc` with `install_system_units` and `uninstall_system_units`).
