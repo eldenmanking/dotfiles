@@ -73,7 +73,7 @@ After the OS is installed and you've signed in to Steam:
 
    Run `~/dotfiles/install.sh --help` to see the features, or add `--dry-run`
    to preview the changes. This includes webterm, a browser shell on
-   localhost; see [steamos/README.md](../steamos/README.md).
+   localhost; see [Webterm](../README.md#webterm).
 
 ## Disk encryption
 

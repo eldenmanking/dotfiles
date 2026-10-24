@@ -1,23 +1,22 @@
 # Feature: webterm, a browser shell served by ttyd and started on demand by systemd socket activation (steamos).
-# The unit files go into /etc/systemd/user, outside an encrypted home, so the user manager sees them from boot and
-# home-units-start can start them after the unlock without a daemon-reload. See steamos/README.md.
+# The units go into /etc/systemd/user, outside an encrypted home, so the user manager sees them from boot and
+# home-units-start can start them after the unlock without a daemon-reload. See Webterm in README.md.
 
-WEBTERM_DIR="$DOTFILES_ROOT/steamos"
-WEBTERM_UNIT_DIR="/etc/systemd/user"
-# Where the units used to be installed, and where the per-user enable links still go.
-WEBTERM_HOME_UNIT_DIR="$HOME/.config/systemd/user"
-WEBTERM_UNITS=(webterm.socket webterm.service webterm-ttyd.service)
+WEBTERM_UNITS_SRC="$DOTFILES_ROOT/root/etc/systemd/user"
+WEBTERM_SOCKET="$WEBTERM_UNITS_SRC/webterm.socket"
+WEBTERM_SERVICES=(webterm.service webterm-ttyd.service)
+WEBTERM_UNITS=(webterm.socket "${WEBTERM_SERVICES[@]}")
 # The link 'systemctl --user enable webterm.socket' makes, from its WantedBy=sockets.target.
-WEBTERM_ENABLED_LINK="$WEBTERM_HOME_UNIT_DIR/sockets.target.wants/webterm.socket"
+WEBTERM_ENABLED_LINK="$HOME/.config/systemd/user/sockets.target.wants/webterm.socket"
 WEBTERM_STATE_DIR="$HOME/.local/state/webterm"
 WEBTERM_CONF_DIR="$HOME/.config/webterm"
 WEBTERM_ENV="$WEBTERM_CONF_DIR/env"
 WEBTERM_TOKEN_FILE="$WEBTERM_CONF_DIR/token"
-WEBTERM_SOCKET="$WEBTERM_DIR/systemd/webterm.socket"
-WEBTERM_SERVICES=(webterm.service webterm-ttyd.service)
+# webterm.service runs this; it ships with systemd.
+WEBTERM_PROXYD=/usr/lib/systemd/systemd-socket-proxyd
 
 TTYD_VERSION=1.7.7
-TTYD_BIN="$WEBTERM_DIR/bin/ttyd"
+TTYD_BIN="$LOCAL_BIN/ttyd"
 
 # Pinned static ttyd release asset and its SHA-256 for this machine.
 ttyd_asset() {
@@ -28,7 +27,7 @@ ttyd_asset() {
   esac
 }
 
-# Download the pinned ttyd to steamos/bin/ttyd (git ignores it), unless it is already there.
+# Download the pinned ttyd to ~/.local/bin/ttyd, next to the linked webterm scripts, unless it is already there.
 install_ttyd() {
   f_write_args ttyd_asset _asset _sha256
   local asset="$_asset" sha256="$_sha256"
@@ -40,6 +39,7 @@ install_ttyd() {
 
   info "Downloading ttyd $TTYD_VERSION ($asset)"
   local tmp
+  run mkdir -p "$LOCAL_BIN"
   tmp="$(mktemp "$TTYD_BIN.XXXXXX")"
   download_verified "https://github.com/tsl0922/ttyd/releases/download/$TTYD_VERSION/$asset" \
     "$sha256" "$tmp" ttyd || { rm -f "$tmp"; error "could not download ttyd"; }
@@ -47,17 +47,6 @@ install_ttyd() {
   run mv "$tmp" "$TTYD_BIN"
   rm -f "$tmp"
   info "Installed $TTYD_BIN"
-}
-
-# Print the path of systemd-socket-proxyd, or nothing if it isn't installed.
-find_proxyd() {
-  local p
-  for p in /usr/lib/systemd/systemd-socket-proxyd /lib/systemd/systemd-socket-proxyd; do
-    if [[ -x "$p" ]]; then
-      printf '%s' "$p"
-      return
-    fi
-  done
 }
 
 # Print the URL the socket serves the terminal on, under the secret token $1 if there is one.
@@ -85,33 +74,6 @@ save_token() {
   (umask 077 && printf 'WEBTERM_TOKEN=%s\n' "$token" | write_file "$WEBTERM_TOKEN_FILE")
 }
 
-# Render the units into directory $2, for systemd-socket-proxyd at $1.
-render_webterm_units() {
-  local proxyd="$1" dir="$2"
-  render_template "$WEBTERM_DIR/systemd/webterm.service.template" "PROXYD=$proxyd" >"$dir/webterm.service"
-  render_template "$WEBTERM_DIR/systemd/webterm-ttyd.service.template" "WEBTERM_DIR=$WEBTERM_DIR" \
-    >"$dir/webterm-ttyd.service"
-  cp "$WEBTERM_SOCKET" "$dir/webterm.socket"
-}
-
-# Copy the rendered units into /etc/systemd/user with sudo, and remove the copies older versions installed into
-# ~/.config/systemd/user, which would shadow them. Keep them across SteamOS updates, whose default keep list
-# covers nothing in /etc/systemd/user.
-install_webterm_units() {
-  local proxyd="$1" rendered unit
-  rendered="$(mktemp -d)"
-  render_webterm_units "$proxyd" "$rendered"
-  f_write_args copy_system_files _changed -- "$rendered" "$WEBTERM_UNIT_DIR" "webterm*"
-  rm -rf "$rendered"
-  for unit in "${WEBTERM_UNITS[@]}"; do
-    if [[ -e "$WEBTERM_HOME_UNIT_DIR/$unit" || -L "$WEBTERM_HOME_UNIT_DIR/$unit" ]]; then
-      info "Removing $WEBTERM_HOME_UNIT_DIR/$unit (now in $WEBTERM_UNIT_DIR)"
-      run rm -f "$WEBTERM_HOME_UNIT_DIR/$unit"
-    fi
-  done
-  keep_across_steamos_updates webterm "${WEBTERM_UNITS[@]/#/$WEBTERM_UNIT_DIR/}"
-}
-
 # Poke the socket once to prove activation works (it exits again when idle)
 check_socket_activation() {
   local url="$1"
@@ -125,32 +87,30 @@ check_socket_activation() {
 }
 
 # Serve a shell in the browser on localhost: download ttyd and install systemd user units into /etc (needs sudo)
-# that start it on demand (see steamos/README.md).
+# that start it on demand (see Webterm in README.md).
 #
 # @machine any
 # @os linux
 # @gui any
 # @requires link
 feature_webterm() {
-  local proxyd token url
+  local token url
   require_commands curl sha256sum systemctl
   systemctl --user show-environment >/dev/null 2>&1 \
     || error "no systemd user session (log in graphically or via ssh, not su/sudo)"
-  proxyd="$(find_proxyd)"
-  [[ -n "$proxyd" ]] || error "systemd-socket-proxyd not found"
+  [[ -x "$WEBTERM_PROXYD" ]] || error "$WEBTERM_PROXYD not found"
   [[ -f "$WEBTERM_ENV" ]] || $DRY_RUN || error "$WEBTERM_ENV not found; run with --link first"
 
   install_ttyd
-  run "$WEBTERM_DIR/bin/webterm-index" \
+  run "$LOCAL_BIN/webterm-index" \
     || warn "could not build the webterm page; ttyd will serve its stock page"
   token="$(webterm_token)"
   save_token "$token"
-  install_webterm_units "$proxyd"
+  f_write_args install_user_units _changed -- "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
+  # SteamOS's default keep list covers nothing in /etc/systemd/user.
+  keep_across_steamos_updates webterm "${WEBTERM_UNITS[@]/#/$USER_UNITS_DIR/}"
 
-  run systemctl --user daemon-reload
-  # reenable, so an enable link left pointing at the old copy in ~/.config/systemd/user points at the new one.
-  run systemctl --user reenable webterm.socket
-  run systemctl --user start webterm.socket
+  run systemctl --user enable --now webterm.socket
   # If it's running, restart it so the new units and settings apply right away.
   # Open tabs reconnect on their own (their shells are restarted).
   run systemctl --user try-restart "${WEBTERM_SERVICES[@]}"
@@ -161,16 +121,16 @@ feature_webterm() {
   check_socket_activation "$url"
 }
 
-# Stop webterm and remove its units, its enable link and the page it built. The URL token is kept.
+# Stop webterm and remove its units, its enable link, ttyd and the page it built. The URL token is kept.
 uninstall_feature_webterm() {
   local unit session=false installed=false
   systemctl --user show-environment >/dev/null 2>&1 && session=true
   for unit in "${WEBTERM_UNITS[@]}"; do
-    [[ -e "$WEBTERM_UNIT_DIR/$unit" || -e "$WEBTERM_HOME_UNIT_DIR/$unit" ]] && installed=true
+    [[ -e "$USER_UNITS_DIR/$unit" ]] && installed=true
   done
   # Stopping units that aren't loaded fails, so only while their files are there.
   if $installed && $session; then
-    run systemctl --user stop webterm.socket "${WEBTERM_SERVICES[@]}"
+    run systemctl --user stop "${WEBTERM_UNITS[@]}"
   elif $installed; then
     info "No systemd user session: webterm keeps running until the next login"
   fi
@@ -178,15 +138,15 @@ uninstall_feature_webterm() {
     run rm -f "$WEBTERM_ENABLED_LINK"
   fi
   for unit in "${WEBTERM_UNITS[@]}"; do
-    if [[ -e "$WEBTERM_HOME_UNIT_DIR/$unit" || -L "$WEBTERM_HOME_UNIT_DIR/$unit" ]]; then
-      run rm -f "$WEBTERM_HOME_UNIT_DIR/$unit"
-    fi
-    if [[ -e "$WEBTERM_UNIT_DIR/$unit" || -L "$WEBTERM_UNIT_DIR/$unit" ]]; then
-      info "Removing $WEBTERM_UNIT_DIR/$unit..."
-      run sudo rm -f "$WEBTERM_UNIT_DIR/$unit"
+    if [[ -e "$USER_UNITS_DIR/$unit" || -L "$USER_UNITS_DIR/$unit" ]]; then
+      info "Removing $USER_UNITS_DIR/$unit..."
+      run sudo rm -f "$USER_UNITS_DIR/$unit"
     fi
   done
   forget_across_steamos_updates webterm
+  if [[ -e "$TTYD_BIN" ]]; then
+    run rm -f "$TTYD_BIN"
+  fi
   if [[ -d "$WEBTERM_STATE_DIR" ]]; then
     run rm -rf "$WEBTERM_STATE_DIR"
   fi

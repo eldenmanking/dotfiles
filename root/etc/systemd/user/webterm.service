@@ -5,4 +5,4 @@ After=webterm.socket webterm-ttyd.service
 
 [Service]
 Environment=WEBTERM_IDLE=30s
-ExecStart=__PROXYD__ --exit-idle-time=${WEBTERM_IDLE} %t/webterm.sock
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd --exit-idle-time=${WEBTERM_IDLE} %t/webterm.sock

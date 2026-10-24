@@ -22,9 +22,14 @@ LINK_SHELL_PATHS=(
 # Extra paths linked on steamos.
 LINK_STEAMOS_PATHS=(
   home/.config/webterm
+  home/.local/bin/webterm-index
+  home/.local/bin/webterm-shell
+  home/.local/bin/webterm-ttyd
+  home/.local/share/webterm
 )
 
-# Extra paths linked on full desktop installs (e.g. arch).
+# Extra paths linked on full desktop installs (e.g. arch). Paths under root/ name single files, never directories:
+# features copy some files there (udev rules, tmpfiles configs, system units) and they must not be linked as well.
 LINK_DESKTOP_PATHS=(
   home/.vimrc
   home/.ideavimrc
@@ -37,9 +42,17 @@ LINK_DESKTOP_PATHS=(
   home/.config/zsh
   home/.local/bin/squidpdf
   home/.local/bin/vm-usb
-  home/.local/share
-  root/etc
-  root/usr
+  home/.local/share/applications
+  home/.local/share/backgrounds
+  root/etc/logid.cfg
+  root/etc/modprobe.d/hid_apple.conf
+  root/etc/systemd/system/auto-suspend.service
+  root/etc/systemd/system/auto-suspend.timer
+  root/etc/vconsole.conf
+  root/usr/local/bin/auto-suspend
+  root/usr/local/bin/cmus-reload
+  root/usr/local/bin/colortest
+  root/usr/share/kbd/keymaps/us-caps.map
 )
 
 # Link one repo-relative file: root/* goes to / and home/* to $HOME.

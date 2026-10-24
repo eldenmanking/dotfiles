@@ -1,6 +1,7 @@
-# systemd helpers: system units copied into /etc.
+# systemd helpers: system units copied into /etc/systemd/system, and user units copied into /etc/systemd/user.
 
 SYSTEM_UNITS_DIR="/etc/systemd/system"
+USER_UNITS_DIR="/etc/systemd/user"
 
 # Copy system units $2... from $1 into /etc/systemd/system with sudo (copied, not linked: see copy_system_files),
 # then reload systemd and reenable and restart each unit that changed or isn't enabled yet, so a oneshot service
@@ -43,4 +44,22 @@ uninstall_system_units() {
   done
   [[ -z "$removed" ]] || run sudo systemctl daemon-reload
   _removed="$removed"
+}
+
+# Copy user units $2... from $1 into /etc/systemd/user with sudo, then reload this user's manager if any changed.
+# Every user manager sees them from boot, even with an encrypted home, so home-units-start can start them after the
+# unlock without a reload; they still only start for users who enable them, with links in ~/.config/systemd/user.
+# They are copied, not linked: systemd treats a symlinked unit file as a "linked" unit, which enable and disable
+# handle differently. Outputs: _changed, the space-separated targets that were copied (empty if all were up to date).
+# Usage: f_write_args install_user_units _changed -- <src_dir> <unit>...
+install_user_units() {
+  local src_dir="$1" unit changed=""
+  shift
+  for unit in "$@"; do
+    [[ -e "$src_dir/$unit" ]] || error "install_user_units: $src_dir/$unit does not exist"
+    f_write_args copy_system_files _changed -- "$src_dir" "$USER_UNITS_DIR" "$unit"
+    changed+="${_changed:+${changed:+ }$_changed}"
+  done
+  [[ -z "$changed" ]] || run systemctl --user daemon-reload
+  _changed="$changed"
 }
