@@ -203,12 +203,13 @@ test_commit() {
 }
 
 # Clone this checkout to $1 on branch main, as a GitHub repo would be (CI checks out a detached HEAD), and commit the
-# working tree's install.sh and install/ there, so tests that clone it test them rather than the last commit.
+# working tree's install.sh, install/, bootstrap/ and scripts/ there, so tests that clone it test them rather than the
+# last commit.
 clone_working_tree() {
   local src="$1"
   git -c advice.detachedHead=false clone --quiet "$REPO_ROOT" "$src"
   git -C "$src" checkout --quiet -B main
-  cp -R "$REPO_ROOT/install.sh" "$REPO_ROOT/install" "$src/"
+  cp -R "$REPO_ROOT/install.sh" "$REPO_ROOT/install" "$REPO_ROOT/bootstrap" "$REPO_ROOT/scripts" "$src/"
   git -C "$src" add -A
   test_commit "$src" "working tree"
 }
@@ -238,54 +239,112 @@ test_clone_checkout() {
   check "  ...installed from the clone" grep -q "$home/dotfiles/home/.config/git/ignore" "$home/.gitconfig"
 }
 
-# Run on its own (as with curl), install.sh clones PINNED_REPO at PINNED_COMMIT, on the default branch so it can be
-# pulled; with DOTFILES_REPO naming another repo it clones that repo's tip instead.
-test_bootstrap_pin() {
+# Run install.sh like run_install, but from script $2 rather than home $1's checkout, with no terminal. Its output goes
+# to LOG.
+run_script() {
+  local home="$1" script="$2"
+  shift 2
+  env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$script" "$@" </dev/null >"$LOG" 2>&1
+}
+
+# Report check $1 as passed if run_script with the remaining args succeeds, showing its output if not.
+script_ok() {
+  local description="$1"
+  shift
+  if run_script "$@"; then
+    pass "$description"
+  else
+    fail "$description"
+    sed 's/^/       | /' "$LOG" >&2
+    return 1
+  fi
+}
+
+# The install branch's bootstrap (bootstrap/install.sh, filled in by scripts/bootstrap.sh) clones its pinned commit to
+# ~/dotfiles, on the default branch so it can be pulled, and runs it. main's install.sh doesn't run on its own.
+test_bootstrap() {
   local src pinned script home
-  info "bootstrap: install.sh on its own clones its pinned commit to ~/dotfiles"
+  info "bootstrap: the install branch's install.sh clones its pinned commit to ~/dotfiles and runs it"
   src="$SCRATCH/pinned-repo"
   clone_working_tree "$src"
   pinned="$(git -C "$src" rev-parse HEAD)"
   test_commit "$src" "after the pin"
-  mkdir "$SCRATCH/standalone"
-  script="$SCRATCH/standalone/install.sh"
-  sed -e "s#^PINNED_REPO=.*#PINNED_REPO=\"$src\"#" -e "s#^PINNED_COMMIT=.*#PINNED_COMMIT=\"$pinned\"#" \
-    "$REPO_ROOT/install.sh" > "$script"
+  mkdir "$SCRATCH/bootstrap"
+  script="$SCRATCH/bootstrap/install.sh"
+  "$src/scripts/bootstrap.sh" --repo "$src" --commit "$pinned" > "$script"
 
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
-  if env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$script" --variant coder --gitconfig \
-    </dev/null >"$LOG" 2>&1; then
-    pass "install.sh on its own"
+  if script_ok "bootstrap" "$home" "$script" --variant coder --gitconfig; then
     check "  ...checked out the pinned commit" test "$(git -C "$home/dotfiles" rev-parse HEAD)" = "$pinned"
     check "  ...on the default branch" test -n "$(git -C "$home/dotfiles" symbolic-ref -q HEAD)"
-  else
-    fail "install.sh on its own"
-    sed 's/^/       | /' "$LOG" >&2
+    check "  ...ran its install.sh" grep -q "$home/dotfiles/home/.config/git/ignore" "$home/.gitconfig"
   fi
 
   # A repo whose HEAD is detached gets the pinned commit detached.
   git -C "$src" checkout --quiet --detach
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
-  if env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$script" --variant coder --gitconfig \
-    </dev/null >"$LOG" 2>&1; then
-    pass "install.sh on its own, from a repo with a detached HEAD"
+  if script_ok "bootstrap from a repo with a detached HEAD" "$home" "$script" --variant coder --gitconfig; then
     check "  ...checked out the pinned commit" test "$(git -C "$home/dotfiles" rev-parse HEAD)" = "$pinned"
-  else
-    fail "install.sh on its own, from a repo with a detached HEAD"
-    sed 's/^/       | /' "$LOG" >&2
   fi
   git -C "$src" checkout --quiet main
 
-  home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
-  if env -i HOME="$home" PATH="$PATH" TERM=dumb DOTFILES_REPO="file://$src" "$INSTALL_BASH" "$script" \
-    --variant coder --gitconfig </dev/null >"$LOG" 2>&1; then
-    pass "install.sh on its own with DOTFILES_REPO"
-    check "  ...checked out that repo's tip" \
-      test "$(git -C "$home/dotfiles" rev-parse HEAD)" = "$(git -C "$src" rev-parse HEAD)"
-  else
-    fail "install.sh on its own with DOTFILES_REPO"
-    sed 's/^/       | /' "$LOG" >&2
+  new_home
+  if script_ok "bootstrap with ~/dotfiles already there" "$_home" "$script" --variant coder --gitconfig; then
+    check "  ...ran it as it is" grep -q "already exists" "$LOG"
   fi
+
+  home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
+  if run_script "$home" "$REPO_ROOT/bootstrap/install.sh" --variant coder; then
+    fail "the template, bootstrap/install.sh (should be refused)"
+  else
+    pass "the template, bootstrap/install.sh (refused)"
+  fi
+  mkdir "$SCRATCH/main-install"
+  cp "$REPO_ROOT/install.sh" "$SCRATCH/main-install/"
+  if run_script "$home" "$SCRATCH/main-install/install.sh" --variant coder; then
+    fail "main's install.sh on its own (should be refused)"
+  elif grep -q "install branch" "$LOG" && [[ ! -e "$home/dotfiles" ]]; then
+    pass "main's install.sh on its own (refused, pointing at the install branch)"
+  else
+    fail "main's install.sh on its own: expected a refusal naming the install branch, got: $(cat "$LOG")"
+  fi
+}
+
+# Print the commit that the install.sh on branch $2 of repo $1 pins.
+branch_pin() {
+  git -C "$1" show "$2:install.sh" | sed -n 's/^PINNED_COMMIT="\(.*\)"$/\1/p'
+}
+
+# scripts/bootstrap.sh --publish, as the install branch workflow runs it: it commits the bootstrap as the install
+# branch's only file, moves the branch forward one commit per pin, and never back to an older commit.
+test_publish() {
+  local origin work first second
+  info "bootstrap: scripts/bootstrap.sh --publish moves the install branch forward"
+  origin="$SCRATCH/publish-origin.git"
+  work="$SCRATCH/publish-work"
+  clone_working_tree "$work"
+  test_commit "$work" "second"
+  git init --quiet --bare "$origin"
+  git -C "$work" remote set-url origin "$origin"
+  git -C "$work" push --quiet origin main
+  first="$(git -C "$work" rev-parse HEAD^1)"
+  second="$(git -C "$work" rev-parse HEAD)"
+  export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.com GIT_COMMITTER_NAME=test
+  export GIT_COMMITTER_EMAIL=test@example.com
+
+  "$work/scripts/bootstrap.sh" --publish install --commit "$first" >/dev/null
+  check "creates the branch, pinning the commit" test "$(branch_pin "$origin" install)" = "$first"
+  check "  ...with install.sh as its only file, executable" \
+    test "$(git -C "$origin" ls-tree install)" = "100755 blob $(git -C "$origin" rev-parse install:install.sh)	install.sh"
+  check "  ...cloning origin" grep -qxF "PINNED_REPO=\"$origin\"" <(git -C "$origin" show install:install.sh)
+  "$work/scripts/bootstrap.sh" --publish install --commit "$first" >/dev/null
+  check "publishing the same commit again changes nothing" test "$(git -C "$origin" rev-list --count install)" = 1
+  "$work/scripts/bootstrap.sh" --publish install --commit "$second" >/dev/null
+  check "a later commit moves the branch forward one commit" \
+    test "$(branch_pin "$origin" install) $(git -C "$origin" rev-list --count install)" = "$second 2"
+  "$work/scripts/bootstrap.sh" --publish install --commit "$first" >/dev/null
+  check "an earlier commit doesn't move it back" test "$(branch_pin "$origin" install)" = "$second"
+  unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
 }
 
 # install.sh must run from ~/dotfiles (or a link to it), and the checkout must be named dotfiles.
@@ -471,7 +530,8 @@ main() {
   test_defaults
   test_checkout_location
   test_clone_checkout
-  test_bootstrap_pin
+  test_bootstrap
+  test_publish
   for variant in $variants; do
     test_dry_run "$variant"
     test_install "$variant"

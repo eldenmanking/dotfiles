@@ -10,56 +10,24 @@
 
 set -euo pipefail
 
-# The repo and commit cloned when install.sh runs outside a checkout (e.g. with curl), unless DOTFILES_REPO or
-# DOTFILES_REF is set. PINNED_COMMIT is already on main, since a file can't name the commit that adds it.
-# BEGIN GENERATED PIN: run 'make pin' to update; checked by 'make validate'
-PINNED_REPO="https://github.com/eldenmanking/dotfiles.git"
-PINNED_COMMIT="713ad6b566312b11e257f25eead85135cdc693ad"
-# END GENERATED PIN
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 INSTALL_DIR="$SCRIPT_DIR/install"
 DOTFILES_ROOT="$HOME/dotfiles"
-DOTFILES_REPO="${DOTFILES_REPO:-$PINNED_REPO}"
 BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
 LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 INSTALL_CONFIG="${DOTFILES_INSTALL_CONFIG:-$HOME/.config/dotfiles/install.conf}"
 
-# When run without its install/ directory beside it (e.g. fetched with curl), clone the repo to $DOTFILES_ROOT unless
-# it is already there, then re-run its install.sh with the same arguments. A clone of PINNED_REPO without DOTFILES_REF
-# checks out PINNED_COMMIT on the default branch, so it can still be pulled (detached if the repo's HEAD is detached,
-# as in a CI checkout). Runs before install/lib is loaded, so it
-# prints its own messages. Stdin is reattached to the terminal when it isn't one (as with 'curl ... | bash -s -- ARGS'),
-# so features that prompt still can.
+# install.sh only runs from a dotfiles checkout, beside its install/ directory; to install from scratch, use the
+# bootstrap on the repo's install branch (see README.md). From a git checkout elsewhere, clone_checkout_to_root moves
+# the install to $DOTFILES_ROOT. Runs before install/lib is loaded, so it prints its own messages.
 bootstrap() {
-  local pinned=false branch checkout_args
-  if [[ -f "$INSTALL_DIR/lib/fn.sh" ]]; then
-    clone_checkout_to_root "$@"
-    return 0
+  if [[ ! -f "$INSTALL_DIR/lib/fn.sh" ]]; then
+    printf '[error] install.sh must run from a dotfiles checkout. To install from scratch, use the install.sh on\n' >&2
+    printf '        the install branch instead (see Installation in README.md).\n' >&2
+    exit 1
   fi
-
-  if [[ ! -e "$DOTFILES_ROOT" ]]; then
-    command -v git >/dev/null || { printf '[error] git is required to clone %s\n' "$DOTFILES_REPO" >&2; exit 1; }
-    [[ -n "${DOTFILES_REF:-}" || "$DOTFILES_REPO" != "$PINNED_REPO" ]] || pinned=true
-    printf '[info] Cloning %s%s into %s\n' "$DOTFILES_REPO" \
-      "$($pinned && printf ' at %s' "$PINNED_COMMIT")${DOTFILES_REF:+ at $DOTFILES_REF}" "$DOTFILES_ROOT"
-    git -c advice.detachedHead=false clone --quiet ${DOTFILES_REF:+--branch "$DOTFILES_REF"} "$DOTFILES_REPO" "$DOTFILES_ROOT"
-    if $pinned; then
-      branch="$(git -C "$DOTFILES_ROOT" symbolic-ref --short -q HEAD || true)"
-      checkout_args=(--detach)
-      [[ -z "$branch" ]] || checkout_args=(-B "$branch")
-      git -C "$DOTFILES_ROOT" checkout --quiet "${checkout_args[@]}" "$PINNED_COMMIT" \
-        || { printf '[error] %s has no commit %s\n' "$DOTFILES_REPO" "$PINNED_COMMIT" >&2; exit 1; }
-    fi
-  fi
-  [[ -f "$DOTFILES_ROOT/install.sh" ]] \
-    || { printf '[error] %s exists but has no install.sh; move it aside and re-run.\n' "$DOTFILES_ROOT" >&2; exit 1; }
-
-  if [[ ! -t 0 ]] && { : </dev/tty; } 2>/dev/null; then
-    exec bash "$DOTFILES_ROOT/install.sh" "$@" </dev/tty
-  fi
-  exec bash "$DOTFILES_ROOT/install.sh" "$@"
+  clone_checkout_to_root "$@"
 }
 
 # When run from a git checkout elsewhere (e.g. Coder's ~/.config/coderv2/dotfiles) and $DOTFILES_ROOT doesn't exist,
