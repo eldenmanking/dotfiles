@@ -1,0 +1,13 @@
+# Installed by the orei_switch feature of ~/dotfiles/install.sh. Before the login screen starts, re-enables the left
+# USB-C ports if they were left off, so the login screen sees the projector; then turns the projector on in the
+# background (orei-switch-boot-tv, a transient unit).
+[Unit]
+Description=OREI HDMI switch and projector setup on boot
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/etc/dotfiles/orei-switch/orei-switch.sh boot
+
+[Install]
+WantedBy=multi-user.target

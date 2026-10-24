@@ -20,6 +20,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── framework16-sleep.md         --- Framework 16 sleep battery drain diagnosis and fix
 │   ├── mac-os-setup.md              ---
 │   ├── migrations.md                --- manual steps after pulling changes that leave stale files behind
+│   ├── orei-switch.md               --- OREI HDMI switch sleep/wake handoff: findings and the orei_switch feature
 │   ├── steamos-setup.md             --- SteamOS install, Steam settings, encryption and Windows VMs
 │   ├── windows-setup.md             ---
 │   └── wsl-setup.md                 ---
@@ -111,15 +112,23 @@ This repository contains configuration files for my linux workspace. The followi
 ├── root                             ---
 │   ├── etc                          ---
 │   │   ├── dotfiles                 ---
-│   │   │   └── home-units-start     --- starts units in an encrypted home once dirlock unlocks it (copied by home_units)
+│   │   │   ├── home-units-start     --- starts units in an encrypted home once dirlock unlocks it (copied by home_units)
+│   │   │   └── orei-switch          ---
+│   │   │       ├── orei-switch.sh   --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
+│   │   │       └── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
 │   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals
 │   │   ├── modprobe.d               ---
 │   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
+│   │   ├── sddm.conf.d              ---
+│   │   │   └── orei-switch.conf     --- runs sddm-xsetup for the X11 login screen (copied by orei_switch)
 │   │   ├── systemd                  ---
 │   │   │   └── system               ---
 │   │   │       ├── auto-suspend.serv--- laptop auto-suspend service to prevent death
 │   │   │       ├── auto-suspend.time--- auto-suspend timer to check if battery is low
-│   │   │       └── hdmi-audio-fix.se--- keeps the Framework 16 780M SoC clock up for HDMI audio (copied by hdmi_audio_fix)
+│   │   │       ├── hdmi-audio-fix.se--- keeps the Framework 16 780M SoC clock up for HDMI audio (copied by hdmi_audio_fix)
+│   │   │       ├── orei-switch-boot.--- re-enables the left ports and turns the projector on at boot (copied by orei_switch)
+│   │   │       ├── orei-switch-power--- turns the projector off over CEC on poweroff (copied by orei_switch)
+│   │   │       └── orei-switch.servi--- runs orei-switch.sh around sleep (copied by orei_switch)
 │   │   ├── tmpfiles.d               ---
 │   │   │   └── ec-no-wakeup.conf    --- stop the embedded controller (ACPI GPE 0x0B) from waking the laptop from s2idle (copied, not linked)
 │   │   ├── udev                     ---
@@ -224,6 +233,7 @@ Each variant declares the `_os` and `_gui` it targets. `tests/validation/feature
 | `binaries`, `neovim` | any | linux, macos | any | |
 | `flatpak` | any | linux | desktop | |
 | `udev`, `tmpfiles`, `hdmi_audio_fix` | framework16 | linux | any | |
+| `orei_switch` | framework16 | linux | any | |
 | `steamos_xclip` | any | steamos | desktop | |
 | `webterm` | any | linux | any | `link` |
 | `home_units`, `steam` | any | steamos | any | |
@@ -231,7 +241,7 @@ Each variant declares the `_os` and `_gui` it targets. `tests/validation/feature
 
 `linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The variants target: `arch` (arch, gnome), `steamos` (steamos, kde), `coder` (linux, no GUI) and `portable` (linux and macos, no GUI).
 
-The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `steam` feature sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, replacing only keys Steam already wrote and only while Steam is closed, since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [Webterm](#webterm) and [docs/steamos-setup.md](docs/steamos-setup.md). Its `hdmi_audio_fix` feature, a Framework 16 fix like `udev` and `tmpfiles`, copies `root/etc/systemd/system/hdmi-audio-fix.service` into `/etc/systemd/system` (with sudo). At boot and after every resume it sets the 780M to the `manual` level and gives its SoC clock a 720 MHz floor (`pp_dpm_socclk` levels 2 to 7), leaving the graphics, memory and fabric clocks free. At idle `socclk` otherwise drops to 400 MHz and HDMI audio stutters; games aren't capped (PipeWire buffer settings don't help: it reports no underruns); `--uninstall` removes it and sets the level back to `auto`.
+The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `steam` feature sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, replacing only keys Steam already wrote and only while Steam is closed, since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`. Its optional `orei_switch` feature (Framework 16 only) makes an OREI HDMI switch hand over to another input while the laptop sleeps; see [docs/orei-switch.md](docs/orei-switch.md). Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [Webterm](#webterm) and [docs/steamos-setup.md](docs/steamos-setup.md). Its `hdmi_audio_fix` feature, a Framework 16 fix like `udev` and `tmpfiles`, copies `root/etc/systemd/system/hdmi-audio-fix.service` into `/etc/systemd/system` (with sudo). At boot and after every resume it sets the 780M to the `manual` level and gives its SoC clock a 720 MHz floor (`pp_dpm_socclk` levels 2 to 7), leaving the graphics, memory and fabric clocks free. At idle `socclk` otherwise drops to 400 MHz and HDMI audio stutters; games aren't capped (PipeWire buffer settings don't help: it reports no underruns); `--uninstall` removes it and sets the level back to `auto`.
 
 Variants that don't symlink whole files (e.g. `coder`) instead write into a single `## Managed by dotfiles` ... `## /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`, and on SteamOS the keep list `/etc/atomic-update.conf.d/dotfiles.conf`). Each feature owns a `## feature <name>` subblock inside it and rewrites only that subblock on re-run. The markers start with `##`, a comment in sh and in SteamOS keep lists alike; sections written with the older single-`#` markers are converted on the next run. Shell startup file subblocks only source files under `home/.config/sh` and `home/.config/zsh`, which the linked startup files (on `arch` and `steamos`) source too. Edit the files outside the section freely.
 

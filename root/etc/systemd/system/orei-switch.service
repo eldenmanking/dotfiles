@@ -1,0 +1,16 @@
+# Installed by the orei_switch feature of ~/dotfiles/install.sh. Started before sleep and stopped (wake) after it.
+[Unit]
+Description=OREI HDMI switch handoff on sleep/wake
+Before=sleep.target
+StopWhenUnneeded=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/dotfiles/orei-switch/orei-switch.sh sleep
+ExecStop=/etc/dotfiles/orei-switch/orei-switch.sh wake
+# Reconnecting and retrying the projector can take about 100s.
+TimeoutStopSec=3min
+
+[Install]
+WantedBy=sleep.target

@@ -1,0 +1,13 @@
+# Installed by the orei_switch feature of ~/dotfiles/install.sh. Runs early in poweroff (not reboot), while the HDMI
+# card still has HPD.
+[Unit]
+Description=Turn the projector off over CEC on poweroff
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/etc/dotfiles/orei-switch/orei-switch.sh poweroff
+
+[Install]
+WantedBy=poweroff.target
