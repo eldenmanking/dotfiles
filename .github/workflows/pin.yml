@@ -1,0 +1,39 @@
+# After every push to main, commit a bump of install.sh's pin (see scripts/pin.sh) to the pushed commit, so a curl
+# install gets the latest change; pull requests leave the pin alone. Pushes with GITHUB_TOKEN don't trigger workflows,
+# so this validates its commit itself, and it skips pushes that only bump the pin, so a manual `make pin` isn't bumped
+# again. If main is protected, let github-actions bypass the rules that would block this push.
+name: Pin
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+# A newer push pins a newer commit, so it replaces a run that hasn't pushed yet.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  pin:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history, so make validate can find the pinned commit.
+          fetch-depth: 0
+      - name: Commit a pin bump
+        run: |
+          if scripts/pin.sh --is-bump HEAD; then
+            echo "HEAD only bumps the pin; nothing to do."
+            exit 0
+          fi
+          pushed="$(git rev-parse HEAD)"
+          make pin COMMIT="$pushed"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit --quiet --all --message "Pin install.sh's bootstrap to ${pushed:0:7}"
+          make validate
+          git push origin HEAD:main
