@@ -229,7 +229,11 @@ except the unit itself, which must sit where systemd looks for units:
 - `/etc/systemd/user/home-units.service`, enabled for all users. Each user
   manager sees it while the home directory is still locked. It runs
   `/etc/dotfiles/home-units-start` (from `steamos/bin/home-units-start`), which
-  waits until `~/.config` is readable and runs `systemctl --user daemon-reload`.
+  waits until `~/.config` is readable and the session has started
+  (`graphical-session.target`, up to 60s), then runs
+  `systemctl --user daemon-reload`. Logging in unlocks the home, so a reload
+  straight away raced SteamOS's `start-gamescope-session`: its `systemctl`
+  calls hung for 30s and the session was killed 90s after login.
   Then, for each `~/.config/systemd/user/<target>.wants/` (and `.requires/`)
   whose target is already up, it starts the units linked there. Nothing else is started, so
   SteamOS's own units that already ran aren't run again. A target that isn't

@@ -1,7 +1,8 @@
 #!/bin/sh
 # Run by home-units.service. Installed to /etc/dotfiles/home-units-start,
-# outside the encrypted home. Waits for dirlock to unlock the home directory,
-# reloads the user manager so it sees ~/.config/systemd/user, then starts
+# outside the encrypted home. Waits for dirlock to unlock the home directory
+# and for the session to start, reloads the user manager so it sees
+# ~/.config/systemd/user, then starts
 # exactly the units enabled there. Nothing else is started, so units that
 # already ran and exited are not run again.
 #
@@ -15,6 +16,20 @@ dir="$HOME/.config/systemd/user"
 # Encrypted names hide ~/.config until the home directory is unlocked
 wait_for_home() {
   until [ -d "$HOME/.config" ]; do sleep 2; done
+}
+
+# Logging in unlocks the home, so the session's own startup runs at the same time. A daemon-reload in the middle of
+# SteamOS's start-gamescope-session hung its systemctl calls for 30s, and the session was killed 90s after login
+# (taking Steam and every app with it). Wait for the session (Game Mode and Desktop Mode both reach
+# graphical-session.target) to finish starting, or up to 60s if it never does, e.g. for an ssh login.
+wait_for_session() {
+  i=0
+  while [ "$i" -lt 60 ]; do
+    [ "$(systemctl --user show -P ActiveState graphical-session.target)" = active ] && return
+    sleep 1
+    i=$((i + 1))
+  done
+  echo "graphical-session.target did not start within 60s; reloading anyway"
 }
 
 # TODO(andywang): add comment
@@ -43,6 +58,7 @@ start_target_units() {
 
 main() {
   wait_for_home
+  wait_for_session
   systemctl --user daemon-reload || exit 1
   for wants in "$dir"/*.target.wants "$dir"/*.target.requires; do
     [ -d "$wants" ] || continue
