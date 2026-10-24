@@ -134,7 +134,6 @@ run_install() {
   local args="$1" status=0
   info "\$ ~/dotfiles/install.sh $args"
   # ~/.local/bin is on the PATH of an installed home (env.sh), where features look for what they installed.
-  # shellcheck disable=SC2086 # ARGS is a list of words
   PATH="$HOME/.local/bin:$PATH" bash "$HOME/dotfiles/install.sh" $args </dev/null 2>&1 | sed 's/^/       | /' \
     || status=$?
   [[ "$status" == 0 ]] || error "install.sh failed"

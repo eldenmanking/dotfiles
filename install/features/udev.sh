@@ -13,7 +13,6 @@ UDEV_RULES_DST="/etc/udev/rules.d"
 feature_udev() {
   local targets
   targets="$(system_file_targets "$DOTFILES_ROOT/$UDEV_RULES_SRC" '*.rules' "$UDEV_RULES_DST")"
-  # shellcheck disable=SC2086 # one path per word
   keep_across_steamos_updates udev $targets
   f_write_args copy_system_files _changed -- "$DOTFILES_ROOT/$UDEV_RULES_SRC" "$UDEV_RULES_DST" '*.rules'
   [[ -n "$_changed" ]] || return 0

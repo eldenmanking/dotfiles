@@ -13,7 +13,6 @@ TMPFILES_DST="/etc/tmpfiles.d"
 feature_tmpfiles() {
   local target targets
   targets="$(system_file_targets "$DOTFILES_ROOT/$TMPFILES_SRC" '*.conf' "$TMPFILES_DST")"
-  # shellcheck disable=SC2086 # one path per word
   keep_across_steamos_updates tmpfiles $targets
   f_write_args copy_system_files _changed -- "$DOTFILES_ROOT/$TMPFILES_SRC" "$TMPFILES_DST" '*.conf'
   for target in $_changed; do
