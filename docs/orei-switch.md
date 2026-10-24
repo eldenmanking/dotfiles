@@ -52,14 +52,15 @@ It only touches a CEC TV, so sleeping away from the projector or on a plain moni
 
 - **Sleep:** if the external display answers as a CEC TV, press its Power Off key (CEC only works while the OREI shows
   the laptop, so it never turns off another input's picture) and mark `/run/orei-switch/projector-off`. If the laptop is
-  also behind a switch, disable the PD controller and mark `/var/lib/orei-switch/pd-disabled`.
-- **Wake:** if the ports were cut, re-enable them and wait up to 15s for the display (polling
-  `/sys/class/drm/card*-DP-*/status`), otherwise do up to two UCSI resets, each followed by a 6s wait. If the projector
-  was turned off, wake it with `<Image View On>` and check its power state every 3s, resending until it reports on, for
+  also behind a switch, disable the PD controller.
+- **Wake:** if `framework_tool --pd-info` shows the left controller's ports disabled (by sleep, or by anything else),
+  re-enable them and wait up to 15s for the display (polling `/sys/class/drm/card*-DP-*/status`), otherwise do up to two
+  UCSI resets, each followed by a 6s wait. If the projector was turned off, or the ports were re-enabled (which makes
+  the OREI switch to the laptop), wake it with `<Image View On>` and check its power state every 3s, resending until it reports on, for
   up to 60s, in case it is still shutting down. SteamOS's `cecd` also tries to wake the TV on resume, but this projector
   doesn't respond to it. CEC calls first wait for `cecd` to claim a logical address after resume.
-- **Boot:** if the PD marker survived (the laptop died or was forced off while asleep; the EC keeps running), re-enable
-  the ports. If a CEC TV is connected, turn it on as on wake. This runs in the background, so it doesn't hold up boot.
+- **Boot:** if the ports are disabled (the laptop died or was forced off while asleep; the EC keeps the setting),
+  re-enable them. If a CEC TV is connected, turn it on as on wake. This runs in the background, so it doesn't hold up boot.
 - **Poweroff:** if a CEC TV is connected, turn it off.
 
 It logs each step; tune `PD_WAIT` and `RESET_WAIT` from the timings (`journalctl -t orei-switch -b -o short-precise`).

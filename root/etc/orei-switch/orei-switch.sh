@@ -20,9 +20,6 @@ CEC_DRIVER=amdgpu  # find the CEC adapter by driver: it is re-registered on each
 PD_WAIT=15    # seconds to wait for the display after enabling PD (5.4s and 9.5s when tested)
 RESET_WAIT=6  # seconds to wait for the display after each UCSI reset
 ON_WAIT=60    # seconds to keep trying to turn the projector on, e.g. while it finishes shutting down
-# Set when sleep cut the ports. Kept in /var so boot re-enables them if the laptop never woke (a dead battery or a
-# forced poweroff), since the EC keeps running.
-PD_MARKER=/var/lib/orei-switch/pd-disabled
 # Set when sleep turned the projector off, so wake only turns on a projector it turned off.
 OFF_MARKER=/run/orei-switch/projector-off
 
@@ -64,9 +61,16 @@ tv_power() {
   cec-ctl -s -D "$CEC_DRIVER" --to 0 --give-device-power-status 2>/dev/null | sed -n 's/.*pwr-state: \([a-z-]*\).*/\1/p'
 }
 
-# Return 0 if an external display is connected and is a CEC TV, waiting up to $1 seconds for CEC.
+# Return 0 if an external display is connected and is a CEC TV, asking for up to $1 seconds: right after resume, the
+# adapter can report an address before cecd has finished configuring it, and messages fail until then.
 tv_present() {
-  external_connected && cec_ready "$1" && [[ -n "$(tv_power)" ]]
+  local i
+  external_connected || return 1
+  for (( i = 0; i < $1 * 2; i++ )); do
+    cec_ready 1 && [[ -n "$(tv_power)" ]] && return 0
+    sleep 0.5
+  done
+  return 1
 }
 
 # Return 0 if this laptop's CEC physical address is at least two levels deep, i.e. behind a switch.
@@ -105,13 +109,23 @@ projector_on() {
   log "projector still ${state:-not answering} after ${ON_WAIT}s"
 }
 
+# Return 0 unless framework_tool reports both of the PD controller's ports enabled ("0, 1"), so a failed read counts
+# as disabled. Checked on wake and boot rather than trusting a marker: the EC keeps the setting across a forced
+# poweroff, and anything else (e.g. a manual --pd-disable) could have cut the ports too.
+pd_disabled() {
+  local ports
+  ports="$("$FWT" --pd-info 2>/dev/null | awk -v pd="$PD" '
+    /^Right/ { n = 0 } /^Left/ { n = 1 } /^Back/ { n = 2 }
+    n == pd && /Ports Enabled/ { sub(/.*: */, ""); print }')"
+  [[ "$ports" != "0, 1" ]]
+}
+
 # Enable the PD controller, then wait for the display, falling back to UCSI resets. The first reset makes the OREI
 # switch, the second gives a clean hotplug so video comes up. Returns 1 if no display came up.
 reconnect() {
   local step secs
   log "enabling PD $PD"
   "$FWT" --pd-enable "$PD"
-  rm -f "$PD_MARKER"
   for step in "PD enable" "UCSI reset 1" "UCSI reset 2"; do
     secs="$RESET_WAIT"
     if [[ "$step" == "PD enable" ]]; then
@@ -140,22 +154,25 @@ case "$1" in
     mkdir -p "${OFF_MARKER%/*}" && touch "$OFF_MARKER"
     if behind_switch; then
       log "disabling PD $PD"
-      mkdir -p "${PD_MARKER%/*}" && touch "$PD_MARKER"
       "$FWT" --pd-disable "$PD"
       sleep 1
     fi
     ;;
   wake)
-    if [[ -e "$PD_MARKER" ]]; then
-      reconnect || { rm -f "$OFF_MARKER"; exit 0; }
+    turn_on=false
+    [[ -e "$OFF_MARKER" ]] && turn_on=true
+    rm -f "$OFF_MARKER"
+    # Reconnecting makes the OREI switch to this laptop, so turn the projector on then too.
+    if pd_disabled; then
+      reconnect || exit 0
+      turn_on=true
     fi
-    if [[ -e "$OFF_MARKER" ]]; then
-      rm -f "$OFF_MARKER"
-      wait_connected "$RESET_WAIT" && cec_ready 5 && projector_on
+    if $turn_on && wait_connected "$RESET_WAIT" && tv_present 10; then
+      projector_on
     fi
     ;;
   boot)
-    if [[ -e "$PD_MARKER" ]]; then
+    if pd_disabled; then
       log "PD $PD was left disabled"
       reconnect
     fi

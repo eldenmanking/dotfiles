@@ -3,7 +3,6 @@
 # poweroff and back on on wake and boot (see root/etc/orei-switch/orei-switch.sh).
 
 OREI_SWITCH_DIR=/etc/orei-switch
-OREI_SWITCH_STATE_DIR=/var/lib/orei-switch
 OREI_SWITCH_UNITS="orei-switch.service orei-switch-boot.service orei-switch-poweroff.service"
 FRAMEWORK_TOOL_VERSION=v0.6.6
 FRAMEWORK_TOOL_SHA256=ebc2f3ca300dac6f484c02d058833372ff8dd3c23f2a74b63c774f8dc2f86171
@@ -79,9 +78,6 @@ uninstall_feature_orei_switch() {
   done
   if [[ -d "$OREI_SWITCH_DIR" ]]; then
     run sudo rm -rfv "$OREI_SWITCH_DIR"
-  fi
-  if [[ -d "$OREI_SWITCH_STATE_DIR" ]]; then
-    run sudo rm -rfv "$OREI_SWITCH_STATE_DIR"
   fi
   ! $removed || run sudo systemctl daemon-reload
 }
