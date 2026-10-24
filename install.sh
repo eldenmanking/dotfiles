@@ -17,6 +17,7 @@ DOTFILES_REPO="${DOTFILES_REPO:-https://github.com/eldenmanking/dotfiles.git}"
 BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
 LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
+INSTALL_CONFIG="${DOTFILES_INSTALL_CONFIG:-$HOME/.config/dotfiles/install.conf}"
 
 # When run without its install/ directory beside it (e.g. fetched with curl), clone the repo to $DOTFILES_ROOT unless
 # it is already there, then re-run its install.sh with the same arguments. Runs before install/lib is loaded, so it
@@ -66,10 +67,13 @@ usage_feature() {
 usage() {
   local variant="$1" v features optional uninstallable=""
   cat <<EOF
-Usage: $(basename "$0") --variant NAME [OPTIONS]
+Usage: $(basename "$0") [--variant NAME] [OPTIONS]
 
 dotfiles installation and configuration script. All operations are idempotent.
 Run '$(basename "$0") --variant NAME --help' to list the options of a variant.
+Without --variant, DOTFILES_VARIANT names the variant; without options,
+DOTFILES_FEATURES lists them (feature names, or all for --all). Set them in
+the environment or in $INSTALL_CONFIG.
 See README.md for more information.
 
 Variants:
@@ -120,7 +124,6 @@ usage_error() {
 parse_args() {
   local variant="" flags=" " mode=install all=false dry_run=false help=false
 
-  [[ $# -gt 0 ]] || help=true
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --variant)
@@ -151,10 +154,46 @@ parse_args() {
   _help="$help"
 }
 
+# Outputs: _default_variant and _default_features, from DOTFILES_VARIANT and DOTFILES_FEATURES in the environment or,
+# for each one unset there, in config file $1. The file is sourced in a subshell so it can't change this shell's state.
+load_install_defaults() {
+  local conf="$1" file_variant="" file_features=""
+  if [[ -f "$conf" ]]; then
+    { IFS= read -r -d '' file_variant && IFS= read -r -d '' file_features; } < <(
+      unset DOTFILES_VARIANT DOTFILES_FEATURES
+      # shellcheck source=/dev/null
+      source "$conf" >&2 || exit 1
+      printf '%s\0%s\0' "${DOTFILES_VARIANT:-}" "${DOTFILES_FEATURES:-}"
+    ) || error "Could not read $conf"
+  fi
+  _default_variant="${DOTFILES_VARIANT:-$file_variant}"
+  _default_features="${DOTFILES_FEATURES:-$file_features}"
+}
+
+# Outputs: _variant, _flags and _all, the parsed variant $1, flags $2 and --all $3 with the defaults applied. Default
+# variant $5 is used when no --variant was given. Default features $6 (feature names, and all for --all) are used when
+# the command line selects none, unless mode $4 is uninstall or the command line names a variant other than $5.
+apply_install_defaults() {
+  local variant="$1" flags="$2" all="$3" mode="$4" default_variant="$5" default_features="$6" word
+  [[ -n "$variant" ]] || variant="$default_variant"
+  if [[ "$flags" == " " ]] && ! $all && [[ "$mode" != uninstall ]] \
+    && [[ -z "$default_variant" || "$variant" == "$default_variant" ]]; then
+    for word in $default_features; do
+      word="${word#--}"
+      if [[ "$word" == all ]]; then all=true; else flags+="$word "; fi
+    done
+  fi
+  _variant="$variant"
+  _flags="$flags"
+  _all="$all"
+}
+
+# Print usage and exit unless variant $1 can run: with no variant, or with no features selected ($2 flags, $3 --all)
+# or --help ($4). Without a variant this is an error unless --help was given or there were no arguments ($5).
 exit_with_usage_unless_runnable() {
-  local variant="$1" flags="$2" all="$3" help="$4"
+  local variant="$1" flags="$2" all="$3" help="$4" no_args="$5"
   if [[ -z "$variant" ]]; then
-    $help || usage_error "--variant is required"
+    $help || $no_args || usage_error "--variant is required"
     usage ""
     exit 0
   fi
@@ -270,7 +309,10 @@ main() {
   f_write_args parse_args _variant _flags _mode _all _dry_run _help -- "$@"
   readonly DRY_RUN="$_dry_run"
 
-  exit_with_usage_unless_runnable "$_variant" "$_flags" "$_all" "$_help"
+  f_write_args load_install_defaults _default_variant _default_features -- "$INSTALL_CONFIG"
+  f_write_args apply_install_defaults _variant _flags _all -- \
+    "$_variant" "$_flags" "$_all" "$_mode" "$_default_variant" "$_default_features"
+  exit_with_usage_unless_runnable "$_variant" "$_flags" "$_all" "$_help" "$([[ $# -eq 0 ]] && echo true || echo false)"
 
   f_write_args resolve_features _enabled -- "$_variant" "$_flags" "$_all" "$_mode"
   enter_dotfiles_root

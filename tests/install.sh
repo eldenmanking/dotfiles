@@ -68,7 +68,7 @@ install_ok() {
 install_refused() {
   local home="$1"
   shift
-  if run_install "$home" "$@"; then fail "install.sh $* (should be refused)"; else pass "install.sh $* (refused)"; fi
+  if run_install "$home" "$@"; then fail "install.sh${*:+ $*} (should be refused)"; else pass "install.sh${*:+ $*} (refused)"; fi
 }
 
 # Outputs: _features and _link_paths of variant $1, read from its definition the same way install.sh does, and
@@ -140,6 +140,48 @@ test_usage() {
   done
   install_refused "$_home" --variant nope
   install_refused "$_home" --variant coder --nope
+}
+
+# Write install.conf in home $1 with the remaining args as its lines.
+write_install_conf() {
+  local home="$1"
+  shift
+  mkdir -p "$home/.config/dotfiles"
+  printf '%s\n' "$@" > "$home/.config/dotfiles/install.conf"
+}
+
+# DOTFILES_VARIANT and DOTFILES_FEATURES, from the environment or ~/.config/dotfiles/install.conf, stand in for
+# --variant and the feature options when the command line leaves them out.
+test_defaults() {
+  local out
+  info "defaults: DOTFILES_VARIANT and DOTFILES_FEATURES from install.conf or the environment"
+  new_home
+  write_install_conf "$_home" "DOTFILES_VARIANT=coder"
+  install_ok "$_home" && check "  ...lists the default variant's options" grep -q "Options for variant 'coder'" "$LOG"
+
+  write_install_conf "$_home" "DOTFILES_VARIANT=coder" "DOTFILES_FEATURES=all"
+  install_ok "$_home" --dry-run && check "  ...runs --all" grep -q "would run feature: binaries" "$LOG"
+  install_ok "$_home" --variant arch && check "  ...ignores the features for another variant" \
+    grep -q "Options for variant 'arch'" "$LOG"
+  install_ok "$_home" --dry-run --uninstall \
+    && check "  ...ignores the features under --uninstall" grep -q "Options for variant 'coder'" "$LOG"
+  install_ok "$_home" --dry-run --gitconfig && check "  ...lets options override the features" \
+    sh -c '! grep -q "would run feature: binaries" "$1"' sh "$LOG"
+  if out="$(env -i HOME="$_home" PATH="$PATH" TERM=dumb DOTFILES_VARIANT=portable DOTFILES_FEATURES=gitconfig \
+    "$INSTALL_BASH" "$_home/dotfiles/install.sh" --dry-run </dev/null 2>&1)" \
+    && grep -q "variant: portable" <<< "$out" && grep -q "git config --global" <<< "$out"; then
+    pass "the environment overrides install.conf"
+  else
+    fail "the environment overrides install.conf: $out"
+  fi
+
+  write_install_conf "$_home" "DOTFILES_VARIANT=coder" "DOTFILES_FEATURES=gitconfig"
+  install_ok "$_home" && check "  ...installs with no arguments" grep -q "excludesFile" "$_home/.gitconfig"
+
+  write_install_conf "$_home" 'DOTFILES_VARIANT="$UNSET_VARIABLE"'
+  install_refused "$_home" --dry-run
+  write_install_conf "$_home" "DOTFILES_VARIANT=nope"
+  install_refused "$_home"
 }
 
 # Run install.sh at $1 with home $2 and expect it to refuse, with a message matching $3. $4 describes the case.
@@ -332,6 +374,7 @@ main() {
   info "install.sh runs under $("$INSTALL_BASH" -c 'echo "bash $BASH_VERSION"')"
   variants="$(all_variants)"
   test_usage "$variants"
+  test_defaults
   test_checkout_location
   for variant in $variants; do
     test_dry_run "$variant"
