@@ -1,0 +1,3 @@
+#!/bin/sh
+# Stand-in for udevadm in tests/images/steamos: containers have no udev to reload.
+echo "[mock] udevadm $*"

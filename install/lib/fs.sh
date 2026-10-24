@@ -52,6 +52,16 @@ copy_system_files() {
   _changed="$changed"
 }
 
+# Print the paths that copy_system_files would copy each file in $1 matching $2 to in $3, one per line.
+# Usage: system_file_targets <src_dir> <glob> <dst_dir>
+system_file_targets() {
+  local src_dir="$1" glob="$2" dst_dir="$3" file
+  for file in "$src_dir"/$glob; do
+    [[ -e "$file" ]] && printf '%s\n' "$dst_dir/$(basename "$file")"
+  done
+  return 0
+}
+
 # --- Managed block helper ---
 # Each managed file holds a single dotfiles section made of one subblock per
 # feature. A feature only ever rewrites its own subblock:
@@ -200,6 +210,35 @@ upsert_sources() {
     content+="${content:+$'\n'}. ~/dotfiles/$rel"
   done
   upsert_block "$file" "$name" "$content"
+}
+
+# --- SteamOS keep lists ---
+# Since SteamOS 3.6, an OS update drops every change to /etc that no keep list in this directory names (into
+# /etc/previous). Elsewhere it doesn't exist.
+STEAMOS_KEEP_DIR=/etc/atomic-update.conf.d
+
+# On SteamOS, write keep list $STEAMOS_KEEP_DIR/dotfiles-<name>.conf naming each absolute <path> (with sudo), so OS
+# updates keep those files. Does nothing where the keep list directory doesn't exist.
+# Usage: keep_across_steamos_updates <name> <path>...
+keep_across_steamos_updates() {
+  local name="$1" list content path
+  shift
+  [[ -d "$STEAMOS_KEEP_DIR" ]] || return 0
+  list="$STEAMOS_KEEP_DIR/dotfiles-$name.conf"
+  content="## Installed by the $name feature of ~/dotfiles/install.sh, so that SteamOS updates keep these files."
+  for path in "$@"; do
+    content+=$'\n'"$path"
+  done
+  if [[ -f "$list" && "$(cat "$list")" == "$content" ]]; then
+    info "$list already up to date"
+    return
+  fi
+  info "Writing SteamOS keep list $list"
+  if $DRY_RUN; then
+    info "[dry-run] would write $list"
+    return
+  fi
+  printf '%s\n' "$content" | sudo tee "$list" >/dev/null
 }
 
 # --- File writing and downloads (honor DRY_RUN) ---

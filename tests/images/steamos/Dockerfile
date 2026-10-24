@@ -6,11 +6,22 @@ FROM archlinux:base-20261018.0.612668@sha256:52dfbd5afb23a220d5ee92dafcb4c788d96
 
 ARG ARCH_ARCHIVE_DATE=2026/10/18
 RUN echo "Server = https://archive.archlinux.org/repos/$ARCH_ARCHIVE_DATE/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist \
-  && pacman -Syu --noconfirm --needed diffutils git python tar kconfig neovim starship tmux \
+  && pacman -Syu --noconfirm --needed diffutils git python sudo tar kconfig neovim starship tmux \
   && pacman -Scc --noconfirm
 
-# The deck user, with no sudo: the steamos variant installs everything per-user, since the SteamOS root filesystem is
-# read-only. The home starts empty (no /etc/skel files), so it holds only a fixture's before/ files.
-RUN mkdir /etc/skel.empty && useradd --create-home --skel /etc/skel.empty deck
+# The deck user, with sudo as on a deck once it has a password. The home starts empty (no /etc/skel files), so it holds
+# only a fixture's before/ files.
+RUN mkdir /etc/skel.empty && useradd --create-home --skel /etc/skel.empty deck \
+  && echo 'deck ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/deck
+
+# Stand-ins for what a container lacks (udev, /sys settings, an encrypted home), each printing what it was asked to do.
+COPY bin/ /usr/local/bin/
+# The mock update (see steamos-update), with a stand-in default keep list and SteamOS's keep list directory.
+COPY steamos-update /usr/bin/steamos-update
+COPY atomic-update-keep.conf /usr/lib/rauc/atomic-update-keep.conf
+COPY example-additional-keep-list.conf /etc/atomic-update.conf.d/example-additional-keep-list.conf
+# Last, so an update resets everything after this point.
+RUN steamos-update --snapshot
+
 USER deck
 WORKDIR /home/deck

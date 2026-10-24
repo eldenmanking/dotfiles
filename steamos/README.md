@@ -239,7 +239,10 @@ except the unit itself, which must sit where systemd looks for units:
   3.6 an update drops every change in `/etc` that isn't on a keep list (into
   `/etc/previous`). The default list, `/usr/lib/rauc/atomic-update-keep.conf`,
   covers `/etc/systemd/system` but not `/etc/systemd/user`, so this one names
-  the unit, its enablement symlink and `/etc/dotfiles/home-units-start`.
+  the unit, its enablement symlink and `/etc/dotfiles/home-units-start`. The
+  Framework 16 fixes keep their own files the same way, in
+  `dotfiles-udev.conf` and `dotfiles-tmpfiles.conf`, and the `steamos-update`
+  fixture (`make fixtures`) checks that a mock update keeps all of them.
 
 Which units it starts is up to you: `systemctl --user enable foo.service`
 adds a link under the target named in the unit's `WantedBy=`, and

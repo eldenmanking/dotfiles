@@ -1,0 +1,7 @@
+#!/bin/sh
+# Stand-in for dirlock in tests/images/steamos: reports every home as encrypted, as on a deck set up per
+# docs/steamos-setup.md, so the home_units feature installs its files.
+case "$1" in
+  status) echo "Encrypted, unlocked" ;;
+  *) echo "[mock] dirlock $*" ;;
+esac
