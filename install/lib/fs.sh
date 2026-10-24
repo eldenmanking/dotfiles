@@ -65,15 +65,20 @@ system_file_targets() {
 # --- Managed block helper ---
 # Each managed file holds a single dotfiles section made of one subblock per
 # feature. A feature only ever rewrites its own subblock:
-#     # Managed by dotfiles
+#     ## Managed by dotfiles
 #
-#     # feature <name>
+#     ## feature <name>
 #     ...content...
 #
-#     # /Managed by dotfiles
-DOTFILES_BLOCK_START="# Managed by dotfiles"
-DOTFILES_BLOCK_END="# /Managed by dotfiles"
-DOTFILES_SUBBLOCK_PREFIX="# feature "
+#     ## /Managed by dotfiles
+# The markers start with '##', a comment in sh, zsh and SteamOS keep lists alike.
+# Sections written before used '#'; upsert_block converts them.
+DOTFILES_BLOCK_START="## Managed by dotfiles"
+DOTFILES_BLOCK_END="## /Managed by dotfiles"
+DOTFILES_SUBBLOCK_PREFIX="## feature "
+DOTFILES_OLD_BLOCK_START="# Managed by dotfiles"
+DOTFILES_OLD_BLOCK_END="# /Managed by dotfiles"
+DOTFILES_OLD_SUBBLOCK_PREFIX="# feature "
 
 # Print the 1-based line numbers of lines in $1 exactly equal to $2.
 _line_numbers() {
@@ -92,30 +97,50 @@ _links_into_dotfiles() {
   [[ "$dir/" == "$root/"* ]]
 }
 
-# Overwrite $file with $tmp in place, keeping its mode and any symlink.
+# Return 0 if line $1 is a section marker, old or current.
+_is_marker_line() {
+  [[ "$1" == "$DOTFILES_BLOCK_START" || "$1" == "$DOTFILES_BLOCK_END" || "$1" == "$DOTFILES_SUBBLOCK_PREFIX"* \
+    || "$1" == "$DOTFILES_OLD_BLOCK_START" || "$1" == "$DOTFILES_OLD_BLOCK_END" \
+    || "$1" == "$DOTFILES_OLD_SUBBLOCK_PREFIX"* ]]
+}
+
+# Print file $1 with the markers of an old-style section (starting with a single
+# '#') changed to the current ones. Everything else is printed unchanged.
+_convert_old_section() {
+  awk -v os="$DOTFILES_OLD_BLOCK_START" -v oe="$DOTFILES_OLD_BLOCK_END" -v op="$DOTFILES_OLD_SUBBLOCK_PREFIX" \
+      -v ns="$DOTFILES_BLOCK_START" -v ne="$DOTFILES_BLOCK_END" -v np="$DOTFILES_SUBBLOCK_PREFIX" '
+    $0 == os { print ns; insec = 1; next }
+    insec && $0 == oe { print ne; insec = 0; next }
+    insec && index($0, op) == 1 { print np substr($0, length(op) + 1); next }
+    { print }
+  ' "$1"
+}
+
+# Overwrite $file with $tmp in place (keeping its mode and any symlink), creating
+# its directory as needed, then remove $tmp. Third arg is an optional sudo-style
+# prefix for the write.
 _replace_contents() {
-  local file="$1" tmp="$2"
-  cat "$tmp" > "$file"
+  local file="$1" tmp="$2" sudo_cmd="${3:-}"
+  ${sudo_cmd:+"$sudo_cmd"} mkdir -p "$(dirname "$file")"
+  ${sudo_cmd:+"$sudo_cmd"} tee "$file" < "$tmp" >/dev/null
   rm -f "$tmp"
 }
 
 # Idempotently set the <name> subblock of the dotfiles section in <file> to
 # <content>, creating the file and section as needed. A new section is
 # appended, or inserted before the first line containing <insert_before> if
-# given and present. Refuses to edit malformed sections and symlinks into the
-# dotfiles repo.
-# Usage: upsert_block <file> <name> <content> [insert_before]
+# given and present. <sudo> is an optional sudo-style prefix for writing files
+# the user can read but not write. Refuses to edit malformed sections and
+# symlinks into the dotfiles repo.
+# Usage: upsert_block <file> <name> <content> [insert_before] [sudo]
 upsert_block() {
-  local file="$1" name="$2" content="$3" insert_before="${4:-}"
+  local file="$1" name="$2" content="$3" insert_before="${4:-}" sudo_cmd="${5:-}"
   local header="$DOTFILES_SUBBLOCK_PREFIX$name"
 
   [[ "$name" =~ ^[A-Za-z0-9_-]+$ ]] || error "upsert_block: invalid name '$name'"
   local line
   while IFS= read -r line; do
-    if [[ "$line" == "$DOTFILES_BLOCK_START" || "$line" == "$DOTFILES_BLOCK_END" \
-      || "$line" == "$DOTFILES_SUBBLOCK_PREFIX"* ]]; then
-      error "upsert_block: content for '$name' contains a marker line: $line"
-    fi
+    _is_marker_line "$line" && error "upsert_block: content for '$name' contains a marker line: $line"
   done <<< "$content"
 
   if _links_into_dotfiles "$file"; then
@@ -123,19 +148,24 @@ upsert_block() {
     return 0
   fi
 
-  local starts="" ends=""
+  # Work on a copy, with any old-style section converted, and write it back once.
+  local work starts ends
+  work="$(mktemp)"
   if [[ -f "$file" ]]; then
-    starts="$(_line_numbers "$file" "$DOTFILES_BLOCK_START")"
-    ends="$(_line_numbers "$file" "$DOTFILES_BLOCK_END")"
-    if [[ "$starts" == *$'\n'* || "$ends" == *$'\n'* ]] \
-      || [[ -z "$starts" && -n "$ends" ]] || [[ -n "$starts" && -z "$ends" ]] \
-      || { [[ -n "$starts" ]] && (( starts > ends )); }; then
-      warn "Malformed dotfiles section in $file (need one '$DOTFILES_BLOCK_START' before one '$DOTFILES_BLOCK_END'); fix it by hand"
-      return 1
-    fi
+    _convert_old_section "$file" > "$work"
+  fi
+  starts="$(_line_numbers "$work" "$DOTFILES_BLOCK_START")"
+  ends="$(_line_numbers "$work" "$DOTFILES_BLOCK_END")"
+  if [[ "$starts" == *$'\n'* || "$ends" == *$'\n'* ]] \
+    || [[ -z "$starts" && -n "$ends" ]] || [[ -n "$starts" && -z "$ends" ]] \
+    || { [[ -n "$starts" ]] && (( starts > ends )); }; then
+    rm -f "$work"
+    warn "Malformed dotfiles section in $file (need one '$DOTFILES_BLOCK_START' before one '$DOTFILES_BLOCK_END'); fix it by hand"
+    return 1
   fi
 
   if $DRY_RUN; then
+    rm -f "$work"
     info "[dry-run] would set block '$name' in $file"
     return 0
   fi
@@ -146,8 +176,7 @@ upsert_block() {
   if [[ -z "$starts" ]]; then
     # No section yet: add an empty one for the update below to fill.
     printf '%s\n\n%s\n' "$DOTFILES_BLOCK_START" "$DOTFILES_BLOCK_END" > "$content_file"
-    mkdir -p "$(dirname "$file")"
-    if [[ -f "$file" && -n "$insert_before" ]] && grep -qF "$insert_before" "$file"; then
+    if [[ -n "$insert_before" ]] && grep -qF "$insert_before" "$work"; then
       tmp="$(mktemp)"
       awk -v pat="$insert_before" -v cf="$content_file" '
         !done && index($0, pat) {
@@ -157,11 +186,13 @@ upsert_block() {
           done = 1
         }
         { print }
-      ' "$file" > "$tmp"
-      _replace_contents "$file" "$tmp"
+      ' "$work" > "$tmp"
+      mv "$tmp" "$work"
     else
-      [[ -s "$file" ]] && printf '\n' >> "$file"
-      cat "$content_file" >> "$file"
+      if [[ -s "$work" ]]; then
+        printf '\n' >> "$work"
+      fi
+      cat "$content_file" >> "$work"
     fi
   fi
 
@@ -186,16 +217,16 @@ upsert_block() {
     }
     skip { next }
     { print }
-  ' "$file" > "$tmp"
-  rm -f "$content_file"
+  ' "$work" > "$tmp"
+  rm -f "$work" "$content_file"
 
-  if cmp -s "$tmp" "$file"; then
+  if [[ -f "$file" ]] && cmp -s "$tmp" "$file"; then
     info "Block '$name' already up to date in $file"
     rm -f "$tmp"
     return 0
   fi
   info "Updating block '$name' in $file"
-  _replace_contents "$file" "$tmp"
+  _replace_contents "$file" "$tmp" "$sudo_cmd"
 }
 
 # Set the <name> subblock of <file> to source each repo-relative <path>. Shell
@@ -216,29 +247,26 @@ upsert_sources() {
 # Since SteamOS 3.6, an OS update drops every change to /etc that no keep list in this directory names (into
 # /etc/previous). Elsewhere it doesn't exist.
 STEAMOS_KEEP_DIR=/etc/atomic-update.conf.d
+# The keep list dotfiles features share, with one subblock each (see upsert_block).
+STEAMOS_KEEP_LIST="$STEAMOS_KEEP_DIR/dotfiles.conf"
 
-# On SteamOS, write keep list $STEAMOS_KEEP_DIR/dotfiles-<name>.conf naming each absolute <path> (with sudo), so OS
-# updates keep those files. Does nothing where the keep list directory doesn't exist.
+# On SteamOS, set feature <name>'s subblock of STEAMOS_KEEP_LIST to the absolute <path>s (with sudo), so OS updates
+# keep those files. Does nothing where the keep list directory doesn't exist. A STEAMOS_KEEP_LIST with no dotfiles
+# section is the list home_units used to install whole, so it is removed first.
 # Usage: keep_across_steamos_updates <name> <path>...
 keep_across_steamos_updates() {
-  local name="$1" list content path
+  local name="$1" content="" path
   shift
   [[ -d "$STEAMOS_KEEP_DIR" ]] || return 0
-  list="$STEAMOS_KEEP_DIR/dotfiles-$name.conf"
-  content="## Installed by the $name feature of ~/dotfiles/install.sh, so that SteamOS updates keep these files."
   for path in "$@"; do
-    content+=$'\n'"$path"
+    content+="${content:+$'\n'}$path"
   done
-  if [[ -f "$list" && "$(cat "$list")" == "$content" ]]; then
-    info "$list already up to date"
-    return
+  if [[ -f "$STEAMOS_KEEP_LIST" ]] \
+    && ! grep -qxF -e "$DOTFILES_BLOCK_START" -e "$DOTFILES_OLD_BLOCK_START" "$STEAMOS_KEEP_LIST"; then
+    info "Replacing $STEAMOS_KEEP_LIST, the keep list home_units used to install"
+    run sudo rm -f "$STEAMOS_KEEP_LIST"
   fi
-  info "Writing SteamOS keep list $list"
-  if $DRY_RUN; then
-    info "[dry-run] would write $list"
-    return
-  fi
-  printf '%s\n' "$content" | sudo tee "$list" >/dev/null
+  upsert_block "$STEAMOS_KEEP_LIST" "$name" "$content" "" sudo
 }
 
 # --- File writing and downloads (honor DRY_RUN) ---

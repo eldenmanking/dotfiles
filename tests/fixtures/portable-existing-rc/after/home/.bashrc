@@ -11,13 +11,13 @@ PS1='[\u@\h \W]\$ '
 
 export EDITOR=vim
 
-# Managed by dotfiles
+## Managed by dotfiles
 
-# feature shell
+## feature shell
 . ~/dotfiles/home/.config/sh/env.sh
 . ~/dotfiles/home/.config/sh/aliases.sh
 
-# feature starship
+## feature starship
 . ~/dotfiles/home/.config/sh/starship.sh
 
-# /Managed by dotfiles
+## /Managed by dotfiles

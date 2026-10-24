@@ -6,19 +6,19 @@ bindkey -v
 
 export EDITOR=vim
 
-# Managed by dotfiles
+## Managed by dotfiles
 
-# feature zsh
+## feature zsh
 . ~/dotfiles/home/.config/zsh/plugins.zsh
 
-# feature shell
+## feature shell
 . ~/dotfiles/home/.config/sh/env.sh
 . ~/dotfiles/home/.config/sh/aliases.sh
 . ~/dotfiles/home/.config/zsh/keybindings.zsh
 . ~/dotfiles/home/.config/zsh/settings.zsh
 . ~/dotfiles/home/.config/zsh/external.zsh
 
-# feature starship
+## feature starship
 . ~/dotfiles/home/.config/sh/starship.sh
 
-# /Managed by dotfiles
+## /Managed by dotfiles

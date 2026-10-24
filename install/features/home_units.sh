@@ -11,13 +11,12 @@ HOME_UNITS_FILES=(
 )
 # The link 'systemctl --global enable' makes, from the unit's WantedBy=default.target.
 HOME_UNITS_ENABLED_LINK=/etc/systemd/user/default.target.wants/home-units.service
-# Files installed under older names: by the standalone steamos-config repo, before it moved into dotfiles, and the
-# keep list this feature installed before keep_across_steamos_updates wrote it.
+# Files the standalone steamos-config repo installed, before it moved into dotfiles. (keep_across_steamos_updates
+# replaces the keep list this feature used to install whole.)
 HOME_UNITS_OLD_FILES=(
   /etc/steamos-config/home-units-start
   /etc/atomic-update.conf.d/steamos-config.conf
   /etc/atomic-update.conf.d/home-units.conf
-  /etc/atomic-update.conf.d/dotfiles.conf
 )
 
 # Installed copies are compared with the repo, so updates get reinstalled too.
