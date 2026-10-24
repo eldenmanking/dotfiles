@@ -196,19 +196,51 @@ expect_refused() {
   fi
 }
 
+# Run from a git checkout elsewhere with no ~/dotfiles, install.sh clones that checkout's commit to ~/dotfiles, keeps
+# its origin, and installs from the clone.
+test_clone_checkout() {
+  local home src
+  info "checkout location: install.sh clones a checkout elsewhere to ~/dotfiles"
+  home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
+  src="$SCRATCH/coder-checkout"
+  git clone --quiet "$REPO_ROOT" "$src"
+  # Commit the working tree's install.sh and install/, so this tests them rather than the last commit.
+  cp -R "$REPO_ROOT/install.sh" "$REPO_ROOT/install" "$src/"
+  git -C "$src" add -A
+  git -C "$src" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false \
+    commit --quiet --allow-empty -m "working tree"
+  git -C "$src" remote set-url origin https://example.com/dotfiles.git
+  printf 'local change\n' > "$src/uncommitted"
+  if env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$src/install.sh" --variant coder --gitconfig \
+    </dev/null >"$LOG" 2>&1; then
+    pass "install.sh from $src"
+  else
+    fail "install.sh from $src"
+    sed 's/^/       | /' "$LOG" >&2
+    return
+  fi
+  check "  ...cloned the same commit" \
+    test "$(git -C "$home/dotfiles" rev-parse HEAD)" = "$(git -C "$src" rev-parse HEAD)"
+  check "  ...kept the origin" test "$(git -C "$home/dotfiles" remote get-url origin)" = https://example.com/dotfiles.git
+  check "  ...warned about uncommitted changes" grep -q "uncommitted changes" "$LOG"
+  check "  ...installed from the clone" grep -q "$home/dotfiles/home/.config/git/ignore" "$home/.gitconfig"
+}
+
 # install.sh must run from ~/dotfiles (or a link to it), and the checkout must be named dotfiles.
 test_checkout_location() {
   local home other
   info "checkout location: install.sh refuses to run from anywhere but a checkout named dotfiles at ~/dotfiles"
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
-  expect_refused "$REPO_ROOT/install.sh" "$home" "must be checked out at $home/dotfiles" "with no ~/dotfiles"
-  mkdir "$home/dotfiles"
-  expect_refused "$REPO_ROOT/install.sh" "$home" "is not $home/dotfiles" "from a checkout other than ~/dotfiles"
-  rmdir "$home/dotfiles"
-  # A copy named otherwise, linked as ~/dotfiles.
+  # A copy that isn't a git checkout, so it can't be cloned to ~/dotfiles.
   other="$SCRATCH/not-dotfiles"
   mkdir "$other"
   cp -R "$REPO_ROOT/install.sh" "$REPO_ROOT/install" "$other/"
+  expect_refused "$other/install.sh" "$home" "must be checked out at $home/dotfiles" \
+    "with no ~/dotfiles, from a copy that isn't a git checkout"
+  mkdir "$home/dotfiles"
+  expect_refused "$REPO_ROOT/install.sh" "$home" "is not $home/dotfiles" "from a checkout other than ~/dotfiles"
+  rmdir "$home/dotfiles"
+  # The copy, linked as ~/dotfiles.
   ln -s "$other" "$home/dotfiles"
   expect_refused "$home/dotfiles/install.sh" "$home" "must be a directory named dotfiles" \
     "with ~/dotfiles linked to a checkout named not-dotfiles"
@@ -376,6 +408,7 @@ main() {
   test_usage "$variants"
   test_defaults
   test_checkout_location
+  test_clone_checkout
   for variant in $variants; do
     test_dry_run "$variant"
     test_install "$variant"

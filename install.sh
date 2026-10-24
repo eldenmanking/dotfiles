@@ -24,7 +24,10 @@ INSTALL_CONFIG="${DOTFILES_INSTALL_CONFIG:-$HOME/.config/dotfiles/install.conf}"
 # prints its own messages. Stdin is reattached to the terminal when it isn't one (as with 'curl ... | bash -s -- ARGS'),
 # so features that prompt still can.
 bootstrap() {
-  [[ ! -f "$INSTALL_DIR/lib/fn.sh" ]] || return 0
+  if [[ -f "$INSTALL_DIR/lib/fn.sh" ]]; then
+    clone_checkout_to_root "$@"
+    return 0
+  fi
 
   if [[ ! -e "$DOTFILES_ROOT" ]]; then
     command -v git >/dev/null || { printf '[error] git is required to clone %s\n' "$DOTFILES_REPO" >&2; exit 1; }
@@ -37,6 +40,32 @@ bootstrap() {
   if [[ ! -t 0 ]] && { : </dev/tty; } 2>/dev/null; then
     exec bash "$DOTFILES_ROOT/install.sh" "$@" </dev/tty
   fi
+  exec bash "$DOTFILES_ROOT/install.sh" "$@"
+}
+
+# When run from a git checkout elsewhere (e.g. Coder's ~/.config/coderv2/dotfiles) and $DOTFILES_ROOT doesn't exist,
+# clone that checkout's current commit to $DOTFILES_ROOT, point its origin at the checkout's origin, then re-run its
+# install.sh with the same arguments. Uncommitted changes aren't copied. Anything else is left to enter_dotfiles_root.
+clone_checkout_to_root() {
+  local top head branch origin
+  [[ ! -e "$DOTFILES_ROOT" && ! -L "$DOTFILES_ROOT" ]] || return 0
+  command -v git >/dev/null || return 0
+  top="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)" || return 0
+  [[ "$(cd "$top" && pwd -P)" == "$(cd "$SCRIPT_DIR" && pwd -P)" ]] || return 0
+
+  head="$(git -C "$SCRIPT_DIR" rev-parse HEAD)"
+  branch="$(git -C "$SCRIPT_DIR" symbolic-ref --short -q HEAD || true)"
+  origin="$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || true)"
+  [[ -z "$(git -C "$SCRIPT_DIR" status --porcelain)" ]] \
+    || printf '[warn] %s has uncommitted changes, which are not copied to %s\n' "$SCRIPT_DIR" "$DOTFILES_ROOT" >&2
+  printf '[info] Cloning %s (%s) into %s\n' "$SCRIPT_DIR" "${branch:-${head:0:12}}" "$DOTFILES_ROOT"
+  git clone --quiet --no-checkout "$SCRIPT_DIR" "$DOTFILES_ROOT"
+  if [[ -n "$branch" ]]; then
+    git -C "$DOTFILES_ROOT" checkout --quiet -B "$branch" "$head"
+  else
+    git -C "$DOTFILES_ROOT" checkout --quiet --detach "$head"
+  fi
+  [[ -z "$origin" ]] || git -C "$DOTFILES_ROOT" remote set-url origin "$origin"
   exec bash "$DOTFILES_ROOT/install.sh" "$@"
 }
 
