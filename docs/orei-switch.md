@@ -1,0 +1,84 @@
+# OREI HDMI switch handoff (Framework 16)
+The `orei_switch` feature (`./install.sh --variant steamos --orei_switch`) makes an OREI 4K 3-input HDMI switch (auto
+mode) follow a Framework 16's sleep and wake, and turns the projector off on sleep and poweroff and back on on wake. It
+installs `/etc/orei-switch/orei-switch.sh`, a pinned `framework_tool` (Framework's EC tool) beside it,
+`orei-switch.service` (enabled, wanted by `sleep.target`), `orei-switch-poweroff.service` (wanted by `poweroff.target`,
+so not on reboot) and a SteamOS keep list for `/etc/orei-switch`, without which an OS update deletes the script and
+binary.
+
+## Setup
+- Framework 16 (AMD iGPU) on SteamOS. HDMI expansion card on USB-C port 2 (left), the DRM connector `card0-DP-4` and
+  `/dev/cec0`, into OREI input 1. A Nintendo Switch is on input 2 and an Apple TV on input 3, and the OREI feeds a projector.
+- Gamescope drives one display: with the external display connected, the laptop screen is blank.
+
+## Problem
+1. Waking or booting the laptop doesn't make the OREI switch to it: the laptop shows on its own screen and DP-4 reports
+   disconnected. The OREI apparently only presents HPD/EDID on the selected input, so the laptop never sees a display.
+2. While the laptop sleeps, turning on the Apple TV doesn't take the OREI away from it (the Nintendo Switch does).
+
+## Findings
+- The OREI ignores CEC entirely (Active Source, Set Stream Path and Image View On from either device do nothing).
+- It switches on a fresh HDMI +5V edge (a new source arriving), and falls back to another live input only when the
+  current input's 5V stays gone. The Apple TV keeps 5V on in standby, so it never makes an edge.
+- These did not keep 5V off: forcing `/sys/class/drm/card0-DP-4/status` off/on; toggling
+  `/sys/class/typec/port2/port2.0/active` (DP alt mode); a single UCSI connector reset (the blip is too short and the
+  controller re-enters DP mode within seconds).
+- A UCSI connector reset works as a software replug for wake:
+  `echo 0x30003 > /sys/kernel/debug/usb/ucsi/USBC000:00/command` (connector 3 = typec port 2 + 1). It takes two resets
+  ~10s apart: the first makes the OREI switch, the second gives a clean hotplug so video comes up.
+- `framework_tool --pd-disable 1` cuts power to the whole left PD controller (ports 2 and 3), which lets the Apple TV take
+  over; `--pd-enable 1` restores it, and the fresh edge switches the OREI back with a picture. Granularity is left
+  (PD 1) and right (PD 0) only, so **a charger on port 3 is cut during sleep: keep it on the right side** (check with
+  `framework_tool --pdports`).
+
+- The projector (a Nebula Cosmos, CEC vendor ID `mtk`) is reachable over CEC through the OREI as the TV (0.0.0.0), and
+  the Apple TV answers as Playback Device 1 (1.2.0.0) with its power state. The projector acknowledges `<Standby>`, sent
+  to it or broadcast, even after an `<Active Source>`, but ignores it. It does turn off on the remote's Power Off key:
+  `cec-ctl -D amdgpu --to 0 --user-control-pressed ui-cmd=power-off-function`, then `--user-control-released`.
+- The kernel re-registers the CEC adapter on each resume, alternating between `/dev/cec0` and `/dev/cec1`, so the
+  script finds it by driver (`cec-ctl -D amdgpu`). SteamOS's `cecd` configures it (OSD name `steamdeck`).
+- The laptop's CEC adapter needs HPD, so it can only talk on the bus while the OREI shows the laptop, and not at all
+  while it sleeps. It can't watch for another device turning on during sleep.
+
+- The projector reports its power state over CEC, and the display stays connected for a while after it goes to standby
+  (the OREI keeps HPD up), so the laptop can wake it with `<Image View On>`. After roughly 30s in standby, HPD drops.
+- An ordinary monitor doesn't answer CEC at logical address 0. Behind the OREI, the laptop's physical address is
+  `1.1.0.0` (two levels deep); plugged straight into a TV it would be `1.0.0.0`.
+- While asleep the laptop can't react to anything on the ports: Type-C events arrive through the EC, whose wakeups are
+  disabled (`root/etc/tmpfiles.d/ec-no-wakeup.conf`), and a wake would be a full resume anyway.
+
+## What the script does
+It only touches a CEC TV, so sleeping away from the projector or on a plain monitor changes nothing.
+
+- **Sleep:** if the external display answers as a CEC TV, press its Power Off key (CEC only works while the OREI shows
+  the laptop, so it never turns off another input's picture) and mark `/run/orei-switch/projector-off`. If the laptop is
+  also behind a switch, disable the PD controller and mark `/var/lib/orei-switch/pd-disabled`.
+- **Wake:** if the ports were cut, re-enable them and wait up to 15s for the display (polling
+  `/sys/class/drm/card*-DP-*/status`), otherwise do up to two UCSI resets, each followed by a 6s wait. If the projector
+  was turned off, wake it with `<Image View On>` and check its power state every 3s, resending until it reports on, for
+  up to 60s, in case it is still shutting down. SteamOS's `cecd` also tries to wake the TV on resume, but this projector
+  doesn't respond to it. CEC calls first wait for `cecd` to claim a logical address after resume.
+- **Boot:** if the PD marker survived (the laptop died or was forced off while asleep; the EC keeps running), re-enable
+  the ports. If a CEC TV is connected, turn it on as on wake. This runs in the background, so it doesn't hold up boot.
+- **Poweroff:** if a CEC TV is connected, turn it off.
+
+It logs each step; tune `PD_WAIT` and `RESET_WAIT` from the timings (`journalctl -t orei-switch -b -o short-precise`).
+In real suspend/resumes the display connected 5.4s and 9.5s after the PD enable, with no resets.
+
+Known gaps:
+- Connecting to the OREI while the laptop sleeps makes the OREI switch to the sleeping laptop (its card is powered), and
+  nothing can hand it back until the laptop wakes. Use the OREI remote, or wake and sleep the laptop again.
+- If the projector has been in standby long enough to drop HPD (e.g. turned off with its own remote), a sleep finds no
+  TV and leaves the ports on, so another source can't take over. Use the OREI remote.
+
+## Operating
+- Logs: `journalctl -t orei-switch -b`
+- Recovery, if the left ports stay dead: `sudo /etc/orei-switch/framework_tool --pd-enable 1` (or reboot)
+- Remove: `./install.sh --variant steamos --orei_switch --uninstall`
+
+## Open questions
+- Verify a real poweroff and boot, the UCSI reset fallback on wake, and turning on a projector that is still shutting
+  down. (Suspend/resume, including turning the projector off and on, works.) Accidental wakes turning the projector on
+  are fine.
+- Boot: the projector shows a blank screen on boot if connected, and the encrypted home needs a desktop-mode login
+  first.

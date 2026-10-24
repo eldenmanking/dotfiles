@@ -32,6 +32,7 @@ feature_description() {
     webterm)     echo "download ttyd and install the webterm systemd user units (browser shell on localhost)" ;;
     home_units)  echo "install home-units.service into /etc (sudo, only if the home is encrypted with dirlock)" ;;
     kde)         echo "merge partial KDE config files (e.g. home/.config/kcminputrc) into ~/.config with kwriteconfig" ;;
+    orei_switch) echo "download framework_tool and install the OREI HDMI switch sleep/wake handoff into /etc (sudo)" ;;
     distrobox)   echo "create an 'arch' distrobox from archlinux:latest and enter it" ;;
     *)           echo "" ;;
   esac
@@ -105,7 +106,7 @@ gui_supported() {
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip flatpak kde udev tmpfiles webterm home_units distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip flatpak kde udev tmpfiles webterm home_units orei_switch distrobox "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"

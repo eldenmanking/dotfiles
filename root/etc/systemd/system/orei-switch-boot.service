@@ -1,0 +1,11 @@
+# Installed by the orei_switch feature of ~/dotfiles/install.sh. Re-enables the left USB-C ports if a sleep left them
+# off, and turns the projector on. Not a oneshot, so its retries don't hold up boot.
+[Unit]
+Description=OREI HDMI switch and projector setup on boot
+
+[Service]
+Type=exec
+ExecStart=/etc/orei-switch/orei-switch.sh boot
+
+[Install]
+WantedBy=multi-user.target
