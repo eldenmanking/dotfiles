@@ -112,8 +112,12 @@ collect() {
   for path in $files dotfiles/.backup; do
     present "$HOME/$path" && paths+=("$path")
   done
-  mkdir -p "$dest/home"
-  [[ ${#paths[@]} -eq 0 ]] || tar -cf - -C "$HOME" "${paths[@]}" | tar -xf - -C "$dest/home"
+  # Only directories with something in them, since git can't hold an empty after/home or after/root.
+  mkdir -p "$dest"
+  if [[ ${#paths[@]} -gt 0 ]]; then
+    mkdir "$dest/home"
+    tar -cf - -C "$HOME" "${paths[@]}" | tar -xf - -C "$dest/home"
+  fi
 
   paths=()
   for path in $root_files; do

@@ -132,7 +132,6 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   ├── webterm-shell            --- login shell ttyd runs for each connection
 │   │   └── webterm-ttyd             --- runs ttyd with the built page, if any
 │   ├── systemd                      ---
-│   │   ├── home-units.keep.conf     --- SteamOS keep list so home-units survives updates
 │   │   ├── home-units.service       --- system-wide user unit installed into /etc/systemd/user
 │   │   ├── webterm-ttyd.service.temp--- ttyd on a private UNIX socket
 │   │   ├── webterm.service.template --- systemd-socket-proxyd, exits when idle
@@ -144,6 +143,7 @@ This repository contains configuration files for my linux workspace. The followi
     │   ├── arch-existing-rc         --- arch install over an existing .bashrc, .bash_profile and .zshrc
     │   ├── portable-existing-rc     --- portable install over the same files
     │   ├── steamos-existing-rc      --- steamos install over the same files
+    │   ├── steamos-home-units-migrati--- --home_units moving an older install to its new keep list
     │   ├── steamos-kde-config       --- --kde merging keyboard repeat into an existing kcminputrc
     │   └── steamos-update           --- steamos install with the Framework 16 fixes surviving a (mock) SteamOS update
     ├── fixtures.sh                  --- make fixtures: runs each fixture in its container image and compares after/
@@ -190,7 +190,7 @@ Each `feature_<name>` function has a doc comment directly above it: a brief desc
 feature_webterm() {
 ```
 
-Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes. On SteamOS, `udev` and `tmpfiles` also write keep lists (`/etc/atomic-update.conf.d/dotfiles-udev.conf` and `dotfiles-tmpfiles.conf`) so OS updates keep the files they copy into `/etc`.
+Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev` and `tmpfiles` hold Framework 16 fixes. On SteamOS, the features that write into `/etc` (`udev`, `tmpfiles` and `home_units`) also write keep lists with `keep_across_steamos_updates` (`/etc/atomic-update.conf.d/dotfiles-<feature>.conf`), so OS updates keep those files.
 
 | Feature | Machine | OS | GUI | Requires |
 |---|---|---|---|---|
