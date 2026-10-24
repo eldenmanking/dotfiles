@@ -14,7 +14,8 @@ RUN echo "Server = https://archive.archlinux.org/repos/$ARCH_ARCHIVE_DATE/\$repo
 RUN mkdir /etc/skel.empty && useradd --create-home --skel /etc/skel.empty deck \
   && echo 'deck ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/deck
 
-# Stand-ins for what a container lacks (udev, /sys settings, an encrypted home), each printing what it was asked to do.
+# Stand-ins for what a container lacks (udev, /sys settings, an encrypted home, a running systemd), each printing what it
+# was asked to do.
 COPY bin/ /usr/local/bin/
 # The mock update (see steamos-update), with a stand-in default keep list and SteamOS's keep list directory.
 COPY steamos-update /usr/bin/steamos-update

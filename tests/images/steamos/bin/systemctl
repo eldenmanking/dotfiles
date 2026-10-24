@@ -1,0 +1,22 @@
+#!/bin/sh
+# Stand-in for systemctl in tests/images/steamos: containers run no systemd, so commands that need the running manager
+# (daemon-reload, start, stop, restart, reload, and --now) print what they were asked to do, and the rest (enable,
+# disable, reenable, is-enabled, ...), which only read and write unit files and links, go to the real systemctl.
+for arg in "$@"; do
+  case "$arg" in
+    daemon-reload|start|stop|restart|reload|try-restart|reload-or-restart)
+      echo "[mock] systemctl $*"
+      exit 0
+      ;;
+  esac
+done
+# Drop --now, rebuilding the arguments without it.
+for arg do
+  shift
+  if [ "$arg" = --now ]; then
+    echo "[mock] systemctl: ignoring --now"
+  else
+    set -- "$@" "$arg"
+  fi
+done
+exec /usr/bin/systemctl "$@"
