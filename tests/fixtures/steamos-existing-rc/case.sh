@@ -5,5 +5,5 @@
 # steamos-steam covers steam.
 # None of them touch the startup files.
 IMAGE=steamos
-ARGS="--variant steamos --link --neovim --starship --tmux --claude --gitconfig --kde --home_units"
+ARGS="--variant steamos --link --neovim --starship --tmux --claude --gitconfig --kde"
 FILES="$FILES .config/webterm"

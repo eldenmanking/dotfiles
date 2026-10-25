@@ -1,6 +1,6 @@
 # Feature: webterm, a browser shell served by ttyd and started on demand by systemd socket activation (steamos).
-# The units go into /etc/systemd/user, outside an encrypted home, so the user manager sees them from boot and
-# home-units-start can start them after the unlock without a daemon-reload. See Webterm in README.md.
+# The units go into /etc/systemd/user and are enabled globally, so both the units and their links are outside an
+# encrypted home and the user manager starts the socket from boot. See Webterm in README.md.
 
 WEBTERM_UNITS_SRC="$DOTFILES_ROOT/root/etc/systemd/user"
 WEBTERM_SOCKET="$WEBTERM_UNITS_SRC/webterm.socket"
@@ -104,7 +104,7 @@ feature_webterm() {
   token="$(webterm_token)"
   save_token "$token"
   keep_across_steamos_updates webterm $(unit_keep_paths "$USER_UNITS_DIR" "${WEBTERM_UNITS[@]}")
-  f_write_args install_user_units _changed -- --user "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
+  f_write_args install_user_units _changed -- --global "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
 
   run systemctl --user start webterm.socket
   # If it's running, restart it so the new units and settings apply right away.
@@ -117,9 +117,9 @@ feature_webterm() {
   check_socket_activation "$url"
 }
 
-# Stop webterm and remove its units, its enable link, ttyd and the page it built. The URL token is kept.
+# Stop webterm and remove its units, their enable links, ttyd and the page it built. The URL token is kept.
 uninstall_feature_webterm() {
-  f_write_args uninstall_user_units _removed -- --user "${WEBTERM_UNITS[@]}"
+  f_write_args uninstall_user_units _removed -- --global "${WEBTERM_UNITS[@]}"
   forget_across_steamos_updates webterm
   if [[ -e "$TTYD_BIN" ]]; then
     run rm -f "$TTYD_BIN"

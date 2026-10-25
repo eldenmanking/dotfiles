@@ -98,8 +98,8 @@ uninstall_system_units() {
 # is a user session, then reenable each unit that changed or isn't enabled yet: with --global for every user (links
 # in /etc/systemd/user, which needs no session), with --user for this one (links in ~/.config/systemd/user, which
 # needs a session). Units without an [Install] section are only copied. Starting them is left to the caller.
-# Every user manager sees the units from boot, even with an encrypted home, so home-units-start can start them after
-# the unlock without a reload. They are copied, not linked: systemd treats a symlinked unit file as a "linked" unit,
+# Every user manager sees the units from boot, even with an encrypted home, and with --global their links too, so
+# they start without waiting for the unlock. They are copied, not linked: systemd treats a symlinked unit file as a "linked" unit,
 # which enable and disable handle differently. Outputs: _changed, the space-separated units that were copied or
 # (re)enabled (empty if all were up to date).
 # On SteamOS, also name unit_keep_paths "$USER_UNITS_DIR" <unit>... on the keep list: the default one keeps nothing
