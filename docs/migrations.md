@@ -99,7 +99,7 @@ plugin keep it, and tpm updates keep pulling from upstream.
 - **Verify:** the check prints nothing, and `grep -c '\\037' ~/.tmux/plugins/tmux-resurrect/scripts/restore.sh`
   prints a nonzero count.
 
-## Remove auto-suspend
+## Remove auto-suspend (#60)
 The auto-suspend timer, its service and `auto-suspend` script are gone: `--link` no longer links them and
 `--services` now only enables bluetooth. Applies to arch machines that ran `--link --services`.
 
