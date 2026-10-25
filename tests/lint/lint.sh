@@ -6,6 +6,12 @@ set -euo pipefail
 # shellcheck source=../lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../lib.sh"
 
+# Print the tracked files matching the git pathspecs $@ (all with none), one per line, but symlinks: those are checked
+# through their targets, and fixtures' after/ holds links into the containers' homes, which don't exist here.
+tracked_files() {
+  git ls-files -s -- "$@" | awk -F '\t' '$1 !~ /^120000 / { print $2 }'
+}
+
 # Outputs: _sh, _bash, _sourced, _zsh and _python, newline-separated tracked files of each language. Files under
 # install/ without a shebang are sourced by install.sh, and fixtures' case.sh by tests/fixtures.sh, so they are bash.
 classify_files() {
@@ -26,7 +32,7 @@ classify_files() {
         esac
         ;;
     esac
-  done < <(cd "$REPO_ROOT" && git ls-files)
+  done < <(cd "$REPO_ROOT" && tracked_files)
   _sh="$sh"
   _bash="$bash"
   _sourced="$sourced"
@@ -69,7 +75,7 @@ main() {
   fi
   if have_or_skip python3 "Python and TOML syntax checks"; then
     each_file "$_python" python_syntax || failed=1
-    each_file "$(git ls-files '*.toml')" toml_syntax || failed=1
+    each_file "$(tracked_files '*.toml')" toml_syntax || failed=1
   fi
 
   info "shellcheck $SHELLCHECK_VERSION"
