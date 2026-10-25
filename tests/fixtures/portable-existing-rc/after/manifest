@@ -22,7 +22,7 @@ new     ~/.profile f 644 user dfbd2515280ad12d
 new     ~/.tmux d 755 user
 new     ~/.tmux.conf l 777 user -> ~/dotfiles/home/.tmux.conf
 new     ~/.tmux/plugins d 755 user
-new     ~/.tmux/plugins/tmux-resurrect git 755 user https://github.com/tmux-plugins/tmux-resurrect
+new     ~/.tmux/plugins/tmux-resurrect git 755 user https://github.com/eldenmanking/tmux-resurrect
 new     ~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/strategies/nvim_obsession.sh
 new     ~/.tmux/plugins/tmux-sensible git 755 user https://github.com/tmux-plugins/tmux-sensible
 new     ~/.tmux/plugins/tpm git 755 user https://github.com/tmux-plugins/tpm
