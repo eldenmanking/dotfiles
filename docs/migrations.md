@@ -83,3 +83,18 @@ Units in `~/.config/systemd/user` override the ones in `/etc/systemd/user`, so t
 - **Verify:** the check prints nothing, `systemctl --user cat webterm.socket` starts with
   `# /etc/systemd/user/webterm.socket`, `readlink ~/.config/systemd/user/sockets.target.wants/webterm.socket` is
   `/etc/systemd/user/webterm.socket`, and the URL `--webterm` prints answers.
+
+## Use the eldenmanking/tmux-resurrect fork (#58)
+`.tmux.conf` now installs tmux-resurrect from the eldenmanking fork, which keeps panes with an empty title from
+restoring in the wrong directory. tpm skips plugins whose directory exists, so machines that installed the upstream
+plugin keep it, and tpm updates keep pulling from upstream.
+
+### tmux-resurrect still cloned from upstream (all)
+- **Check:** `git -C ~/.tmux/plugins/tmux-resurrect remote get-url origin 2>/dev/null | grep -v eldenmanking`
+- **Fix:** if `git -C ~/.tmux/plugins/tmux-resurrect status --short` lists anything but
+  `strategies/nvim_obsession.sh` (linked by `.tmux.conf`), show the user and ask first. Then
+  `git -C ~/.tmux/plugins/tmux-resurrect remote set-url origin https://github.com/eldenmanking/tmux-resurrect`,
+  `git -C ~/.tmux/plugins/tmux-resurrect fetch origin` and
+  `git -C ~/.tmux/plugins/tmux-resurrect reset --hard origin/master`.
+- **Verify:** the check prints nothing, and `grep -c '\\037' ~/.tmux/plugins/tmux-resurrect/scripts/restore.sh`
+  prints a nonzero count.
