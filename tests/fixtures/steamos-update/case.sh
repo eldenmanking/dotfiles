@@ -3,7 +3,7 @@
 # second install checks that nothing needed restoring). udev, tmpfiles and orei_switch's files survive through
 # dotfiles.conf, and the system units of hdmi_audio_fix and orei_switch and their links through SteamOS's default
 # list. The image's dirlock reports an encrypted home, so home_units installs too. gamescope_screenshot's user units
-# and their global enable links in /etc/systemd/user survive through dotfiles.conf. See
+# and their global enable links in /etc/systemd/user (named by glob) survive through dotfiles.conf. See
 # tests/images/steamos/steamos-update.
 IMAGE=steamos
 ARGS="--variant steamos --link --udev --tmpfiles --home_units --hdmi_audio_fix --orei_switch --gamescope_screenshot"

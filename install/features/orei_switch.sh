@@ -15,7 +15,7 @@ OREI_SWITCH_FILES=(
   "755 root/etc/dotfiles/orei-switch/sddm-xsetup"
   "644 root/etc/sddm.conf.d/orei-switch.conf"
 )
-# The units are on SteamOS's default keep list; these aren't.
+# Kept across SteamOS updates along with whatever unit_keep_paths names (the default keep list covers services).
 OREI_SWITCH_KEEP_PATHS=("$OREI_SWITCH_DIR/**" /etc/sddm.conf.d/orei-switch.conf)
 
 # Download the pinned framework_tool into $OREI_SWITCH_DIR unless it is already there.
@@ -44,7 +44,8 @@ install_framework_tool() {
 # @gui any
 feature_orei_switch() {
   local entry mode src dest
-  keep_across_steamos_updates orei_switch "${OREI_SWITCH_KEEP_PATHS[@]}"
+  keep_across_steamos_updates orei_switch "${OREI_SWITCH_KEEP_PATHS[@]}" \
+    $(unit_keep_paths "$SYSTEM_UNITS_DIR" $OREI_SWITCH_UNITS)
   install_framework_tool
   for entry in "${OREI_SWITCH_FILES[@]}"; do
     read -r mode src <<<"$entry"
@@ -72,4 +73,5 @@ uninstall_feature_orei_switch() {
   if [[ -d "$OREI_SWITCH_DIR" ]]; then
     run sudo rm -rfv "$OREI_SWITCH_DIR"
   fi
+  forget_across_steamos_updates orei_switch
 }
