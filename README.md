@@ -426,7 +426,7 @@ zsh and python3 checks are skipped with a warning when those are missing, except
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.
 
- - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh**: symlinked from `home/.tmux/resurrect/strategies` by the `tmux` feature, and by `.tmux.conf` when tmux starts
+ - **~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh**: symlinked from `home/.tmux/resurrect/strategies` by `.tmux.conf`, which the `tmux` feature loads once after installing the plugins
    - Restores nvim with `vi -S` on its obsession session: the absolute `-S` path recorded by `vis`, otherwise `Session.vim` in the pane's cwd. The stock `session` strategy only checks the pane's cwd, which follows nvim's cwd (e.g. after `:CdToFile`), so it often restarted nvim without the session.
  - **/etc/bluetooth/main.conf**: `#Autoenable=false` changed to `Autoenable=true`
    - Allows bluetooth to start automatically on boot and after suspend. `main.conf` must be a normal file, rather than a symlink.
