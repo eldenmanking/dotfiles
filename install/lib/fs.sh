@@ -313,13 +313,22 @@ sha256_matches() {
   [[ -f "$file" ]] && echo "$sha256  $file" | sha256sum -c --status
 }
 
-# Download $url to $out and check it against $sha256 ($name is for messages).
+# Download $url to $out and check it against $sha256 ($name is for messages). With DOWNLOAD_CACHE set, a file there
+# named $sha256 that matches it is copied instead, and a download is stored there for next time.
 download_verified() {
   local url="$1" sha256="$2" out="$3" name="$4"
+  local cached="$DOWNLOAD_CACHE/$sha256"
   if $DRY_RUN; then
     info "[dry-run] would download $url"
     return
   fi
+  if [[ -n "$DOWNLOAD_CACHE" ]] && sha256_matches "$cached" "$sha256"; then
+    info "Using $name from $DOWNLOAD_CACHE"
+    cp "$cached" "$out"
+    return
+  fi
   curl -fsSL -o "$out" "$url" || return 1
   sha256_matches "$out" "$sha256" || { warn "$name checksum mismatch"; return 1; }
+  [[ -z "$DOWNLOAD_CACHE" ]] || { mkdir -p "$DOWNLOAD_CACHE" && install -m 644 "$out" "$cached"; } \
+    || warn "could not store $name in $DOWNLOAD_CACHE"
 }

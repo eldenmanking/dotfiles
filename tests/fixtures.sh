@@ -12,7 +12,8 @@
 #   after/   home/ and root/: the compared files after the first install and AFTER_INSTALL, symlinks kept as symlinks
 #            (missing files are left out)
 # install.sh then runs again, and must leave the compared files as they were: an idempotent install, and one that
-# AFTER_INSTALL didn't undo any of.
+# AFTER_INSTALL didn't undo any of. Every container shares DOWNLOADS_DIR as its DOTFILES_DOWNLOAD_CACHE, so pinned
+# downloads are fetched once (see Download Cache in README.md).
 
 set -euo pipefail
 
@@ -23,6 +24,8 @@ FIXTURES_DIR="$TEST_DIR/fixtures"
 IMAGES_DIR="$TEST_DIR/images"
 DEFAULT_FILES=".bash_profile .bashrc .profile .zprofile .zshrc"
 IMAGE_PREFIX="dotfiles-fixtures-"
+DOWNLOADS_DIR="$TOOLS_CACHE/fixture-downloads"
+CONTAINER_DOWNLOADS_DIR=/var/cache/dotfiles-downloads
 
 # Outputs: _image, _args, _files, _root_files, _after_install and _run_with of fixture $1, read from its case.sh.
 case_config() {
@@ -195,7 +198,8 @@ run_fixture() {
   f_write_args case_config _image _args _files _root_files _after_install _run_with -- "$name"
   archive="$(mktemp)"
   # The container's stdout carries the results archive, so its messages go to stderr.
-  if ! repo_archive | docker run --rm -i "$IMAGE_PREFIX$_image" bash -c \
+  if ! repo_archive | docker run --rm -i -v "$DOWNLOADS_DIR:$CONTAINER_DOWNLOADS_DIR" \
+    -e DOTFILES_DOWNLOAD_CACHE="$CONTAINER_DOWNLOADS_DIR" "$IMAGE_PREFIX$_image" bash -c \
     'mkdir ~/dotfiles && tar -xf - -C ~/dotfiles && exec ~/dotfiles/tests/fixtures.sh --inside "$@" 3>&1 1>&2' \
     _ "$name" "$update" > "$archive"; then
     rm -f "$archive"
@@ -230,6 +234,9 @@ main() {
     f_write_args case_config _image _args _files _root_files _after_install _run_with -- "$name"
     list_contains "$images" "$_image" || images+=" $_image"
   done
+  # Writable by the containers' users, whose ids needn't match this one's.
+  mkdir -p "$DOWNLOADS_DIR"
+  chmod a+rwx "$DOWNLOADS_DIR"
   for name in $images; do
     info "building image $IMAGE_PREFIX$name from tests/images/$name"
     docker build --quiet -t "$IMAGE_PREFIX$name" "$IMAGES_DIR/$name" >/dev/null

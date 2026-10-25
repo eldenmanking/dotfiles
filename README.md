@@ -211,6 +211,9 @@ DOTFILES_FEATURES=all
 
 With that file, `./install.sh` runs `--variant coder --all`, `./install.sh --dry-run` previews it, `./install.sh --tmux` runs only `tmux` on `coder`, and `./install.sh --help` lists the `coder` options. In a Coder template, setting the two variables in the workspace agent's environment does the same without a file.
 
+#### Download Cache
+Features download their pinned binaries (ttyd, framework_tool, the Nerd Font) with `download_verified`, which checks each against its SHA-256. Set `DOTFILES_DOWNLOAD_CACHE` in the environment to a directory to reuse them: a file there named by the SHA-256 is used instead of downloading (and still checked), and each download is stored there. `make fixtures` shares one between its containers.
+
 #### Feature Requirements
 Each `feature_<name>` function has a doc comment directly above it: a brief description, a bare `#` line, then tags naming the machines, OS and GUI it works on and the features it requires (`@requires` is optional):
 

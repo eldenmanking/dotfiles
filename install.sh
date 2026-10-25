@@ -17,6 +17,8 @@ BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
 LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 INSTALL_CONFIG="${DOTFILES_INSTALL_CONFIG:-$HOME/.config/dotfiles/install.conf}"
+# A directory of downloads named by SHA-256, read and filled by download_verified (see Download Cache in README.md).
+DOWNLOAD_CACHE="${DOTFILES_DOWNLOAD_CACHE:-}"
 
 # install.sh only runs from a dotfiles checkout, beside its install/ directory; to install from scratch, use the
 # bootstrap on the repo's install branch (see README.md). From a git checkout elsewhere, clone_checkout_to_root moves
