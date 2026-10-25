@@ -2,3 +2,8 @@
 .ignore
 Session.vim
 Sessionx.vim
+# Fixture results under tests/fixtures show the backups install.sh made.
+!/tests/fixtures/*/after/home/dotfiles/.backup
+__pycache__/
+# Claude Code worktrees
+.claude/worktrees/

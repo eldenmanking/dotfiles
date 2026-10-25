@@ -38,10 +38,18 @@ multi-boot tool like Ventoy, which the SteamOS image behaves poorly with.
 
 ## Steam settings
 
-In Steam, under **Settings > In Game**:
+The installer's `steam` feature (below) sets these in Steam, under **Settings > In Game**:
 
-- Change the main menu shortcut key to <kbd>Win</kbd>+<kbd>Tab</kbd>.
-- Change the quick access shortcut key to <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd>.
+- The main menu shortcut key to <kbd>Win</kbd>+<kbd>Tab</kbd>.
+- The quick access shortcut key to <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd>.
+
+It replaces their values in `~/.local/share/Steam/userdata/<id>/config/localconfig.vdf`
+(section `"Gamescope"`), and only while Steam is closed, since Steam rewrites
+that file when it exits. It only replaces keys Steam already wrote: if one is
+missing it warns, so set that hotkey once in Steam and rerun. If Steam is running it warns instead: quit Steam from
+its tray icon in Desktop Mode and rerun `~/dotfiles/install.sh --variant steamos --steam`.
+To find the key for another setting, copy the file, change the setting, return
+to Desktop Mode and `diff` the copy against the file.
 
 ## dotfiles
 
@@ -65,7 +73,7 @@ After the OS is installed and you've signed in to Steam:
 
    Run `~/dotfiles/install.sh --help` to see the features, or add `--dry-run`
    to preview the changes. This includes webterm, a browser shell on
-   localhost; see [steamos/README.md](../steamos/README.md).
+   localhost; see [Webterm](../README.md#webterm).
 
 ## Disk encryption
 

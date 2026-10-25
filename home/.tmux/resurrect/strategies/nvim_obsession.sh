@@ -13,7 +13,8 @@ DIRECTORY="${2//\\ / }"
 DIRECTORY="${DIRECTORY/#\~/$HOME}"
 
 session_from_command() {
-  local args=($ORIGINAL_COMMAND) i
+  local args i
+  read -r -a args <<< "$ORIGINAL_COMMAND"
   for ((i = 1; i < ${#args[@]}; i++)); do
     if [[ "${args[i]}" == -S && "${args[i+1]}" == /* && -f "${args[i+1]}" ]]; then
       echo "${args[i+1]}"
@@ -29,7 +30,8 @@ session_from_directory() {
 }
 
 main() {
-  local session="$(session_from_command)"
+  local session
+  session="$(session_from_command)"
   [[ -z "$session" ]] && session="$(session_from_directory)"
 
   if [[ -n "$session" ]]; then

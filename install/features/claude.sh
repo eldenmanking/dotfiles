@@ -3,7 +3,7 @@
 TOOLS_DEFAULT_REPO="https://github.com/eldenmanking/tools.git"
 
 # --- Resolve which tools repos to use ---
-# Outputs _tools: one "repo<TAB>dir<TAB>ref" line per tools repo, highest priority first. DOTFILES_TOOLS lists any
+# Print one "repo<TAB>dir<TAB>ref" line per tools repo, highest priority first. DOTFILES_TOOLS lists any
 # number of repos; without it, DOTFILES_TOOLS_{REPO,DIR,REF} describe a single one. Each variable in the environment
 # wins over the same variable set in the config file ($DOTFILES_TOOLS_CONFIG, default ~/.config/dotfiles/tools.conf).
 load_tools_config() {
@@ -27,16 +27,16 @@ load_tools_config() {
 
   spec="${DOTFILES_TOOLS:-$file_tools}"
   if [[ -n "${spec//[[:space:]]/}" ]]; then
-    f_write_args parse_tools_spec _tools -- "$spec"
+    parse_tools_spec "$spec" || exit 1
     return
   fi
 
   dir="${DOTFILES_TOOLS_DIR:-${file_dir:-$HOME/tools}}"
-  _tools="$(printf '%s\t%s\t%s' "${DOTFILES_TOOLS_REPO:-${file_repo:-$TOOLS_DEFAULT_REPO}}" "${dir/#\~/$HOME}" \
-    "${DOTFILES_TOOLS_REF:-$file_ref}")"
+  printf '%s\t%s\t%s' "${DOTFILES_TOOLS_REPO:-${file_repo:-$TOOLS_DEFAULT_REPO}}" "${dir/#\~/$HOME}" \
+    "${DOTFILES_TOOLS_REF:-$file_ref}"
 }
 
-# Parse a DOTFILES_TOOLS list into _tools (see load_tools_config). Each line is "<repo> [dir] [ref]"; blank lines and
+# Parse a DOTFILES_TOOLS list and print it as load_tools_config does. Each line is "<repo> [dir] [ref]"; blank lines and
 # '#' comments are ignored. dir defaults to ~/<repo name>, and "-" keeps that default while still giving a ref.
 parse_tools_spec() {
   local spec="$1" nl=$'\n' line repo dir ref extra name dirs="" out=""
@@ -58,7 +58,7 @@ parse_tools_spec() {
     dirs+=" $dir"
     out+="${out:+$nl}$(printf '%s\t%s\t%s' "$repo" "$dir" "$ref")"
   done <<< "$spec"
-  _tools="$out"
+  printf '%s' "$out"
 }
 
 # Print a git remote URL as host/path so https and ssh forms of the same repo compare equal.
@@ -82,9 +82,10 @@ sync_tools_repo() {
     fi
     info "Updating tools repo at $tools_dir"
     if [[ -n "$tools_ref" ]]; then
-      git -C "$tools_dir" fetch --quiet origin "$tools_ref" \
-        && git -C "$tools_dir" checkout --quiet "$tools_ref" \
-        || warn "Failed to check out '$tools_ref' in $tools_dir"
+      if ! { git -C "$tools_dir" fetch --quiet origin "$tools_ref" \
+        && git -C "$tools_dir" checkout --quiet "$tools_ref"; }; then
+        warn "Failed to check out '$tools_ref' in $tools_dir"
+      fi
     fi
     git -C "$tools_dir" pull --quiet --ff-only 2>/dev/null \
       || warn "Could not fast-forward $tools_dir; using it as-is"
@@ -168,7 +169,7 @@ configure_claude_settings() {
 
   mkdir -p "$HOME/.claude"
 
-  python3 - "$dst" "${srcs[@]}" <<'EOF' && info "Settings merged successfully" || warn "Failed to merge settings"
+  if python3 - "$dst" "${srcs[@]}" <<'EOF'
 import json, os, shutil, sys
 
 dst_path, src_paths = sys.argv[1], sys.argv[2:]
@@ -223,6 +224,11 @@ if deep_merge(source, settings, overwrite=True):
 else:
     print('[info] Settings already up to date', file=sys.stderr)
 EOF
+  then
+    info "Settings merged successfully"
+  else
+    warn "Failed to merge settings"
+  fi
 }
 
 # --- Merge CLAUDE.md block ---
@@ -245,10 +251,15 @@ configure_claude_md() {
   upsert_block "$dst" claude "$content" '</system-prompt>'
 }
 
-# --- Configure Claude Code (orchestrator) ---
+# Install Claude Code config from the tools repos: CLAUDE.md, skills, scripts and settings (see README.md).
+#
+# @machine any
+# @os any
+# @gui any
 feature_claude() {
-  f_write_args load_tools_config _tools
-  if [[ -z "$_tools" ]]; then
+  local tools
+  tools="$(load_tools_config)" || exit 1
+  if [[ -z "$tools" ]]; then
     warn "No tools repos configured; skipping Claude Code setup"
     return
   fi
@@ -257,7 +268,7 @@ feature_claude() {
   while IFS=$'\t' read -r -u 3 repo dir ref; do
     sync_tools_repo "$repo" "$dir" "$ref"
     tools_dirs+=("$dir")
-  done 3<<< "$_tools"
+  done 3<<< "$tools"
 
   configure_claude_md "${tools_dirs[@]}"
   configure_claude_dirs "${tools_dirs[@]}"

@@ -1,16 +1,10 @@
 # Feature: arch distrobox (steamos).
 
-DISTROBOX_NAME="arch"
-DISTROBOX_IMAGE="archlinux:latest"
-
-# Return 0 if a distrobox named $1 exists. Matches the NAME column exactly, so
-# 'arch' doesn't match e.g. 'tmp-arch'.
-_distrobox_exists() {
-  distrobox list --no-color 2>/dev/null \
-    | awk -F'|' -v name="$1" 'NR > 1 { gsub(/^ +| +$/, "", $2); if ($2 == name) found = 1 } END { exit !found }'
-}
-
 # Create the arch distrobox and enter it once to finish its setup.
+#
+# @machine any
+# @os linux
+# @gui any
 feature_distrobox() {
   local name="$DISTROBOX_NAME"
 
@@ -18,7 +12,7 @@ feature_distrobox() {
     warn "distrobox command not found, skipping."
     return
   fi
-  if _distrobox_exists "$name"; then
+  if distrobox_exists "$name"; then
     info "distrobox '$name' already exists (use --reinstall to recreate it)"
     return
   fi
@@ -33,7 +27,7 @@ feature_distrobox() {
 uninstall_feature_distrobox() {
   local name="$DISTROBOX_NAME"
 
-  if ! command -v distrobox &>/dev/null || ! _distrobox_exists "$name"; then
+  if ! command -v distrobox &>/dev/null || ! distrobox_exists "$name"; then
     info "distrobox '$name' does not exist"
     return
   fi

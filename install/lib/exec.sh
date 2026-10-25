@@ -27,11 +27,11 @@ run_tty() {
   fi
 }
 
-# Prompt the user for a yes/no answer (reads from the controlling terminal so
-# it works even when stdin is redirected).
+# Prompt the user for a yes/no answer, returning 0 only for "y" or "Y" (reads
+# from the controlling terminal so it works even when stdin is redirected).
 confirm() {
   local reply
-  read -p "$1 [Y/n] " -r reply < /dev/tty
+  read -p "$1 [y/N] " -r reply < /dev/tty
   [[ "$reply" =~ ^[Yy]$ ]]
 }
 
@@ -56,7 +56,7 @@ confirmsed() {
       local tmp
       tmp="$(mktemp)"
       sed -E "s@^${pattern}\$@${replace}@" "$file" > "$tmp"
-      $user cp "$tmp" "$file"
+      ${user:+"$user"} cp "$tmp" "$file"
       rm -f "$tmp"
     fi
   elif ! grep -Eq "^${replace}\$" "$file"; then

@@ -1,0 +1,37 @@
+# Point the install branch's bootstrap (see scripts/bootstrap.sh) at each commit of main that passes CI, so a curl
+# install gets the newest green commit. Run it by hand to point the branch at main's tip. The branch never moves to an
+# older commit, so a late run for an earlier push changes nothing. If the install branch is protected, let
+# github-actions bypass the rules that would block this push.
+name: Install branch
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One at a time, so each run sees the branch the previous one pushed.
+concurrency:
+  group: ${{ github.workflow }}
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04
+    env:
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.COMMIT }}
+          # Full history, so a run can tell whether the branch already pins a later commit.
+          fetch-depth: 0
+      - name: Publish the bootstrap
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          scripts/bootstrap.sh --publish install --commit "$COMMIT"

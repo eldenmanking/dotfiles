@@ -3,4 +3,4 @@
 # ~/.zprofile
 #
 
-source ~/dotfiles/home/.config/sh/env.sh
+source "$HOME/dotfiles/home/.config/sh/env.sh"

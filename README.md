@@ -4,14 +4,29 @@ This repository contains configuration files for my linux workspace. The followi
 ```
 . (~/dotfiles)
 ├── .claude                          ---
-│   └── CLAUDE.md                    --- Claude Code instructions for working in this repo
+│   ├── CLAUDE.md                    --- Claude Code instructions for working in this repo
+│   └── skills                       ---
+│       └── update-migrations        ---
+│           └── SKILL.md             --- skill: add docs/migrations.md entries and fill in their commits after merging
+├── .github                          ---
+│   ├── dependabot.yml               --- keeps the workflows' pinned actions current
+│   └── workflows                    ---
+│       ├── ci.yml                   --- lint, and install tests on Arch Linux and Ubuntu
+│       ├── install-branch.yml       --- points the install branch's bootstrap at each commit of main that passes CI
+│       └── macos.yml                --- install tests on macOS (bash 3.2), when the files they test change
 ├── .gitignore                       ---
+├── .shellcheckrc                    --- shellcheck settings for the repo
+├── Makefile                         --- make validate, lint, test and check (see Testing)
 ├── README.md                        --- dotfiles overview
 ├── Sessionx.vim                     --- useful vim options for maintaining dotfiles
+├── bootstrap                        ---
+│   └── install.sh                   --- template of the install branch's install.sh, which clones main at one commit
 ├── docs                             ---
 │   ├── bootloader.md                ---
 │   ├── framework16-sleep.md         --- Framework 16 sleep battery drain diagnosis and fix
 │   ├── mac-os-setup.md              ---
+│   ├── migrations.md                --- manual steps after pulling changes that leave stale files behind
+│   ├── orei-switch.md               --- OREI HDMI switch sleep/wake handoff: findings and the orei_switch feature
 │   ├── steamos-setup.md             --- SteamOS install, Steam settings, encryption and Windows VMs
 │   ├── windows-setup.md             ---
 │   └── wsl-setup.md                 ---
@@ -39,6 +54,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── alacritty.toml       --- alacritty terminal emulator configuration file
 │   │   ├── git                      ---
 │   │   │   └── ignore               --- default ignored git files
+│   │   ├── kcminputrc               --- KDE input settings (keyboard repeat), merged by the kde feature (not linked)
 │   │   ├── nvim                     ---
 │   │   │   ├── core                 ---
 │   │   │   │   ├── autocommands.vim --- global autocommands
@@ -69,12 +85,17 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   ├── clip                 ---
 │   │   │   ├── squidpdf             --- pdf splitter for Squid notes
 │   │   │   ├── vis                  --- resume or start an obsession session in cwd
-│   │   │   └── vm-usb               ---
+│   │   │   ├── vm-usb               ---
+│   │   │   ├── webterm-index        --- builds ttyd's page with the tab-key script appended
+│   │   │   ├── webterm-shell        --- login shell ttyd runs for each connection
+│   │   │   └── webterm-ttyd         --- runs ~/.local/bin/ttyd with the built page, if any
 │   │   └── share                    ---
 │   │       ├── applications         ---
 │   │       │   └── Alacritty.deskto --- custom launch settings for Wayland
-│   │       └── backgrounds          ---
-│   │           └── GH2.jpg          --- placeholder background
+│   │       ├── backgrounds          ---
+│   │       │   └── GH2.jpg          --- placeholder background
+│   │       └── webterm              ---
+│   │           └── tab-keys.html    --- passes browser tab shortcuts through xterm.js
 │   ├── .ocamlformat                 ---
 │   ├── .profile                     --- sh-compatible login startup file
 │   ├── .pylintrc                    --- pylint global configuration file
@@ -91,18 +112,35 @@ This repository contains configuration files for my linux workspace. The followi
 ├── install.sh                       --- dotfiles install script
 ├── root                             ---
 │   ├── etc                          ---
+│   │   ├── dotfiles                 ---
+│   │   │   ├── home-units-start     --- starts units in an encrypted home once dirlock unlocks it (copied by home_units)
+│   │   │   └── orei-switch          ---
+│   │   │       ├── orei-switch.sh   --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
+│   │   │       └── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
 │   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals
 │   │   ├── modprobe.d               ---
 │   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
+│   │   ├── sddm.conf.d              ---
+│   │   │   └── orei-switch.conf     --- runs sddm-xsetup for the X11 login screen (copied by orei_switch)
 │   │   ├── systemd                  ---
 │   │   │   └── system               ---
 │   │   │       ├── auto-suspend.serv--- laptop auto-suspend service to prevent death
-│   │   │       └── auto-suspend.time--- auto-suspend timer to check if battery is low
+│   │   │       ├── auto-suspend.time--- auto-suspend timer to check if battery is low
+│   │   │       ├── hdmi-audio-fix.se--- keeps the Framework 16 780M SoC clock up for HDMI audio (copied by hdmi_audio_fix)
+│   │   │       ├── orei-switch-boot.--- re-enables the left ports and turns the projector on at boot (copied by orei_switch)
+│   │   │       ├── orei-switch-power--- turns the projector off over CEC on poweroff (copied by orei_switch)
+│   │   │       └── orei-switch.servi--- runs orei-switch.sh around sleep (copied by orei_switch)
 │   │   ├── tmpfiles.d               ---
 │   │   │   └── ec-no-wakeup.conf    --- stop the embedded controller (ACPI GPE 0x0B) from waking the laptop from s2idle (copied, not linked)
 │   │   ├── udev                     ---
 │   │   │   └── rules.d              ---
 │   │   │       └── 90-touchpad-nowak--- stop I2C devices (Framework 16 touchpad) from waking the laptop (copied, not linked; candidate for removal, see docs/framework16-sleep.md)
+│   │   ├── systemd                  ---
+│   │   │   └── user                 ---
+│   │   │       ├── home-units.servic--- starts user units once an encrypted home is unlocked (copied by home_units)
+│   │   │       ├── webterm-ttyd.serv--- ttyd on a private UNIX socket (copied by webterm)
+│   │   │       ├── webterm.service  --- systemd-socket-proxyd, exits when idle (copied by webterm)
+│   │   │       └── webterm.socket   --- listens on 127.0.0.1:3000 (copied by webterm)
 │   │   └── vconsole.conf            --- Linux virtual console configuration file
 │   └── usr                          ---
 │       ├── local                    ---
@@ -114,33 +152,108 @@ This repository contains configuration files for my linux workspace. The followi
 │           └── kbd                  ---
 │               └── keymaps          ---
 │                   └── us-caps.map  --- keymap for linux console remapping caps to escape
-└── steamos                          --- webterm and home-units (formerly the steamos-config repo)
-    ├── .gitignore                   ---
-    ├── LICENSE                      --- MIT license for this directory
-    ├── README.md                    --- webterm and home-units documentation
-    ├── bin                          ---
-    │   ├── home-units-start         --- starts units in an encrypted home once dirlock unlocks it
-    │   ├── webterm-index            --- builds ttyd's page with the tab-key script appended
-    │   ├── webterm-shell            --- login shell ttyd runs for each connection
-    │   └── webterm-ttyd             --- runs ttyd with the built page, if any
-    ├── systemd                      ---
-    │   ├── home-units.keep.conf     --- SteamOS keep list so home-units survives updates
-    │   ├── home-units.service       --- system-wide user unit installed into /etc/systemd/user
-    │   ├── webterm-ttyd.service.temp--- ttyd on a private UNIX socket
-    │   ├── webterm.service.template --- systemd-socket-proxyd, exits when idle
-    │   └── webterm.socket           --- listens on 127.0.0.1:3000
-    ├── test                         ---
-    │   └── smoke.py                 --- smoke test for the ttyd and socket proxy chain
-    └── web                          ---
-        └── tab-keys.html            --- passes browser tab shortcuts through xterm.js
+├── scripts                          ---
+│   └── bootstrap.sh                 --- fills in bootstrap/install.sh's pin; --publish commits it to the install branch
+└── tests                            --- behavior tests, plus lint and validation (see Testing)
+    ├── fixtures                     --- before and after files of install.sh, one directory per case (see Testing)
+    │   ├── arch-dconf               --- --dconf loading the GNOME settings into an empty dconf, under a session bus
+    │   ├── arch-existing-rc         --- arch install over an existing .bashrc, .bash_profile and .zshrc
+    │   ├── portable-existing-rc     --- portable install over the same files
+    │   ├── portable-old-markers     --- portable install over files with an older version's single-# section
+    │   ├── steamos-existing-rc      --- steamos install over the same files
+    │   ├── steamos-kde-config       --- --kde merging keyboard repeat into an existing kcminputrc
+    │   ├── steamos-steam            --- --steam replacing the Game Mode hotkeys in an existing localconfig.vdf
+    │   └── steamos-update           --- steamos install with the Framework 16 fixes surviving a (mock) SteamOS update
+    ├── fixtures.sh                  --- make fixtures: runs each fixture in its container image and compares after/
+    ├── images                       --- container images for the fixtures
+    │   ├── arch                     ---
+    │   │   └── Dockerfile           --- Arch Linux, pinned to the same image and snapshot as CI, with dconf and D-Bus
+    │   └── steamos                  ---
+    │       ├── Dockerfile           --- SteamOS stand-in: the Arch image with KDE's kconfig, a deck user and the mocks below
+    │       ├── atomic-update-keep.conf--- stand-in for SteamOS's default keep list of /etc files
+    │       ├── bin                  --- stand-ins for udevadm, systemd-tmpfiles, dirlock and systemctl
+    │       ├── example-additional-keep-list.conf---
+    │       └── steamos-update       --- mock SteamOS update: resets /etc but for keep lists, drops new /usr files
+    ├── install.sh                   --- make test: install.sh in scratch homes: --dry-run, rootless installs, idempotency
+    ├── lib.sh                       --- shared helpers, including the pinned tool downloader
+    ├── lint                         ---
+    │   └── lint.sh                  --- make lint: syntax, shellcheck, actionlint and TOML checks
+    ├── validation                   ---
+    │   ├── features.sh              --- checks feature docs, and that variants suit and order their features
+    │   ├── readme_tree.py           --- checks this tree against the files tracked by git
+    │   └── validate.sh              --- make validate: checkout name, README tree, checksums, features
+    ├── versions.env                 --- pinned versions and checksums of shellcheck and actionlint
+    └── webterm_smoke.py             --- smoke test for the ttyd and socket proxy chain
 ```
 
 ## Installation
-`install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of them. With no arguments it prints usage. Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`. Files under `home/` are linked into `$HOME` and files under `root/` into `/`; everything else at the top level stays in the repo.
+`install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of its default ones. Optional features (listed under "Optional" in `--help`, e.g. `--printer` on `arch`) are skipped by `--all` and run only when named. With no arguments it prints usage, unless defaults are set (see [Defaults](#defaults)). Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`. Files under `home/` are installed into `$HOME` and files under `root/` into `/`, at the same path: most are linked, while some are copied by the feature that needs them (e.g. udev rules, which are read before an encrypted home is mounted, or systemd units). Paths under `root/` are linked one file at a time, never as a whole directory, so a copied file can't get linked too; `make validate` checks this. Everything else at the top level stays in the repo.
 
-The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [steamos/README.md](steamos/README.md) and [docs/steamos-setup.md](docs/steamos-setup.md).
+The repo must live at `~/dotfiles`, since everything `install.sh` links points there, and `install.sh` refuses to run from any other checkout. `~/dotfiles` may be a symlink, but the checkout itself must be a directory named `dotfiles`, which lint relies on. When run from a git checkout elsewhere (such as the one Coder clones to `~/.config/coderv2/dotfiles`) and `~/dotfiles` doesn't exist, `install.sh` clones that checkout's current commit to `~/dotfiles`, sets the clone's `origin` to the checkout's, and re-runs from the clone with the same arguments; uncommitted changes aren't copied. `install.sh` doesn't clean up after layout changes, so after pulling, follow [docs/migrations.md](docs/migrations.md) for any changes that left stale files behind (it is written so an agent can work through it). `install.sh` doesn't run on its own: it refuses without its `install/` directory beside it.
 
-Variants that don't symlink whole files (e.g. `coder`) instead write into a single `# Managed by dotfiles` ... `# /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`). Each feature owns a `# feature <name>` subblock inside it and rewrites only that subblock on re-run. Shell startup file subblocks only source files under `home/.config/sh` and `home/.config/zsh`, which the linked startup files (on `arch` and `steamos`) source too. Edit the files outside the section freely.
+On a fresh machine, install from the `install` branch instead. It holds a single file, a bootstrap `install.sh` that names one commit of `main` (`PINNED_REPO` and `PINNED_COMMIT`): it clones the repo at that commit to `~/dotfiles`, on the default branch so later pulls still work, and runs the clone's `install.sh` with the same arguments. If `~/dotfiles` already exists, it runs that as it is. Each commit on the `install` branch pins exactly one commit of `main`, so a URL naming an `install` branch commit instead of `install` always installs the same version.
+
+The bootstrap is generated from its template, `bootstrap/install.sh`, by `scripts/bootstrap.sh` (`scripts/bootstrap.sh --commit <rev>` prints it). After CI passes on a push to `main`, the install branch workflow (`.github/workflows/install-branch.yml`) runs `scripts/bootstrap.sh --publish install`, which commits a bootstrap pinning that commit onto the `install` branch; it never moves the branch to an older commit, and can also be run by hand from the Actions tab. If the `install` branch is protected, let `github-actions` bypass the rules that would block its push. A fork's workflow pins the fork itself, and creates its `install` branch on its first run.
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/install/install.sh)" -- --variant coder --all
+```
+
+#### Defaults
+To run `install.sh` without arguments (as Coder's dotfiles support does), set defaults in the environment or in `~/.config/dotfiles/install.conf`, which is sourced like a shell script (the environment wins; set `DOTFILES_INSTALL_CONFIG` to read a different file):
+ - `DOTFILES_VARIANT`: the variant to use when `--variant` isn't given.
+ - `DOTFILES_FEATURES`: the features to run when the command line names none, as a space-separated list of feature names, with `all` for `--all` (e.g. `all printer`). They are ignored under `--uninstall`, and when `--variant` names a different variant than `DOTFILES_VARIANT`.
+
+```bash
+# ~/.config/dotfiles/install.conf
+DOTFILES_VARIANT=coder
+DOTFILES_FEATURES=all
+```
+
+With that file, `./install.sh` runs `--variant coder --all`, `./install.sh --dry-run` previews it, `./install.sh --tmux` runs only `tmux` on `coder`, and `./install.sh --help` lists the `coder` options. In a Coder template, setting the two variables in the workspace agent's environment does the same without a file.
+
+#### Download Cache
+Features download their pinned binaries (ttyd, framework_tool, the Nerd Font) with `download_verified`, which checks each against its SHA-256. Set `DOTFILES_DOWNLOAD_CACHE` in the environment to a directory to reuse them: a file there named by the SHA-256 is used instead of downloading (and still checked), and each download is stored there. `make fixtures` shares one between its containers.
+
+#### Feature Requirements
+Each `feature_<name>` function has a doc comment directly above it: a brief description, a bare `#` line, then tags naming the machines, OS and GUI it works on and the features it requires (`@requires` is optional):
+
+```bash
+# Serve a shell in the browser on localhost: download ttyd and install systemd user units that start it on
+# demand (see Webterm in README.md).
+#
+# @machine any
+# @os linux
+# @gui any
+# @requires link
+feature_webterm() {
+```
+
+Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev`, `tmpfiles` and `hdmi_audio_fix` hold Framework 16 fixes. On SteamOS, the features that write into `/etc` outside what SteamOS's default keep list covers (`udev`, `tmpfiles`, `home_units` and `webterm`) also name those files in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, each in its own subblock, with `keep_across_steamos_updates`, so OS updates keep them. `hdmi_audio_fix` needs none: the default list keeps system services and their enablement links.
+
+| Feature | Machine | OS | GUI | Requires |
+|---|---|---|---|---|
+| `pacman`, `terminal`, `printer`, `logiops` | any | arch | any | |
+| `yay` | any | arch | gnome | |
+| `font`, `manual`, `distrobox` | any | linux | any | |
+| `link`, `info`, `shell`, `starship`, `zsh`, `gng`, `tre`, `claude`, `gitconfig` | any | any | any | |
+| `services` | laptop | linux | any | `link` |
+| `dconf` | any | linux | gnome | |
+| `xdg` | any | linux | gnome | `pacman` |
+| `tmux` | any | any | any | `link` |
+| `binaries`, `neovim` | any | linux, macos | any | |
+| `flatpak` | any | linux | desktop | |
+| `udev`, `tmpfiles`, `hdmi_audio_fix` | framework16 | linux | any | |
+| `orei_switch` | framework16 | linux | any | |
+| `steamos_xclip` | any | steamos | desktop | |
+| `webterm` | any | linux | any | `link` |
+| `home_units`, `steam` | any | steamos | any | |
+| `kde` | any | linux | kde | |
+
+`linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The variants target: `arch` (arch, gnome), `steamos` (steamos, kde), `coder` (linux, no GUI) and `portable` (linux and macos, no GUI).
+
+The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `steam` feature sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, replacing only keys Steam already wrote and only while Steam is closed, since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`. Its `orei_switch` feature, another Framework 16 fix, makes an OREI HDMI switch hand over to another input while the laptop sleeps; see [docs/orei-switch.md](docs/orei-switch.md). Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd from user units it copies into `/etc/systemd/user` (with sudo), so that with an encrypted home `home_units` can start them without reloading the user manager; see [Webterm](#webterm) and [docs/steamos-setup.md](docs/steamos-setup.md). Its `hdmi_audio_fix` feature, a Framework 16 fix like `udev` and `tmpfiles`, copies `root/etc/systemd/system/hdmi-audio-fix.service` into `/etc/systemd/system` (with sudo). At boot and after every resume it sets the 780M to the `manual` level and gives its SoC clock a 720 MHz floor (`pp_dpm_socclk` levels 2 to 7), leaving the graphics, memory and fabric clocks free. At idle `socclk` otherwise drops to 400 MHz and HDMI audio stutters; games aren't capped (PipeWire buffer settings don't help: it reports no underruns); `--uninstall` removes it and sets the level back to `auto`.
+
+Variants that don't symlink whole files (e.g. `coder`) instead write into a single `## Managed by dotfiles` ... `## /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`, and on SteamOS the keep list `/etc/atomic-update.conf.d/dotfiles.conf`). Each feature owns a `## feature <name>` subblock inside it and rewrites only that subblock on re-run. The markers start with `##`, a comment in sh and in SteamOS keep lists alike; sections written with the older single-`#` markers are converted on the next run. Shell startup file subblocks only source files under `home/.config/sh` and `home/.config/zsh`, which the linked startup files (on `arch` and `steamos`) source too. Edit the files outside the section freely.
 
 The `arch` variant is designed to work for Arch Linux (or other Arch-based distributions). Essential packages and applications can be installed using `./install.sh --variant arch` as a user. This variant attempts to setup the following:
  - yay
@@ -181,7 +294,7 @@ To enable `sudo`, use the command `visudo` and uncomment `%wheel AL=(ALL:ALL) NO
 Included in the `install.sh` script are packages for HP printers--in particular, the `hplip` package is used to install drivers for specific HP printers, whereas `cups` and `system-config-printer` are more general. To install the drivers for a physically connected printer, execute `hp-setup -i` in the terminal (`-i` for CLI interactive mode) and follow the prompts. See this [Stack Exchange post](https://unix.stackexchange.com/questions/359531/installing-hp-printer-driver-for-arch-linux) for more information.
 
 #### Claude Code
-The `--claude` feature installs Claude Code configuration from one or more tools repos, by default just [eldenmanking/tools](https://github.com/eldenmanking/tools) cloned to `~/tools`. From each repo it inserts `claude/CLAUDE.md` into `~/git/.claude/CLAUDE.md` (all repos' files joined, in order, into its `# feature claude` subblock), symlinks each entry of `claude/skills` and `claude/scripts` into `~/.claude`, and deep-merges `claude/settings.json` into `~/.claude/settings.json`. Existing checkouts are fast-forwarded on each run.
+The `--claude` feature installs Claude Code configuration from one or more tools repos, by default just [eldenmanking/tools](https://github.com/eldenmanking/tools) cloned to `~/tools`. From each repo it inserts `claude/CLAUDE.md` into `~/git/.claude/CLAUDE.md` (all repos' files joined, in order, into its `## feature claude` subblock), symlinks each entry of `claude/skills` and `claude/scripts` into `~/.claude`, and deep-merges `claude/settings.json` into `~/.claude/settings.json`. Existing checkouts are fast-forwarded on each run.
 
 Repos are listed in priority order. When two repos ship a skill or script with the same name, the earlier repo's is linked and the later one is skipped with a warning; when their settings disagree on a value, the earlier repo's value is kept (lists are unioned).
 
@@ -201,6 +314,114 @@ git@github.com:someone/tools.git  ~/git/someone-tools  # same repo name, so give
 git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the stable branch
 "
 ```
+
+#### Webterm
+The `--webterm` feature (on `steamos`) gives you a real shell in the browser on localhost. It runs [ttyd](https://github.com/tsl0922/ttyd), a single static binary (about 1.3 MB) that serves an [xterm.js](https://xtermjs.org/) page and connects it to your shell. systemd starts it the first time you open the page and stops it once no browser has been connected for 30 s. There is nothing to compile and no Node, npm or Python needed, which is handy on SteamOS, where the root filesystem is read-only. The only files outside your home directory are the three units, which go into `/etc` with sudo.
+
+```
+browser ⇄ 127.0.0.1:3000 ──► webterm.socket            (always listening)
+                              │ first connection starts
+                              ▼
+                             webterm.service          systemd-socket-proxyd
+                              │ --exit-idle-time=30s
+                              ▼ $XDG_RUNTIME_DIR/webterm.sock
+                             webterm-ttyd.service     ttyd ⇄ pty ⇄ your shell
+```
+
+- **`webterm.socket`** listens on `127.0.0.1:3000`. It's the only part that runs all the time, and systemd itself does the listening.
+- **`webterm.service`** runs `systemd-socket-proxyd`, which ships with systemd. ttyd can't take over a socket that systemd opened, so the proxy takes it and forwards each connection to ttyd. After 30 s with no open connections, the proxy exits. That covers both a closed tab and a page that never connected.
+- **`webterm-ttyd.service`** runs ttyd on a UNIX socket in your private runtime directory, so other local users can't reach it. It has `StopWhenUnneeded=yes`, so it stops when the proxy exits. The socket keeps listening, so your next visit starts everything again.
+- ttyd pings each browser every 10 s, so dead connections (a browser crash, a laptop suspend) get closed and the idle timer can run.
+
+A backend is needed because a web page can't start processes; only a local program can start a shell and attach it to a terminal. It needs Linux with systemd (including `/usr/lib/systemd/systemd-socket-proxyd`), `curl` and `sha256sum`, on x86_64 or aarch64 (the CPU types ttyd publishes static builds for), all of which come with a stock SteamOS or Arch install; `tmux` is optional, to [keep work running](#keeping-work-with-tmux).
+
+```sh
+~/dotfiles/install.sh --variant steamos --link --font --webterm --home_units
+~/dotfiles/install.sh --variant steamos --webterm   # just ttyd and the units
+```
+
+`--all` installs these along with the rest of the `steamos` variant. When it finishes, it prints your URL, which looks like `http://localhost:3000/<token>/`. Bookmark it; the token is explained in [Security](#security). To update, `git pull` in `~/dotfiles` and run the installer again, after the steps in [docs/migrations.md](docs/migrations.md) for any changes it pulled in. What gets installed:
+
+- **Scripts and settings** (`--link`): `home/.local/bin/webterm-{index,shell,ttyd}`, `home/.local/share/webterm/tab-keys.html` and `home/.config/webterm/env` are linked into place.
+- **Font** (`--font`): installs JetBrainsMono Nerd Font (Nerd Fonts v3.4.0) into `~/.local/share/fonts/JetBrainsMonoNerdFont/`, after checking its SHA-256. It does nothing if `fc-list` already lists the font.
+- **ttyd and units** (`--webterm`): downloads ttyd 1.7.7 to `~/.local/bin/ttyd`, checks it against a pinned SHA-256, and copies the units in `root/etc/systemd/user/` into `/etc/systemd/user/` with sudo (copied, not linked: systemd treats symlinked unit files as "linked" units, which enable and disable handle differently). There the user manager sees them from boot, even with an [encrypted home](#encrypted-home-directory-dirlock). They are user units, so they only start for users who enable them; `--webterm` enables them for you, with a link in `~/.config/systemd/user/`. On SteamOS it also names them in its own subblock of the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, since updates otherwise drop everything in `/etc/systemd/user`.
+- **home-units** (`--home_units`): only with an encrypted home directory; see [Encrypted home directory](#encrypted-home-directory-dirlock).
+
+`--dry-run` prints what would change. To remove webterm, including `~/.local/bin/ttyd`, the page in `~/.local/state/webterm` and (with sudo) the units in `/etc`:
+
+```sh
+~/dotfiles/install.sh --variant steamos --webterm --uninstall
+```
+
+Your URL token stays in `~/.config/webterm/token`.
+
+##### Configuration
+| Setting      | Where                                                         | Default            |
+| ------------ | ------------------------------------------------------------- | ------------------ |
+| Idle timeout | `WEBTERM_IDLE` in `webterm.service`                           | `30s`              |
+| Shell        | `SHELL` in the env file                                       | `/usr/bin/zsh`     |
+| Font         | `WEBTERM_FONT` in the env file                                | JetBrainsMono Nerd Font Mono |
+| URL token    | `WEBTERM_TOKEN` in `~/.config/webterm/token`                  | random, 32 hex     |
+| Port         | `ListenStream` in `root/etc/systemd/user/webterm.socket`      | `127.0.0.1:3000`   |
+
+The env file, `~/.config/webterm/env`, is linked from `home/.config/webterm/env` by the `link` feature, so settings there are kept in git; run `--link` before `--webterm`, which needs it. The token gets its own unlinked file (mode 600), which `--webterm` creates if it's missing, so it never lands in the repo. Change the environment settings with a drop-in, for example `systemctl --user edit webterm.service` with `[Service] Environment=WEBTERM_IDLE=5min`. That drop-in lives in `~/.config/systemd/user/`, so with an encrypted home the user manager doesn't see it after a reboot until something reloads it (rerunning `--webterm` does); for one that holds from boot, use `sudo systemctl --global edit webterm.service`, and on SteamOS add it to a keep list too. To change the port, edit `root/etc/systemd/user/webterm.socket`.
+
+After any change, run `~/dotfiles/install.sh --variant steamos --webterm` again. You don't need to close the browser. It copies the units that changed into `/etc/systemd/user` (so edits and a `git pull` take effect) and reloads systemd, then restarts the proxy and ttyd, but only if they're running; if they aren't, the next visit starts them with the new settings anyway. `~/.config/webterm/env` and `~/.config/webterm/token` are read again on every start, so changes there apply too. Open tabs show "Reconnecting..." and come back by themselves with the new settings (font, title and so on), without a page reload. Each tab gets a **fresh shell**, so anything running in a bare shell ends; tmux sessions survive (see [Keeping work with tmux](#keeping-work-with-tmux)). The exception is the token: after changing it, open the new URL, since tabs still on the old one can't reconnect.
+
+##### Font
+The terminal uses **JetBrainsMono Nerd Font Mono** by default. The Mono variant draws Nerd Font icons one cell wide, so prompts line up in the grid. ttyd's `-t key=value` passes any option straight to xterm.js, so the unit runs `-t "fontFamily=${WEBTERM_FONT}"`; no custom build is needed. The page only names the font: the browser draws it from fonts installed on the machine it runs on, which is the Deck here, so the `font` feature installs it. Flatpak browsers (the default on SteamOS) should also see `~/.local/share/fonts`. If the browser was already open when the font was installed, restart it; until then it uses the next font in the list.
+
+To use a different font, change `WEBTERM_FONT` in `home/.config/webterm/env`, for example to `WEBTERM_FONT=JetBrainsMonoNL Nerd Font Mono, monospace`, then rerun `--webterm`; open tabs switch fonts when they reconnect. The value can be any CSS font list without an `=`. Run `fc-list : family | grep -i nerd` to see the exact names that are installed.
+
+##### Browser tab shortcuts
+xterm.js turns most Ctrl combos into terminal input and stops the browser from handling them. Chrome keeps some tab shortcuts for itself, but in fullscreen (F11) it lets the page handle every shortcut first, so the terminal would eat them. webterm hands these back to the browser: <kbd>Ctrl</kbd>+<kbd>Tab</kbd> and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd>, <kbd>Ctrl</kbd>+<kbd>1</kbd> to <kbd>Ctrl</kbd>+<kbd>9</kbd>, <kbd>Ctrl</kbd>+<kbd>PgUp</kbd> and <kbd>Ctrl</kbd>+<kbd>PgDn</kbd>, and <kbd>F11</kbd>, so it leaves fullscreen instead of reaching the shell. Every other key, like <kbd>Ctrl</kbd>+<kbd>W</kbd> or <kbd>Ctrl</kbd>+<kbd>R</kbd>, still goes to the shell.
+
+- ttyd has no option for this, but `-I` serves a custom `index.html`. The repo keeps only the script to add, `home/.local/share/webterm/tab-keys.html`. It listens for keys before xterm.js does and stops them from reaching it, without cancelling the browser's own handling.
+- The stock page bundles ttyd's browser client, which must match the ttyd binary. So `--webterm` runs `webterm-index`, which starts a throwaway ttyd on a temporary UNIX socket, fetches its page, appends the script and writes `~/.local/state/webterm/index-<sha256 of ~/.local/bin/ttyd>.html`.
+- `webterm-ttyd.service` runs ttyd through `webterm-ttyd`, which hashes `~/.local/bin/ttyd` on every start and adds `-I` only if a page for that hash exists. If not, ttyd serves its stock page: the terminal works, but without the tab shortcuts in fullscreen. `journalctl --user -u webterm-ttyd.service` then shows a warning, and rerunning `--webterm` builds the page again.
+
+After changing `tab-keys.html`, rerun `--webterm` and reload open tabs.
+
+##### Encrypted home directory (dirlock)
+With an encrypted home directory, webterm doesn't start after a reboot. The user manager (`systemd --user`) starts before dirlock unlocks the home directory, so it can't see `~/.config/systemd/user` and skips `webterm.socket`. `systemctl --user status webterm.socket` then shows `inactive (dead)` with no log entries for this boot.
+
+`home-units.service` fixes this for every unit enabled in your home directory, in Game Mode and Desktop Mode, as long as the unit's file lives outside the home (see below); webterm's units are in `/etc/systemd/user` for this reason. home-units' own files must be outside the home too, so `--home_units` copies them from `root/` into place with sudo (they can't be links into a home that is still locked). It does so only when your home directory is encrypted, and reinstalls them when the repo has a newer version. Everything it adds to `/etc` is named after the repo (`dotfiles`), except the unit itself, which must sit where systemd looks for units:
+
+- `/etc/systemd/user/home-units.service`, enabled for all users. Each user manager sees it while the home directory is still locked. It runs `/etc/dotfiles/home-units-start`, which waits until `~/.config` is readable. Then, for each `~/.config/systemd/user/<target>.wants/` (and `.requires/`) whose target is already up, it starts the units linked there with `systemctl --user start --no-block`. Nothing else is started, so SteamOS's own units that already ran aren't run again. It doesn't run `systemctl --user daemon-reload`, which older versions did to make `~/.config/systemd/user` visible: logging in is what unlocks the home, so that reload ran while the session was starting, and when it landed in the middle of SteamOS's `start-gamescope-session`, the launcher's `systemctl` calls hung for 30s and the session was killed 90s after login. Without the reload the user manager knows only the unit files it found at boot, so a unit started this way must have its file outside the home, such as in `/etc/systemd/user` (like webterm's) or `/usr/lib/systemd/user` (like `gamemoded.service`); one whose file is in `~/.config/systemd/user` fails to start, with a warning in the journal. Drop-ins in `~/.config/systemd/user/<unit>.d/` don't apply until the next reload, and since the manager doesn't see the enable links either, the units of a target that isn't up yet when the home unlocks aren't started.
+- A `## feature home_units` subblock in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`. Since SteamOS 3.6 an update drops every change in `/etc` that isn't on a keep list (into `/etc/previous`). The default list, `/usr/lib/rauc/atomic-update-keep.conf`, keeps system units in `/etc/systemd/system` (services, sockets and mounts, with their drop-ins and enablement links) but nothing in `/etc/systemd/user`, so this subblock names the unit, its enablement symlink and `/etc/dotfiles/home-units-start`. `keep_across_steamos_updates` (`install/lib/fs.sh`) writes it from the files the feature installs, on every run. The Framework 16 fixes keep their files in their own subblocks of the same list, and the `steamos-update` fixture (`make fixtures`) checks that a mock update keeps all of them.
+
+Which units it starts is up to you: `systemctl --user enable foo.service` adds a link under the target named in the unit's `WantedBy=`, and `systemctl --user disable` removes it. `journalctl --user -b -u home-units` shows what it started this boot, and should show no reload. After a reboot, `systemctl --user status home-units.service` should be `active (exited)` and `webterm.socket` `active (listening)`. To test that it survives an update, switch branches and update (`sudo steamos-select-branch beta && sudo steamos-atomupd-client`), reboot, and check that `/etc/systemd/user/home-units.service` is still there. To remove it:
+
+```sh
+sudo systemctl --global disable home-units.service
+sudo rm -f /etc/systemd/user/home-units.service
+sudo rm -rf /etc/dotfiles
+sudo sed -i '/^## feature home_units$/,/^$/d' /etc/atomic-update.conf.d/dotfiles.conf
+```
+
+##### Security
+**This is a full shell running as your user.** Anyone who can use the page can do anything you can.
+
+- It only listens on `127.0.0.1`, and ttyd itself sits on a UNIX socket that only your user can open.
+- ttyd's `-O` rejects WebSocket connections whose `Origin` doesn't match the page's own host.
+- `-O` alone doesn't stop DNS rebinding, where a malicious site's domain resolves to 127.0.0.1 so the browser treats it as the same origin. That's what the random URL token is for. ttyd only serves the terminal under `/<token>/` and answers 404 everywhere else, so such a page can't find it. Keep the token private, like a password. Setting `WEBTERM_TOKEN=` (empty) in the token or env file turns this protection off.
+- Don't expose it beyond localhost (port forwarding, reverse proxy, `0.0.0.0`) without real authentication and TLS. Authentication beyond the URL token, TLS and multi-user support are out of scope for now.
+
+##### Keeping work with tmux
+Bare shells are disposable: one ends when you close its tab, when webterm stops on idle, and when you rerun `--webterm`. To keep something running, start `tmux` in the terminal. The tmux server survives all three, and you reattach with `tmux attach` on your next visit. Everything started from webterm, including a tmux server, belongs to `webterm-ttyd.service`, and by default systemd kills all of a service's processes when it stops. The unit sets `KillMode=process`, so on stop systemd signals only ttyd, which hangs up its shells; tmux detaches and keeps running. When the service next starts, systemd logs a "left-over process" notice about the tmux server. That's expected.
+
+##### Smoke test
+`python3 tests/webterm_smoke.py` needs `~/.local/bin/ttyd`, which `--webterm` downloads, but no running systemd: `systemd-socket-activate` stands in for `webterm.socket`, and the real ttyd and `systemd-socket-proxyd` do the rest, running the scripts and `tab-keys.html` from this checkout. It checks that the page is only served under the token, a cross-origin WebSocket is rejected, the page is the stock page with `tab-keys.html` appended, a shell command round-trips, and the proxy exits once idle. It doesn't cover `webterm-ttyd.service` stopping with the proxy, because that step needs a real systemd. ttyd is MIT-licensed by its authors and is downloaded from its GitHub releases, not stored in this repo.
+
+## Testing
+Checks come in three kinds, each with a make target; `make check` runs all three. Fixtures (`make fixtures`) are a fourth, kept out of `make check` since they need docker and network access.
+
+- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, `tests/versions.env` pins a SHA-256 for every tool on every platform, every feature is documented and suits the variants that use it (see Feature Requirements), every link path exists, naming single files under `root/`, and `install.sh` pins this repo at a commit on `main` (see Installation; CI's validate job checks out full history for this).
+- **Lint** (`make lint`, `tests/lint/`) checks code quality: the syntax of every shell, zsh, Python and TOML file, shellcheck and actionlint. The shellcheck and actionlint versions are pinned in `tests/versions.env`; `make lint` downloads them into `~/.cache/dotfiles-test` on first use and refuses any download that doesn't match its pinned SHA-256.
+- **Tests** (`make test`, `tests/install.sh`) check behavior, so changes don't break what already works. They run `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every variant, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` for managed variants) for every variant that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `tests/webterm_smoke.py` is a separate smoke test for webterm, run by hand (see [Webterm](#smoke-test)).
+- **Fixtures** (`make fixtures`, `tests/fixtures.sh`, needs docker) show and pin exactly what an install does to existing files. Each case in `tests/fixtures/<name>/` has a `case.sh` that names a container image from `tests/images/` (`IMAGE`) and the `install.sh` arguments (`ARGS`), and optionally the files to compare under `~` (`FILES`, by default the shell startup files) and outside it (`ROOT_FILES`), a command to run after installing (`AFTER_INSTALL`), and a command to run `install.sh` under (`RUN_WITH`, e.g. `dbus-run-session --` for the session bus `dconf load` needs). Next to it, `before/` and `after/` each hold a `home/` tree (for `~`) and a `root/` tree (for `/`), like the repo's own: `before/` is copied into an otherwise empty home and into `/`, and `after/` holds the compared files once `install.sh` and `AFTER_INSTALL` have run, with symlinks kept as symlinks and whatever `install.sh` moved into `~/dotfiles/.backup`. Each case runs in a fresh container from a copy of the checkout, and runs `install.sh` again at the end, which must change nothing: the install is idempotent, and `AFTER_INSTALL` didn't undo any of it. After changing what an install writes, run `tests/fixtures.sh --update [name...]` to rewrite `after/`, and review the change with `git diff`. SteamOS has no container image, so `tests/images/steamos` stands in for it: the same Arch image (SteamOS is built on Arch) with KDE's kconfig tools for `--kde`, stand-ins for `udevadm`, `systemd-tmpfiles`, `dirlock` (which reports an encrypted home, so `home_units` installs) and the parts of `systemctl` that need a running systemd, and a mock `steamos-update`. Like a real SteamOS update since 3.6, the mock moves every change to `/etc` that no keep list names into `/etc/previous` and restores the original, and it drops files added to `/usr`; its default keep list is reconstructed from a deck's (`tests/images/steamos/atomic-update-keep.conf`), and like SteamOS's its entries are globs. The `steamos-update` case runs it after installing the Framework 16 fixes (`udev`, `tmpfiles`, `hdmi_audio_fix`) and `home_units`, so it fails if an update would wipe anything `install.sh` put in `/etc`, while its `before/root/etc/dummy.conf` shows an unlisted file being wiped. Both images have neovim, starship and tmux installed so the features don't download them, so fixtures only need GitHub (zsh plugins, tpm, tools repos). Features that need a real desktop (pacman, systemd) or a download are left out of the cases.
+
+zsh and python3 checks are skipped with a warning when those are missing, except in CI. CI (`.github/workflows/`) runs `make validate`, `make lint` and `make fixtures` on Ubuntu (and then points the `install` branch at the commit, see Installation), and `make test` on Arch Linux (in a container whose packages are pinned to an Arch Linux Archive snapshot), Ubuntu and macOS (only when the files it tests change). Actions are pinned to commit SHAs and kept current by Dependabot; container images, runner labels and `tests/versions.env` are bumped by hand.
 
 ## Manual Fixes
 I try to avoid modifying plugin files directly, but the following have been changed to suit my needs. These changes are done automatically with the `install.sh` script.

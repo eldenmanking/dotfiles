@@ -1,0 +1,27 @@
+[Unit]
+Description=Keep the Framework 16's Radeon 780M SoC clock up so HDMI audio doesn't stutter
+# Installed to /etc/systemd/system by the hdmi_audio_fix feature of ~/dotfiles/install.sh. SteamOS keeps
+# /etc/systemd/system across updates (/usr/lib/rauc/atomic-update-keep.conf), so it needs no keep list.
+#
+# With the default auto level, HDMI audio from the 780M (PCI ID 1002:15bf, found by ID rather than by address or
+# card number, which can change) is choppy at idle even though PipeWire reports no underruns: socclk drops to
+# 400 MHz. A floor of level 2 (720 MHz; levels in pp_dpm_socclk) fixes it, but level 1 (600 MHz) doesn't. The
+# graphics, memory and fabric clocks stay free, so games still boost; raising them instead doesn't help.
+# pp_dpm_socclk only takes writes at the manual level, which can keep a graphics clock range pinned by an earlier
+# level (e.g. 938 MHz left by profile_standard), so the range is reset (r) and committed (c) first.
+# It runs again after every resume, in case the driver resets the level. Steam's "Manual GPU clock" toggle writes
+# the level too, so turning it off sets it back to auto until the next boot or resume.
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -ec 'for dev in /sys/bus/pci/devices/*; do \
+  [ "$$(cat "$$dev/vendor"):$$(cat "$$dev/device")" = 0x1002:0x15bf ] || continue; \
+  echo manual > "$$dev/power_dpm_force_performance_level"; \
+  echo r > "$$dev/pp_od_clk_voltage"; \
+  echo c > "$$dev/pp_od_clk_voltage"; \
+  echo "2 7" > "$$dev/pp_dpm_socclk"; \
+done'
+
+[Install]
+WantedBy=multi-user.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
