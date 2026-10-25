@@ -132,8 +132,8 @@ shown_path() {
 # (sudo, or empty): "<path> <type> <mode> <owner>", where type is find's (f, d, l, ...) and owner is "user" for the
 # user's own entries, then "-> <target>" for a symlink and the start of its SHA-256 for a regular file (* for
 # UNPINNED_FILES). Paths and link targets under ~ start with ~. ~/dotfiles is left out (name its .backup to include
-# that). A git clone, whose contents follow upstream, is one "git" line with its remote, then lines for its untracked
-# and changed files. Returns 1 if a symlink outside ~/dotfiles/.backup dangles.
+# that). A git clone, whose contents follow upstream, is one "git" line with its remote URL (without credentials), then
+# lines for its untracked and changed files. Returns 1 if a symlink outside ~/dotfiles/.backup dangles.
 manifest_lines() {
   local sudo="$1" me type mode owner path target line status=0
   shift
@@ -156,7 +156,11 @@ manifest_lines() {
           line+=" $($sudo sha256sum "$path" | cut -c1-16)"
         fi
         ;;
-      git) line+=" $($sudo git -C "$path" remote get-url origin 2>/dev/null || printf -)" ;;
+      git)
+        # Without any user:password@ (tpm clones from https://git::@github.com/...).
+        line+=" $($sudo git -C "$path" remote get-url origin 2>/dev/null | sed 's|^\([a-z+]*://\)[^/@]*@|\1|' \
+          || printf -)"
+        ;;
     esac
     printf '%s\n' "$line"
     if [[ "$type" == git ]]; then

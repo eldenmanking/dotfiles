@@ -1,0 +1,37 @@
+~ d 700 user
+~/.bash_profile f 644 user 39bef332bd8650f5
+~/.bashrc f 644 user 584bdf2b96903216
+~/.config d 755 user
+~/.config/nvim d 755 user
+~/.config/nvim/core d 755 user
+~/.config/nvim/core/autocommands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/autocommands.vim
+~/.config/nvim/core/commands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/commands.vim
+~/.config/nvim/core/filetypes.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/filetypes.vim
+~/.config/nvim/core/mappings.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/mappings.vim
+~/.config/nvim/core/options.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/options.vim
+~/.config/nvim/core/plugins.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugins.vim
+~/.config/nvim/core/plugmaps.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugmaps.vim
+~/.config/nvim/init.vim l 777 user -> ~/dotfiles/home/.config/nvim/init.vim
+~/.config/starship.toml l 777 user -> ~/dotfiles/home/.config/starship.toml
+~/.gitconfig f 644 user 7ad3b2d2858b3084
+~/.local d 755 user
+~/.local/bin d 755 user
+~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
+~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
+~/.profile f 644 user dfbd2515280ad12d
+~/.tmux d 755 user
+~/.tmux.conf l 777 user -> ~/dotfiles/home/.tmux.conf
+~/.tmux/plugins d 755 user
+~/.tmux/plugins/tmux-resurrect git 755 user https://github.com/tmux-plugins/tmux-resurrect
+~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/strategies/nvim_obsession.sh
+~/.tmux/plugins/tmux-sensible git 755 user https://github.com/tmux-plugins/tmux-sensible
+~/.tmux/plugins/tpm git 755 user https://github.com/tmux-plugins/tpm
+~/.tmux/resurrect d 755 user
+~/.tmux/resurrect/saferestore.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/saferestore.sh
+~/.zprofile f 644 user dfbd2515280ad12d
+~/.zsh d 755 user
+~/.zsh/plugins d 755 user
+~/.zsh/plugins/zsh-autosuggestions git 755 user https://github.com/zsh-users/zsh-autosuggestions
+~/.zsh/plugins/zsh-history-substring-search git 755 user https://github.com/zsh-users/zsh-history-substring-search
+~/.zsh/plugins/zsh-syntax-highlighting git 755 user https://github.com/zsh-users/zsh-syntax-highlighting
+~/.zshrc f 644 user 0f8cb9d749d9ce20

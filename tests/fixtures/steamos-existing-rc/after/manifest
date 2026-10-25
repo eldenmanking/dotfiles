@@ -1,0 +1,69 @@
+~ d 700 user
+~/.bash_profile l 777 user -> ~/dotfiles/home/.bash_profile
+~/.bashrc l 777 user -> ~/dotfiles/home/.bashrc
+~/.claude d 755 user
+~/.claude/scripts d 755 user
+~/.claude/scripts/_lib.sh l 777 user -> ~/tools/claude/scripts/_lib.sh
+~/.claude/scripts/cleanup-pr-state-core.sh l 777 user -> ~/tools/claude/scripts/cleanup-pr-state-core.sh
+~/.claude/scripts/discover-pr-state-core.sh l 777 user -> ~/tools/claude/scripts/discover-pr-state-core.sh
+~/.claude/scripts/post-push-ci.sh l 777 user -> ~/tools/claude/scripts/post-push-ci.sh
+~/.claude/scripts/pr-state.sh l 777 user -> ~/tools/claude/scripts/pr-state.sh
+~/.claude/scripts/refresh-pr-state-core.sh l 777 user -> ~/tools/claude/scripts/refresh-pr-state-core.sh
+~/.claude/scripts/statusline.sh l 777 user -> ~/tools/claude/scripts/statusline.sh
+~/.claude/scripts/stop-ci-check.sh l 777 user -> ~/tools/claude/scripts/stop-ci-check.sh
+~/.claude/settings.json f 644 user *
+~/.claude/skills d 755 user
+~/.claude/skills/babysit-ci l 777 user -> ~/tools/claude/skills/babysit-ci
+~/.claude/skills/cleanup-pr-state l 777 user -> ~/tools/claude/skills/cleanup-pr-state
+~/.claude/skills/discover-pr-state l 777 user -> ~/tools/claude/skills/discover-pr-state
+~/.claude/skills/refresh-pr-state l 777 user -> ~/tools/claude/skills/refresh-pr-state
+~/.claude/skills/review-sessions l 777 user -> ~/tools/claude/skills/review-sessions
+~/.claude/skills/setup-from-docs l 777 user -> ~/tools/claude/skills/setup-from-docs
+~/.config d 755 user
+~/.config/kcminputrc f 600 user 904daaf1bd50ec99
+~/.config/nvim d 755 user
+~/.config/nvim/core d 755 user
+~/.config/nvim/core/autocommands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/autocommands.vim
+~/.config/nvim/core/commands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/commands.vim
+~/.config/nvim/core/filetypes.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/filetypes.vim
+~/.config/nvim/core/mappings.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/mappings.vim
+~/.config/nvim/core/options.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/options.vim
+~/.config/nvim/core/plugins.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugins.vim
+~/.config/nvim/core/plugmaps.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugmaps.vim
+~/.config/nvim/init.vim l 777 user -> ~/dotfiles/home/.config/nvim/init.vim
+~/.config/starship.toml l 777 user -> ~/dotfiles/home/.config/starship.toml
+~/.config/webterm d 755 user
+~/.config/webterm/env l 777 user -> ~/dotfiles/home/.config/webterm/env
+~/.gitconfig f 644 user b408e0584f1627f0
+~/.local d 755 user
+~/.local/bin d 755 user
+~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
+~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
+~/.local/bin/webterm-index l 777 user -> ~/dotfiles/home/.local/bin/webterm-index
+~/.local/bin/webterm-shell l 777 user -> ~/dotfiles/home/.local/bin/webterm-shell
+~/.local/bin/webterm-ttyd l 777 user -> ~/dotfiles/home/.local/bin/webterm-ttyd
+~/.local/share d 755 user
+~/.local/share/webterm d 755 user
+~/.local/share/webterm/tab-keys.html l 777 user -> ~/dotfiles/home/.local/share/webterm/tab-keys.html
+~/.profile l 777 user -> ~/dotfiles/home/.profile
+~/.tmux d 755 user
+~/.tmux.conf l 777 user -> ~/dotfiles/home/.tmux.conf
+~/.tmux/plugins d 755 user
+~/.tmux/plugins/tmux-resurrect git 755 user https://github.com/tmux-plugins/tmux-resurrect
+~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/strategies/nvim_obsession.sh
+~/.tmux/plugins/tmux-sensible git 755 user https://github.com/tmux-plugins/tmux-sensible
+~/.tmux/plugins/tpm git 755 user https://github.com/tmux-plugins/tpm
+~/.tmux/resurrect d 755 user
+~/.tmux/resurrect/saferestore.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/saferestore.sh
+~/.zprofile l 777 user -> ~/dotfiles/home/.zprofile
+~/.zshrc l 777 user -> ~/dotfiles/home/.zshrc
+~/dotfiles/.backup d 755 user
+~/dotfiles/.backup/home d 755 user
+~/dotfiles/.backup/home/deck d 755 user
+~/dotfiles/.backup/home/deck/.bash_profile f 644 user e149407c2bee1777
+~/dotfiles/.backup/home/deck/.bashrc f 644 user 5fa7909bc6221303
+~/dotfiles/.backup/home/deck/.zshrc f 644 user 52f8d5f824113661
+~/git d 755 user
+~/git/.claude d 755 user
+~/git/.claude/CLAUDE.md f 644 user *
+~/tools git 755 user https://github.com/eldenmanking/tools.git
