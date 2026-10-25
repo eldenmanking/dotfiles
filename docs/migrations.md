@@ -110,7 +110,7 @@ The auto-suspend timer, its service and `auto-suspend` script are gone: `--link`
   `sudo systemctl daemon-reload`.
 - **Verify:** the check prints nothing and `systemctl list-timers --all | grep auto-suspend` prints nothing.
 
-## Enable webterm globally and remove home_units
+## Enable webterm globally and remove home_units (#62)
 `--webterm` now enables its units for all users (`systemctl --global enable`), so their enable links are in
 `/etc/systemd/user` with the units and start from boot even with an encrypted home. The `home_units` feature, which
 started units enabled in the home once dirlock unlocked it, is gone. Applies to SteamOS machines that ran
@@ -130,7 +130,7 @@ started units enabled in the home once dirlock unlocked it, is gone. Applies to 
 - **Verify:** the check prints nothing, `readlink /etc/systemd/user/sockets.target.wants/webterm.socket` is
   `/etc/systemd/user/webterm.socket`, and after a reboot the URL `--webterm` prints answers once you log in.
 
-## Move service scripts into /etc/dotfiles/bin
+## Move service scripts into /etc/dotfiles/bin (#62)
 The scripts and binaries that system units and the login screen run moved into `/etc/dotfiles/bin`:
 `/etc/dotfiles/orei-switch/orei-switch.sh` is now `/etc/dotfiles/bin/orei-switch`, and `framework_tool` and
 `sddm-xsetup` moved beside it. The units and the SDDM config point at the new paths.
