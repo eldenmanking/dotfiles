@@ -1,0 +1,103 @@
+#!/bin/bash
+# Save a screenshot of SteamOS Gaming Mode to ~/Pictures/Screenshots and play a shutter sound.
+#   gamescope-screenshot [type]   take one now (e.g. over ssh)
+#   gamescope-screenshot --watch  take one on each Print Screen or Shift+Meta+4 (run by gamescope-screenshot.service)
+#
+# gamescope writes the file itself, a moment after gamescopectl returns. gamescopectl exits 0 even when gamescope
+# can't be reached, so success is judged by the file appearing. The type is gamescope's: 1 the focused app only (the
+# default), 2 with overlays, 3 every layer including the Steam UI, 4 the screen buffer as displayed.
+set -u
+
+SCREENSHOT_DIR="${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
+SHUTTER_SOUND=/usr/share/sounds/freedesktop/stereo/camera-shutter.oga
+WAIT_SECONDS=5
+# udev's links to keyboards only, so mice and other devices never wake the watch.
+KEYBOARDS=(/dev/input/by-id/*-event-kbd)
+
+# Reads the evtest output of every keyboard and runs this script ($GAMESCOPE_SCREENSHOT_SELF) for each screenshot
+# shortcut press: Print Screen (the Framework 16's screenshot key) or Shift+Meta+4 (macOS's Cmd+Shift+4, which a
+# Keychron in Mac mode sends from its screenshot key; the keyboard sends all three keys in one report, modifiers
+# first). Key repeats (value 2) are ignored. The keyboards share one set of held keys, which only matters if the
+# shortcut is split across keyboards.
+SHORTCUT_AWK='
+/^Event: .*\(EV_KEY\)/ {
+  key = $0
+  sub(/.*code [0-9]+ \(/, "", key)
+  sub(/\).*/, "", key)
+  value = $NF
+  if (value == 2) next
+  held[key] = value
+  if (value == 1 && (key == "KEY_SYSRQ" || (key == "KEY_4" \
+      && (held["KEY_LEFTSHIFT"] || held["KEY_RIGHTSHIFT"]) && (held["KEY_LEFTMETA"] || held["KEY_RIGHTMETA"])))) {
+    fflush()
+    system("exec \"$GAMESCOPE_SCREENSHOT_SELF\"")
+  }
+}'
+
+# Print a path in directory $1 named after the current time, with a counter added if that name is taken.
+screenshot_path() {
+  local dir="$1" stamp path n=1
+  stamp="$(date +%Y-%m-%d_%H-%M-%S)"
+  path="$dir/$stamp.png"
+  while [[ -e "$path" ]]; do
+    n=$((n + 1))
+    path="$dir/${stamp}_$n.png"
+  done
+  printf '%s' "$path"
+}
+
+# Succeed once file $1 exists and is not empty, or fail after $2 seconds.
+wait_for_file() {
+  local file="$1" tries=$(($2 * 10))
+  until [[ -s "$file" ]]; do
+    tries=$((tries - 1))
+    [[ $tries -gt 0 ]] || return 1
+    sleep 0.1
+  done
+}
+
+# Take a screenshot of gamescope type $1 (empty for gamescope's default), print its path and play the shutter sound.
+take_screenshot() {
+  local type="$1" path
+  mkdir -p "$SCREENSHOT_DIR" || return 1
+  path="$(screenshot_path "$SCREENSHOT_DIR")"
+  WAYLAND_DISPLAY="${GAMESCOPE_WAYLAND_DISPLAY:-gamescope-0}" \
+    gamescopectl screenshot "$path" ${type:+"$type"} >/dev/null 2>&1
+  if ! wait_for_file "$path" "$WAIT_SECONDS"; then
+    echo "gamescope-screenshot: no screenshot after ${WAIT_SECONDS}s; is Gaming Mode running?" >&2
+    return 1
+  fi
+  echo "$path"
+  if [[ -r "$SHUTTER_SOUND" ]]; then
+    pw-play "$SHUTTER_SOUND" >/dev/null 2>&1 &
+  fi
+}
+
+# Take a screenshot on each shortcut press on the keyboards connected now. evtest only reads, so games still get the
+# keys. Each keyboard's evtest writes lines (line-buffered, so they don't interleave) into one awk, which runs the
+# screenshots. Exits when a keyboard goes away, for systemd to restart it with the keyboards connected then.
+watch_keys() {
+  local dev
+  [[ -e "${KEYBOARDS[0]}" ]] || { echo "gamescope-screenshot: no keyboards found" >&2; return 1; }
+  export GAMESCOPE_SCREENSHOT_SELF="$0"
+  trap 'kill $(jobs -p) 2>/dev/null' EXIT
+  exec 3> >(exec awk "$SHORTCUT_AWK")
+  for dev in "${KEYBOARDS[@]}"; do
+    echo "watching $(readlink -f "$dev") ($(basename "$dev"))"
+    stdbuf -oL evtest "$dev" 2>/dev/null >&3 &
+  done
+  exec 3>&-
+  wait -n
+  echo "gamescope-screenshot: a keyboard went away" >&2
+  return 1
+}
+
+main() {
+  if [[ "${1:-}" == --watch ]]; then
+    watch_keys
+  else
+    take_screenshot "${1:-}"
+  fi
+}
+
+main "$@"

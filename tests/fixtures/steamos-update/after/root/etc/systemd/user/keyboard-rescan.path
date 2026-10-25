@@ -1,0 +1,13 @@
+[Unit]
+Description=Restart the Gaming Mode screenshot watch when input devices come or go
+# Installed to /etc/systemd/user and enabled globally by the gamescope_screenshot feature of ~/dotfiles/install.sh.
+# The watch only reads the keyboards connected when it starts, so a keyboard plugged in later needs a restart.
+# systemd watches the directory with inotify, so nothing polls.
+PartOf=gamescope-session.target
+
+[Path]
+PathChanged=/dev/input/by-id
+Unit=keyboard-rescan.service
+
+[Install]
+WantedBy=gamescope-session.target
