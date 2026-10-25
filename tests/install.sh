@@ -542,13 +542,14 @@ download_with_cache() {
 test_download_cache() {
   local dir sha
   info "download_verified: DOTFILES_DOWNLOAD_CACHE"
-  if ! command -v sha256sum >/dev/null; then
-    warn "sha256sum not found; skipping the download cache test"
-    return
-  fi
   dir="$(mktemp -d "$SCRATCH/download.XXXXXX")"
   printf 'payload\n' > "$dir/src"
   sha="$(sha256_of "$dir/src")"
+  # download_verified checks files with GNU sha256sum's -c --status, which only the Linux features that call it need.
+  if ! echo "$sha  $dir/src" | sha256sum -c --status >/dev/null 2>&1; then
+    warn "sha256sum can't check files here (-c --status); skipping the download cache test"
+    return
+  fi
   check "a download is stored in the cache" download_with_cache "$dir/cache" "file://$dir/src" "$sha" "$dir/out1"
   check "  ...under its SHA-256" cmp -s "$dir/src" "$dir/cache/$sha"
   mv "$dir/src" "$dir/moved"
