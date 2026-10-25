@@ -18,8 +18,8 @@ GAMESCOPE_SCREENSHOT_ENABLED=(gamescope-screenshot.service keyboard-rescan.path)
 # @gui any
 # @requires link
 feature_gamescope_screenshot() {
-  keep_across_steamos_updates gamescope_screenshot \
-    $(unit_keep_paths "$USER_UNITS_DIR" "${GAMESCOPE_SCREENSHOT_UNITS[@]}")
+  keep_across_steamos_updates gamescope_screenshot $(unit_keep_paths "$USER_UNITS_DIR" \
+    "$GAMESCOPE_SCREENSHOT_UNITS_SRC" "${GAMESCOPE_SCREENSHOT_UNITS[@]}")
   f_write_args install_user_units _changed -- --global "$GAMESCOPE_SCREENSHOT_UNITS_SRC" \
     "${GAMESCOPE_SCREENSHOT_UNITS[@]}"
 

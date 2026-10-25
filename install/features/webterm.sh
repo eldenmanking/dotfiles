@@ -103,7 +103,7 @@ feature_webterm() {
     || warn "could not build the webterm page; ttyd will serve its stock page"
   token="$(webterm_token)"
   save_token "$token"
-  keep_across_steamos_updates webterm $(unit_keep_paths "$USER_UNITS_DIR" "${WEBTERM_UNITS[@]}")
+  keep_across_steamos_updates webterm $(unit_keep_paths "$USER_UNITS_DIR" "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}")
   f_write_args install_user_units _changed -- --global "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
 
   run systemctl --user start webterm.socket

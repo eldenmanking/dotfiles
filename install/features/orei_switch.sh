@@ -54,7 +54,7 @@ feature_orei_switch() {
   local entry mode src
   # The default keep list covers the units, but not these files.
   keep_across_steamos_updates orei_switch $(orei_switch_paths) \
-    $(unit_keep_paths "$SYSTEM_UNITS_DIR" $OREI_SWITCH_UNITS)
+    $(unit_keep_paths "$SYSTEM_UNITS_DIR" "$DOTFILES_ROOT/$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS)
   install_framework_tool
   for entry in "${OREI_SWITCH_FILES[@]}"; do
     read -r mode src <<<"$entry"

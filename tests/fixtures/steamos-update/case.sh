@@ -2,7 +2,7 @@
 # name, so it moves before/root/etc/dummy.conf into /etc/previous, but the installed files must all survive (the
 # second install checks that nothing needed restoring). udev, tmpfiles and orei_switch's files survive through
 # dotfiles.conf, and the system units of hdmi_audio_fix and orei_switch and their links through SteamOS's default
-# list. gamescope_screenshot's user units and their global enable links in /etc/systemd/user (named by glob) survive
+# list. gamescope_screenshot's user units and their global enable links in /etc/systemd/user survive
 # through dotfiles.conf. See tests/images/steamos/steamos-update.
 IMAGE=steamos
 ARGS="--variant steamos --link --udev --tmpfiles --hdmi_audio_fix --orei_switch --gamescope_screenshot"

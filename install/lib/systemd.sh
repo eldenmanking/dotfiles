@@ -16,24 +16,30 @@ has_user_session() {
   systemctl --user show-environment >/dev/null 2>&1
 }
 
-# Print the paths of units $2... in units dir $1 that SteamOS's default keep list doesn't cover, one per line, for
-# keep_across_steamos_updates. In /etc/systemd/system that list keeps services, sockets and mounts with their
-# enablement links, so only other units (timers, paths, ...) are printed. It keeps nothing in /etc/systemd/user, so
-# there each unit is printed with a glob for its enablement links in <target>.wants and .requires, which
-# 'systemctl --global enable' makes.
-# Usage: unit_keep_paths <units_dir> <unit>...
+# Print the paths of units $3... (from $2) in units dir $1 that SteamOS's default keep list doesn't cover, one per
+# line, for keep_across_steamos_updates. In /etc/systemd/system that list keeps services, sockets and mounts with
+# their enablement links, so only other units (timers, paths, ...) are printed. It keeps nothing in /etc/systemd/user,
+# so there each unit is printed with the links 'systemctl --global enable' makes for its WantedBy= and RequiredBy=.
+# The paths are exact, never globs: callers split the output unquoted, which would expand a glob that matches.
+# Usage: unit_keep_paths <units_dir> <src_dir> <unit>...
 unit_keep_paths() {
-  local dir="$1" unit
-  shift
+  local dir="$1" src_dir="$2" unit target
+  shift 2
   for unit in "$@"; do
     if [[ "$dir" == "$SYSTEM_UNITS_DIR" ]]; then
       case "$unit" in
         *.service|*.socket|*.mount) ;;
         *) printf '%s\n' "$dir/$unit" ;;
       esac
-    else
-      printf '%s\n' "$dir/$unit" "$dir/*/$unit"
+      continue
     fi
+    printf '%s\n' "$dir/$unit"
+    for target in $(sed -n 's/^WantedBy=//p' "$src_dir/$unit"); do
+      printf '%s\n' "$dir/$target.wants/$unit"
+    done
+    for target in $(sed -n 's/^RequiredBy=//p' "$src_dir/$unit"); do
+      printf '%s\n' "$dir/$target.requires/$unit"
+    done
   done
 }
 
@@ -42,7 +48,7 @@ unit_keep_paths() {
 # runs again. Units without an [Install] section are only copied. With --no-start, only reenable them: for units
 # whose start does something unwanted right away, like one wanted by sleep.target. Outputs: _changed, the
 # space-separated units that were copied or (re)enabled (empty if all were up to date).
-# On SteamOS, also name unit_keep_paths "$SYSTEM_UNITS_DIR" <unit>... on the keep list: timers and the like aren't
+# On SteamOS, also name unit_keep_paths "$SYSTEM_UNITS_DIR" <src_dir> <unit>... on the keep list: timers and the like aren't
 # on the default one.
 # Usage: f_write_args install_system_units _changed -- [--no-start] <src_dir> <unit>...
 install_system_units() {
@@ -102,7 +108,7 @@ uninstall_system_units() {
 # they start without waiting for the unlock. They are copied, not linked: systemd treats a symlinked unit file as a "linked" unit,
 # which enable and disable handle differently. Outputs: _changed, the space-separated units that were copied or
 # (re)enabled (empty if all were up to date).
-# On SteamOS, also name unit_keep_paths "$USER_UNITS_DIR" <unit>... on the keep list: the default one keeps nothing
+# On SteamOS, also name unit_keep_paths "$USER_UNITS_DIR" <src_dir> <unit>... on the keep list: the default one keeps nothing
 # in /etc/systemd/user.
 # Usage: f_write_args install_user_units _changed -- --global|--user <src_dir> <unit>...
 install_user_units() {
