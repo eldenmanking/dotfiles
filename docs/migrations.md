@@ -66,3 +66,19 @@ tmpfiles config).
   with copies. Otherwise, after asking, `sudo rm` each stale link (only links, never regular files), then
   `sudo udevadm control --reload` if a udev rule was removed.
 - **Verify:** rerunning the check lists only paths in `LINK_DESKTOP_PATHS`.
+
+## Install webterm's units into /etc/systemd/user (#51)
+webterm's units moved from `home/.config/systemd/user` to `root/etc/systemd/user`, and `--webterm` now copies them
+into `/etc/systemd/user` (with sudo), so `home-units-start` can start them after an encrypted home is unlocked
+without a `daemon-reload`.
+
+### Old webterm units in the home (steamos)
+Units in `~/.config/systemd/user` override the ones in `/etc/systemd/user`, so the old copies must go.
+- **Check:** `ls ~/.config/systemd/user/webterm.socket ~/.config/systemd/user/webterm.service ~/.config/systemd/user/webterm-ttyd.service 2>/dev/null`
+- **Fix:** `systemctl --user disable webterm.socket`, then
+  `rm -f ~/.config/systemd/user/webterm.socket ~/.config/systemd/user/webterm.service ~/.config/systemd/user/webterm-ttyd.service`,
+  then `~/dotfiles/install.sh --variant steamos --link --webterm --home_units` (`--home_units` reinstalls the
+  `home-units-start` that no longer reloads).
+- **Verify:** the check prints nothing, `systemctl --user cat webterm.socket` starts with
+  `# /etc/systemd/user/webterm.socket`, `readlink ~/.config/systemd/user/sockets.target.wants/webterm.socket` is
+  `/etc/systemd/user/webterm.socket`, and the URL `--webterm` prints answers.

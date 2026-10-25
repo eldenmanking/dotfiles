@@ -4,7 +4,7 @@ Description=Web terminal (ttyd)
 StopWhenUnneeded=yes
 
 [Service]
-# Copied into ~/.config/systemd/user by the webterm feature of ~/dotfiles/install.sh, which also writes token; env
+# Copied into /etc/systemd/user by the webterm feature of ~/dotfiles/install.sh, which also writes token; env
 # (shell, font) and the scripts in ~/.local/bin are linked by the link feature. token comes first so env can override it.
 EnvironmentFile=%h/.config/webterm/token
 EnvironmentFile=%h/.config/webterm/env

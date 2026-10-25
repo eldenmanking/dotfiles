@@ -23,6 +23,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── framework16-sleep.md         --- Framework 16 sleep battery drain diagnosis and fix
 │   ├── mac-os-setup.md              ---
 │   ├── migrations.md                --- manual steps after pulling changes that leave stale files behind
+│   ├── orei-switch.md               --- OREI HDMI switch sleep/wake handoff: findings and the orei_switch feature
 │   ├── steamos-setup.md             --- SteamOS install, Steam settings, encryption and Windows VMs
 │   ├── windows-setup.md             ---
 │   └── wsl-setup.md                 ---
@@ -66,11 +67,6 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   ├── env.sh               ---
 │   │   │   └── starship.sh          --- starts the starship prompt in bash or zsh
 │   │   ├── starship.toml            ---
-│   │   ├── systemd                  ---
-│   │   │   └── user                 ---
-│   │   │       ├── webterm-ttyd.serv--- ttyd on a private UNIX socket (copied by webterm)
-│   │   │       ├── webterm.service  --- systemd-socket-proxyd, exits when idle (copied by webterm)
-│   │   │       └── webterm.socket   --- listens on 127.0.0.1:3000 (copied by webterm)
 │   │   ├── webterm                  ---
 │   │   │   └── env                  --- webterm settings (shell, font), linked on steamos
 │   │   ├── yapf                     ---
@@ -114,15 +110,23 @@ This repository contains configuration files for my linux workspace. The followi
 ├── root                             ---
 │   ├── etc                          ---
 │   │   ├── dotfiles                 ---
-│   │   │   └── home-units-start     --- starts units in an encrypted home once dirlock unlocks it (copied by home_units)
+│   │   │   ├── home-units-start     --- starts units in an encrypted home once dirlock unlocks it (copied by home_units)
+│   │   │   └── orei-switch          ---
+│   │   │       ├── orei-switch.sh   --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
+│   │   │       └── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
 │   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals
 │   │   ├── modprobe.d               ---
 │   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
+│   │   ├── sddm.conf.d              ---
+│   │   │   └── orei-switch.conf     --- runs sddm-xsetup for the X11 login screen (copied by orei_switch)
 │   │   ├── systemd                  ---
 │   │   │   └── system               ---
 │   │   │       ├── auto-suspend.serv--- laptop auto-suspend service to prevent death
 │   │   │       ├── auto-suspend.time--- auto-suspend timer to check if battery is low
-│   │   │       └── hdmi-audio-fix.se--- keeps the Framework 16 780M SoC clock up for HDMI audio (copied by hdmi_audio_fix)
+│   │   │       ├── hdmi-audio-fix.se--- keeps the Framework 16 780M SoC clock up for HDMI audio (copied by hdmi_audio_fix)
+│   │   │       ├── orei-switch-boot.--- re-enables the left ports and turns the projector on at boot (copied by orei_switch)
+│   │   │       ├── orei-switch-power--- turns the projector off over CEC on poweroff (copied by orei_switch)
+│   │   │       └── orei-switch.servi--- runs orei-switch.sh around sleep (copied by orei_switch)
 │   │   ├── tmpfiles.d               ---
 │   │   │   └── ec-no-wakeup.conf    --- stop the embedded controller (ACPI GPE 0x0B) from waking the laptop from s2idle (copied, not linked)
 │   │   ├── udev                     ---
@@ -130,7 +134,10 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │       └── 90-touchpad-nowak--- stop I2C devices (Framework 16 touchpad) from waking the laptop (copied, not linked; candidate for removal, see docs/framework16-sleep.md)
 │   │   ├── systemd                  ---
 │   │   │   └── user                 ---
-│   │   │       └── home-units.servic--- starts user units once an encrypted home is unlocked (copied by home_units)
+│   │   │       ├── home-units.servic--- starts user units once an encrypted home is unlocked (copied by home_units)
+│   │   │       ├── webterm-ttyd.serv--- ttyd on a private UNIX socket (copied by webterm)
+│   │   │       ├── webterm.service  --- systemd-socket-proxyd, exits when idle (copied by webterm)
+│   │   │       └── webterm.socket   --- listens on 127.0.0.1:3000 (copied by webterm)
 │   │   └── vconsole.conf            --- Linux virtual console configuration file
 │   └── usr                          ---
 │       ├── local                    ---
@@ -213,7 +220,7 @@ Each `feature_<name>` function has a doc comment directly above it: a brief desc
 feature_webterm() {
 ```
 
-Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev`, `tmpfiles` and `hdmi_audio_fix` hold Framework 16 fixes. On SteamOS, the features that write into `/etc` outside what SteamOS's default keep list covers (`udev`, `tmpfiles` and `home_units`) also name those files in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, each in its own subblock, with `keep_across_steamos_updates`, so OS updates keep them. `hdmi_audio_fix` needs none: the default list keeps system services and their enablement links.
+Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev`, `tmpfiles` and `hdmi_audio_fix` hold Framework 16 fixes. On SteamOS, the features that write into `/etc` outside what SteamOS's default keep list covers (`udev`, `tmpfiles`, `home_units` and `webterm`) also name those files in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, each in its own subblock, with `keep_across_steamos_updates`, so OS updates keep them. `hdmi_audio_fix` needs none: the default list keeps system services and their enablement links.
 
 | Feature | Machine | OS | GUI | Requires |
 |---|---|---|---|---|
@@ -228,6 +235,7 @@ Each variant declares the `_os` and `_gui` it targets. `tests/validation/feature
 | `binaries`, `neovim` | any | linux, macos | any | |
 | `flatpak` | any | linux | desktop | |
 | `udev`, `tmpfiles`, `hdmi_audio_fix` | framework16 | linux | any | |
+| `orei_switch` | framework16 | linux | any | |
 | `steamos_xclip` | any | steamos | desktop | |
 | `webterm` | any | linux | any | `link` |
 | `home_units`, `steam` | any | steamos | any | |
@@ -235,7 +243,7 @@ Each variant declares the `_os` and `_gui` it targets. `tests/validation/feature
 
 `linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The variants target: `arch` (arch, gnome), `steamos` (steamos, kde), `coder` (linux, no GUI) and `portable` (linux and macos, no GUI).
 
-The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `steam` feature sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, replacing only keys Steam already wrote and only while Steam is closed, since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`. Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd; see [Webterm](#webterm) and [docs/steamos-setup.md](docs/steamos-setup.md). Its `hdmi_audio_fix` feature, a Framework 16 fix like `udev` and `tmpfiles`, copies `root/etc/systemd/system/hdmi-audio-fix.service` into `/etc/systemd/system` (with sudo). At boot and after every resume it sets the 780M to the `manual` level and gives its SoC clock a 720 MHz floor (`pp_dpm_socclk` levels 2 to 7), leaving the graphics, memory and fabric clocks free. At idle `socclk` otherwise drops to 400 MHz and HDMI audio stutters; games aren't capped (PipeWire buffer settings don't help: it reports no underruns); `--uninstall` removes it and sets the level back to `auto`.
+The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `steam` feature sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, replacing only keys Steam already wrote and only while Steam is closed, since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`. Its optional `orei_switch` feature (Framework 16 only) makes an OREI HDMI switch hand over to another input while the laptop sleeps; see [docs/orei-switch.md](docs/orei-switch.md). Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd from user units it copies into `/etc/systemd/user` (with sudo), so that with an encrypted home `home_units` can start them without reloading the user manager; see [Webterm](#webterm) and [docs/steamos-setup.md](docs/steamos-setup.md). Its `hdmi_audio_fix` feature, a Framework 16 fix like `udev` and `tmpfiles`, copies `root/etc/systemd/system/hdmi-audio-fix.service` into `/etc/systemd/system` (with sudo). At boot and after every resume it sets the 780M to the `manual` level and gives its SoC clock a 720 MHz floor (`pp_dpm_socclk` levels 2 to 7), leaving the graphics, memory and fabric clocks free. At idle `socclk` otherwise drops to 400 MHz and HDMI audio stutters; games aren't capped (PipeWire buffer settings don't help: it reports no underruns); `--uninstall` removes it and sets the level back to `auto`.
 
 Variants that don't symlink whole files (e.g. `coder`) instead write into a single `## Managed by dotfiles` ... `## /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`, and on SteamOS the keep list `/etc/atomic-update.conf.d/dotfiles.conf`). Each feature owns a `## feature <name>` subblock inside it and rewrites only that subblock on re-run. The markers start with `##`, a comment in sh and in SteamOS keep lists alike; sections written with the older single-`#` markers are converted on the next run. Shell startup file subblocks only source files under `home/.config/sh` and `home/.config/zsh`, which the linked startup files (on `arch` and `steamos`) source too. Edit the files outside the section freely.
 
@@ -300,7 +308,7 @@ git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the
 ```
 
 #### Webterm
-The `--webterm` feature (on `steamos`) gives you a real shell in the browser on localhost. It runs [ttyd](https://github.com/tsl0922/ttyd), a single static binary (about 1.3 MB) that serves an [xterm.js](https://xtermjs.org/) page and connects it to your shell. systemd starts it the first time you open the page and stops it once no browser has been connected for 30 s. There is nothing to compile and no Node, npm, Python or root access needed, which is handy on SteamOS, where the root filesystem is read-only.
+The `--webterm` feature (on `steamos`) gives you a real shell in the browser on localhost. It runs [ttyd](https://github.com/tsl0922/ttyd), a single static binary (about 1.3 MB) that serves an [xterm.js](https://xtermjs.org/) page and connects it to your shell. systemd starts it the first time you open the page and stops it once no browser has been connected for 30 s. There is nothing to compile and no Node, npm or Python needed, which is handy on SteamOS, where the root filesystem is read-only. The only files outside your home directory are the three units, which go into `/etc` with sudo.
 
 ```
 browser ⇄ 127.0.0.1:3000 ──► webterm.socket            (always listening)
@@ -324,21 +332,17 @@ A backend is needed because a web page can't start processes; only a local progr
 ~/dotfiles/install.sh --variant steamos --webterm   # just ttyd and the units
 ```
 
-`--all` installs these along with the rest of the `steamos` variant. When it finishes, it prints your URL, which looks like `http://localhost:3000/<token>/`. Bookmark it; the token is explained in [Security](#security). To update, `git pull` in `~/dotfiles` and run the installer again, after the steps in [docs/migrations.md](docs/migrations.md) for any changes it pulled in. What gets installed, all inside your home directory so SteamOS updates don't remove it:
+`--all` installs these along with the rest of the `steamos` variant. When it finishes, it prints your URL, which looks like `http://localhost:3000/<token>/`. Bookmark it; the token is explained in [Security](#security). To update, `git pull` in `~/dotfiles` and run the installer again, after the steps in [docs/migrations.md](docs/migrations.md) for any changes it pulled in. What gets installed:
 
 - **Scripts and settings** (`--link`): `home/.local/bin/webterm-{index,shell,ttyd}`, `home/.local/share/webterm/tab-keys.html` and `home/.config/webterm/env` are linked into place.
 - **Font** (`--font`): installs JetBrainsMono Nerd Font (Nerd Fonts v3.4.0) into `~/.local/share/fonts/JetBrainsMonoNerdFont/`, after checking its SHA-256. It does nothing if `fc-list` already lists the font.
-- **ttyd and units** (`--webterm`): downloads ttyd 1.7.7 to `~/.local/bin/ttyd`, checks it against a pinned SHA-256, and copies the units in `home/.config/systemd/user/` into `~/.config/systemd/user/` (copied, not linked: systemd treats symlinked unit files as "linked" units, which enable and disable handle differently).
+- **ttyd and units** (`--webterm`): downloads ttyd 1.7.7 to `~/.local/bin/ttyd`, checks it against a pinned SHA-256, and copies the units in `root/etc/systemd/user/` into `/etc/systemd/user/` with sudo (copied, not linked: systemd treats symlinked unit files as "linked" units, which enable and disable handle differently). There the user manager sees them from boot, even with an [encrypted home](#encrypted-home-directory-dirlock). They are user units, so they only start for users who enable them; `--webterm` enables them for you, with a link in `~/.config/systemd/user/`. On SteamOS it also names them in its own subblock of the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, since updates otherwise drop everything in `/etc/systemd/user`.
 - **home-units** (`--home_units`): only with an encrypted home directory; see [Encrypted home directory](#encrypted-home-directory-dirlock).
 
-`--dry-run` prints what would change. To remove webterm:
+`--dry-run` prints what would change. To remove webterm, including `~/.local/bin/ttyd`, the page in `~/.local/state/webterm` and (with sudo) the units in `/etc`:
 
 ```sh
-systemctl --user disable --now webterm.socket
-systemctl --user stop webterm.service webterm-ttyd.service
-rm -f ~/.config/systemd/user/webterm{.socket,.service,-ttyd.service} ~/.local/bin/ttyd
-rm -rf ~/.local/state/webterm
-systemctl --user daemon-reload
+~/dotfiles/install.sh --variant steamos --webterm --uninstall
 ```
 
 Your URL token stays in `~/.config/webterm/token`.
@@ -350,11 +354,11 @@ Your URL token stays in `~/.config/webterm/token`.
 | Shell        | `SHELL` in the env file                                       | `/usr/bin/zsh`     |
 | Font         | `WEBTERM_FONT` in the env file                                | JetBrainsMono Nerd Font Mono |
 | URL token    | `WEBTERM_TOKEN` in `~/.config/webterm/token`                  | random, 32 hex     |
-| Port         | `ListenStream` in `home/.config/systemd/user/webterm.socket`  | `127.0.0.1:3000`   |
+| Port         | `ListenStream` in `root/etc/systemd/user/webterm.socket`      | `127.0.0.1:3000`   |
 
-The env file, `~/.config/webterm/env`, is linked from `home/.config/webterm/env` by the `link` feature, so settings there are kept in git; run `--link` before `--webterm`, which needs it. The token gets its own unlinked file (mode 600), which `--webterm` creates if it's missing, so it never lands in the repo. Change the environment settings with a drop-in, for example `systemctl --user edit webterm.service` with `[Service] Environment=WEBTERM_IDLE=5min`. To change the port, edit `home/.config/systemd/user/webterm.socket`.
+The env file, `~/.config/webterm/env`, is linked from `home/.config/webterm/env` by the `link` feature, so settings there are kept in git; run `--link` before `--webterm`, which needs it. The token gets its own unlinked file (mode 600), which `--webterm` creates if it's missing, so it never lands in the repo. Change the environment settings with a drop-in, for example `systemctl --user edit webterm.service` with `[Service] Environment=WEBTERM_IDLE=5min`. That drop-in lives in `~/.config/systemd/user/`, so with an encrypted home the user manager doesn't see it after a reboot until something reloads it (rerunning `--webterm` does); for one that holds from boot, use `sudo systemctl --global edit webterm.service`, and on SteamOS add it to a keep list too. To change the port, edit `root/etc/systemd/user/webterm.socket`.
 
-After any change, run `~/dotfiles/install.sh --variant steamos --webterm` again. You don't need to close the browser. It copies the units that changed (so edits and a `git pull` take effect) and reloads systemd, then restarts the proxy and ttyd, but only if they're running; if they aren't, the next visit starts them with the new settings anyway. `~/.config/webterm/env` and `~/.config/webterm/token` are read again on every start, so changes there apply too. Open tabs show "Reconnecting..." and come back by themselves with the new settings (font, title and so on), without a page reload. Each tab gets a **fresh shell**, so anything running in a bare shell ends; tmux sessions survive (see [Keeping work with tmux](#keeping-work-with-tmux)). The exception is the token: after changing it, open the new URL, since tabs still on the old one can't reconnect.
+After any change, run `~/dotfiles/install.sh --variant steamos --webterm` again. You don't need to close the browser. It copies the units that changed into `/etc/systemd/user` (so edits and a `git pull` take effect) and reloads systemd, then restarts the proxy and ttyd, but only if they're running; if they aren't, the next visit starts them with the new settings anyway. `~/.config/webterm/env` and `~/.config/webterm/token` are read again on every start, so changes there apply too. Open tabs show "Reconnecting..." and come back by themselves with the new settings (font, title and so on), without a page reload. Each tab gets a **fresh shell**, so anything running in a bare shell ends; tmux sessions survive (see [Keeping work with tmux](#keeping-work-with-tmux)). The exception is the token: after changing it, open the new URL, since tabs still on the old one can't reconnect.
 
 ##### Font
 The terminal uses **JetBrainsMono Nerd Font Mono** by default. The Mono variant draws Nerd Font icons one cell wide, so prompts line up in the grid. ttyd's `-t key=value` passes any option straight to xterm.js, so the unit runs `-t "fontFamily=${WEBTERM_FONT}"`; no custom build is needed. The page only names the font: the browser draws it from fonts installed on the machine it runs on, which is the Deck here, so the `font` feature installs it. Flatpak browsers (the default on SteamOS) should also see `~/.local/share/fonts`. If the browser was already open when the font was installed, restart it; until then it uses the next font in the list.
@@ -373,12 +377,12 @@ After changing `tab-keys.html`, rerun `--webterm` and reload open tabs.
 ##### Encrypted home directory (dirlock)
 With an encrypted home directory, webterm doesn't start after a reboot. The user manager (`systemd --user`) starts before dirlock unlocks the home directory, so it can't see `~/.config/systemd/user` and skips `webterm.socket`. `systemctl --user status webterm.socket` then shows `inactive (dead)` with no log entries for this boot.
 
-`home-units.service` fixes this for every unit in your home directory, not just webterm, in Game Mode and Desktop Mode. Its files are the only ones webterm needs outside your home directory, so `--home_units` copies them from `root/` into place with sudo (they can't be links into a home that is still locked). It does so only when your home directory is encrypted, and reinstalls them when the repo has a newer version. Everything it adds to `/etc` is named after the repo (`dotfiles`), except the unit itself, which must sit where systemd looks for units:
+`home-units.service` fixes this for every unit enabled in your home directory, in Game Mode and Desktop Mode, as long as the unit's file lives outside the home (see below); webterm's units are in `/etc/systemd/user` for this reason. home-units' own files must be outside the home too, so `--home_units` copies them from `root/` into place with sudo (they can't be links into a home that is still locked). It does so only when your home directory is encrypted, and reinstalls them when the repo has a newer version. Everything it adds to `/etc` is named after the repo (`dotfiles`), except the unit itself, which must sit where systemd looks for units:
 
-- `/etc/systemd/user/home-units.service`, enabled for all users. Each user manager sees it while the home directory is still locked. It runs `/etc/dotfiles/home-units-start`, which waits until `~/.config` is readable and runs `systemctl --user daemon-reload`. Then, for each `~/.config/systemd/user/<target>.wants/` (and `.requires/`) whose target is already up, it starts the units linked there. Nothing else is started, so SteamOS's own units that already ran aren't run again. A target that isn't up yet, like `graphical-session.target` before Desktop Mode, starts its units itself later.
+- `/etc/systemd/user/home-units.service`, enabled for all users. Each user manager sees it while the home directory is still locked. It runs `/etc/dotfiles/home-units-start`, which waits until `~/.config` is readable. Then, for each `~/.config/systemd/user/<target>.wants/` (and `.requires/`) whose target is already up, it starts the units linked there with `systemctl --user start --no-block`. Nothing else is started, so SteamOS's own units that already ran aren't run again. It doesn't run `systemctl --user daemon-reload`, which older versions did to make `~/.config/systemd/user` visible: logging in is what unlocks the home, so that reload ran while the session was starting, and when it landed in the middle of SteamOS's `start-gamescope-session`, the launcher's `systemctl` calls hung for 30s and the session was killed 90s after login. Without the reload the user manager knows only the unit files it found at boot, so a unit started this way must have its file outside the home, such as in `/etc/systemd/user` (like webterm's) or `/usr/lib/systemd/user` (like `gamemoded.service`); one whose file is in `~/.config/systemd/user` fails to start, with a warning in the journal. Drop-ins in `~/.config/systemd/user/<unit>.d/` don't apply until the next reload, and since the manager doesn't see the enable links either, the units of a target that isn't up yet when the home unlocks aren't started.
 - A `## feature home_units` subblock in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`. Since SteamOS 3.6 an update drops every change in `/etc` that isn't on a keep list (into `/etc/previous`). The default list, `/usr/lib/rauc/atomic-update-keep.conf`, keeps system units in `/etc/systemd/system` (services, sockets and mounts, with their drop-ins and enablement links) but nothing in `/etc/systemd/user`, so this subblock names the unit, its enablement symlink and `/etc/dotfiles/home-units-start`. `keep_across_steamos_updates` (`install/lib/fs.sh`) writes it from the files the feature installs, on every run. The Framework 16 fixes keep their files in their own subblocks of the same list, and the `steamos-update` fixture (`make fixtures`) checks that a mock update keeps all of them.
 
-Which units it starts is up to you: `systemctl --user enable foo.service` adds a link under the target named in the unit's `WantedBy=`, and `systemctl --user disable` removes it. `journalctl --user -b -u home-units` shows what it started this boot. After a reboot, `systemctl --user status home-units.service` should be `active (exited)` and `webterm.socket` `active (listening)`. To test that it survives an update, switch branches and update (`sudo steamos-select-branch beta && sudo steamos-atomupd-client`), reboot, and check that `/etc/systemd/user/home-units.service` is still there. To remove it:
+Which units it starts is up to you: `systemctl --user enable foo.service` adds a link under the target named in the unit's `WantedBy=`, and `systemctl --user disable` removes it. `journalctl --user -b -u home-units` shows what it started this boot, and should show no reload. After a reboot, `systemctl --user status home-units.service` should be `active (exited)` and `webterm.socket` `active (listening)`. To test that it survives an update, switch branches and update (`sudo steamos-select-branch beta && sudo steamos-atomupd-client`), reboot, and check that `/etc/systemd/user/home-units.service` is still there. To remove it:
 
 ```sh
 sudo systemctl --global disable home-units.service
