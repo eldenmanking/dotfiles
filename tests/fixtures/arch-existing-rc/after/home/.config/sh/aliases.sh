@@ -1,0 +1,1 @@
+/home/me/dotfiles/home/.config/sh/aliases.sh

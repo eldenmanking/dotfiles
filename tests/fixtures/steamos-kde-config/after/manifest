@@ -1,0 +1,3 @@
+kept    ~ d 700 user
+kept    ~/.config d 755 user
+changed ~/.config/kcminputrc f 644 user 7e0cda03a8068cbc (was f 644 user 5d0a8a6b183fa5e3)

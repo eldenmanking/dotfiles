@@ -1,0 +1,15 @@
+kept    ~ d 700 user
+new     ~/.cache d 700 user
+new     ~/.cache/dconf d 700 user
+new     ~/.cache/dconf/user f 600 user 96a296d224f285c6
+new     ~/.config d 700 user
+new     ~/.config/dconf d 700 user
+new     ~/.config/dconf/user f 644 user f8aa0eb0ff072cdf
+new     ~/dconf-dump.ini f 644 user b7ae4bc91f6528aa
+new     ~/dotfiles/.backup d 755 user
+new     ~/dotfiles/.backup/home d 755 user
+new     ~/dotfiles/.backup/home/me d 755 user
+new     ~/dotfiles/.backup/home/me/dotfiles d 755 user
+new     ~/dotfiles/.backup/home/me/dotfiles/dump d 755 user
+new     ~/dotfiles/.backup/home/me/dotfiles/dump/dconf d 755 user
+new     ~/dotfiles/.backup/home/me/dotfiles/dump/dconf/arch.dconf f 600 user e3b0c44298fc1c14

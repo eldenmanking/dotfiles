@@ -1,0 +1,86 @@
+kept    ~ d 700 user
+changed ~/.bash_profile l 777 user -> ~/dotfiles/home/.bash_profile (was f 644 user e149407c2bee1777)
+changed ~/.bashrc l 777 user -> ~/dotfiles/home/.bashrc (was f 644 user 5fa7909bc6221303)
+new     ~/.claude d 755 user
+new     ~/.claude/scripts d 755 user
+new     ~/.claude/scripts/_lib.sh l 777 user -> ~/tools/claude/scripts/_lib.sh
+new     ~/.claude/scripts/cleanup-pr-state-core.sh l 777 user -> ~/tools/claude/scripts/cleanup-pr-state-core.sh
+new     ~/.claude/scripts/discover-pr-state-core.sh l 777 user -> ~/tools/claude/scripts/discover-pr-state-core.sh
+new     ~/.claude/scripts/post-push-ci.sh l 777 user -> ~/tools/claude/scripts/post-push-ci.sh
+new     ~/.claude/scripts/pr-state.sh l 777 user -> ~/tools/claude/scripts/pr-state.sh
+new     ~/.claude/scripts/refresh-pr-state-core.sh l 777 user -> ~/tools/claude/scripts/refresh-pr-state-core.sh
+new     ~/.claude/scripts/statusline.sh l 777 user -> ~/tools/claude/scripts/statusline.sh
+new     ~/.claude/scripts/stop-ci-check.sh l 777 user -> ~/tools/claude/scripts/stop-ci-check.sh
+new     ~/.claude/settings.json f 644 user *
+new     ~/.claude/skills d 755 user
+new     ~/.claude/skills/babysit-ci l 777 user -> ~/tools/claude/skills/babysit-ci
+new     ~/.claude/skills/cleanup-pr-state l 777 user -> ~/tools/claude/skills/cleanup-pr-state
+new     ~/.claude/skills/discover-pr-state l 777 user -> ~/tools/claude/skills/discover-pr-state
+new     ~/.claude/skills/refresh-pr-state l 777 user -> ~/tools/claude/skills/refresh-pr-state
+new     ~/.claude/skills/review-sessions l 777 user -> ~/tools/claude/skills/review-sessions
+new     ~/.claude/skills/setup-from-docs l 777 user -> ~/tools/claude/skills/setup-from-docs
+new     ~/.config d 755 user
+new     ~/.config/alacritty d 755 user
+new     ~/.config/alacritty/alacritty.toml l 777 user -> ~/dotfiles/home/.config/alacritty/alacritty.toml
+new     ~/.config/git d 755 user
+new     ~/.config/git/ignore l 777 user -> ~/dotfiles/home/.config/git/ignore
+new     ~/.config/nvim d 755 user
+new     ~/.config/nvim/core d 755 user
+new     ~/.config/nvim/core/autocommands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/autocommands.vim
+new     ~/.config/nvim/core/commands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/commands.vim
+new     ~/.config/nvim/core/filetypes.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/filetypes.vim
+new     ~/.config/nvim/core/mappings.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/mappings.vim
+new     ~/.config/nvim/core/options.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/options.vim
+new     ~/.config/nvim/core/plugins.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugins.vim
+new     ~/.config/nvim/core/plugmaps.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugmaps.vim
+new     ~/.config/nvim/init.vim l 777 user -> ~/dotfiles/home/.config/nvim/init.vim
+new     ~/.config/sh d 755 user
+new     ~/.config/sh/aliases.sh l 777 user -> ~/dotfiles/home/.config/sh/aliases.sh
+new     ~/.config/sh/env.sh l 777 user -> ~/dotfiles/home/.config/sh/env.sh
+new     ~/.config/sh/starship.sh l 777 user -> ~/dotfiles/home/.config/sh/starship.sh
+new     ~/.config/starship.toml l 777 user -> ~/dotfiles/home/.config/starship.toml
+new     ~/.config/yapf d 755 user
+new     ~/.config/yapf/style l 777 user -> ~/dotfiles/home/.config/yapf/style
+new     ~/.config/zsh d 755 user
+new     ~/.config/zsh/external.zsh l 777 user -> ~/dotfiles/home/.config/zsh/external.zsh
+new     ~/.config/zsh/keybindings.zsh l 777 user -> ~/dotfiles/home/.config/zsh/keybindings.zsh
+new     ~/.config/zsh/plugins.zsh l 777 user -> ~/dotfiles/home/.config/zsh/plugins.zsh
+new     ~/.config/zsh/settings.zsh l 777 user -> ~/dotfiles/home/.config/zsh/settings.zsh
+new     ~/.gitconfig f 644 user 7ad3b2d2858b3084
+new     ~/.ideavimrc l 777 user -> ~/dotfiles/home/.ideavimrc
+new     ~/.local d 755 user
+new     ~/.local/bin d 755 user
+new     ~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
+new     ~/.local/bin/squidpdf l 777 user -> ~/dotfiles/home/.local/bin/squidpdf
+new     ~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
+new     ~/.local/bin/vm-usb l 777 user -> ~/dotfiles/home/.local/bin/vm-usb
+new     ~/.local/share d 755 user
+new     ~/.local/share/applications d 755 user
+new     ~/.local/share/applications/Alacritty.desktop l 777 user -> ~/dotfiles/home/.local/share/applications/Alacritty.desktop
+new     ~/.local/share/backgrounds d 755 user
+new     ~/.local/share/backgrounds/GH2.jpg l 777 user -> ~/dotfiles/home/.local/share/backgrounds/GH2.jpg
+new     ~/.ocamlformat l 777 user -> ~/dotfiles/home/.ocamlformat
+new     ~/.profile l 777 user -> ~/dotfiles/home/.profile
+new     ~/.pylintrc l 777 user -> ~/dotfiles/home/.pylintrc
+new     ~/.tmux d 755 user
+new     ~/.tmux.conf l 777 user -> ~/dotfiles/home/.tmux.conf
+new     ~/.tmux/plugins d 755 user
+new     ~/.tmux/plugins/tmux-resurrect git 755 user https://github.com/eldenmanking/tmux-resurrect
+new     ~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/strategies/nvim_obsession.sh
+new     ~/.tmux/plugins/tmux-sensible git 755 user https://github.com/tmux-plugins/tmux-sensible
+new     ~/.tmux/plugins/tpm git 755 user https://github.com/tmux-plugins/tpm
+new     ~/.tmux/resurrect d 755 user
+new     ~/.tmux/resurrect/saferestore.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/saferestore.sh
+new     ~/.vimrc l 777 user -> ~/dotfiles/home/.vimrc
+new     ~/.zprofile l 777 user -> ~/dotfiles/home/.zprofile
+changed ~/.zshrc l 777 user -> ~/dotfiles/home/.zshrc (was f 644 user 52f8d5f824113661)
+new     ~/dotfiles/.backup d 755 user
+new     ~/dotfiles/.backup/home d 755 user
+new     ~/dotfiles/.backup/home/me d 755 user
+new     ~/dotfiles/.backup/home/me/.bash_profile f 644 user e149407c2bee1777
+new     ~/dotfiles/.backup/home/me/.bashrc f 644 user 5fa7909bc6221303
+new     ~/dotfiles/.backup/home/me/.zshrc f 644 user 52f8d5f824113661
+new     ~/git d 755 user
+new     ~/git/.claude d 755 user
+new     ~/git/.claude/CLAUDE.md f 644 user *
+new     ~/tools git 755 user https://github.com/eldenmanking/tools.git

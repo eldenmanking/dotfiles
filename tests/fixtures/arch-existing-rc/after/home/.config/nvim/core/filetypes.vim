@@ -1,0 +1,1 @@
+/home/me/dotfiles/home/.config/nvim/core/filetypes.vim

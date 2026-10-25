@@ -1,0 +1,37 @@
+kept    ~ d 700 user
+changed ~/.bash_profile f 644 user 39bef332bd8650f5 (was f 644 user e149407c2bee1777)
+changed ~/.bashrc f 644 user 584bdf2b96903216 (was f 644 user 5fa7909bc6221303)
+new     ~/.config d 755 user
+new     ~/.config/nvim d 755 user
+new     ~/.config/nvim/core d 755 user
+new     ~/.config/nvim/core/autocommands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/autocommands.vim
+new     ~/.config/nvim/core/commands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/commands.vim
+new     ~/.config/nvim/core/filetypes.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/filetypes.vim
+new     ~/.config/nvim/core/mappings.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/mappings.vim
+new     ~/.config/nvim/core/options.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/options.vim
+new     ~/.config/nvim/core/plugins.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugins.vim
+new     ~/.config/nvim/core/plugmaps.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugmaps.vim
+new     ~/.config/nvim/init.vim l 777 user -> ~/dotfiles/home/.config/nvim/init.vim
+new     ~/.config/starship.toml l 777 user -> ~/dotfiles/home/.config/starship.toml
+new     ~/.gitconfig f 644 user 7ad3b2d2858b3084
+new     ~/.local d 755 user
+new     ~/.local/bin d 755 user
+new     ~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
+new     ~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
+new     ~/.profile f 644 user dfbd2515280ad12d
+new     ~/.tmux d 755 user
+new     ~/.tmux.conf l 777 user -> ~/dotfiles/home/.tmux.conf
+new     ~/.tmux/plugins d 755 user
+new     ~/.tmux/plugins/tmux-resurrect git 755 user https://github.com/eldenmanking/tmux-resurrect
+new     ~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/strategies/nvim_obsession.sh
+new     ~/.tmux/plugins/tmux-sensible git 755 user https://github.com/tmux-plugins/tmux-sensible
+new     ~/.tmux/plugins/tpm git 755 user https://github.com/tmux-plugins/tpm
+new     ~/.tmux/resurrect d 755 user
+new     ~/.tmux/resurrect/saferestore.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/saferestore.sh
+new     ~/.zprofile f 644 user dfbd2515280ad12d
+new     ~/.zsh d 755 user
+new     ~/.zsh/plugins d 755 user
+new     ~/.zsh/plugins/zsh-autosuggestions git 755 user https://github.com/zsh-users/zsh-autosuggestions
+new     ~/.zsh/plugins/zsh-history-substring-search git 755 user https://github.com/zsh-users/zsh-history-substring-search
+new     ~/.zsh/plugins/zsh-syntax-highlighting git 755 user https://github.com/zsh-users/zsh-syntax-highlighting
+changed ~/.zshrc f 644 user 0f8cb9d749d9ce20 (was f 644 user 52f8d5f824113661)

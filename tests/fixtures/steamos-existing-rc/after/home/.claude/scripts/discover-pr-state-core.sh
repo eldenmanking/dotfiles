@@ -1,0 +1,1 @@
+/home/deck/tools/claude/scripts/discover-pr-state-core.sh

@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# Fixture tests: run install.sh in a container that starts out holding a fixture's before/ files, and check the files
-# it leaves against the fixture's after/. Run via `make fixtures` (needs docker); `--update` rewrites after/ from the
+# Fixture tests: run install.sh in a container that starts out holding a fixture's before/ files, and check what it
+# leaves against the fixture's after/. Run via `make fixtures` (needs docker); `--update` rewrites after/ from the
 # results instead, for review with git diff. Name fixtures to run only those. Each tests/fixtures/<name>/ holds:
-#   case.sh  IMAGE, the image to run in (a directory under tests/images), and ARGS, install.sh's arguments. Optionally:
-#            FILES, the paths under ~ to compare (it starts out as the shell startup files, so a case can add to it;
-#            ~/dotfiles/.backup, where install.sh moves files it replaces, is always compared); ROOT_FILES, absolute
-#            paths outside ~ to compare; AFTER_INSTALL, a command to run after the first install (e.g. an OS
-#            update), as the user; and RUN_WITH, a command that runs install.sh (e.g. dbus-run-session -- for a session
-#            bus).
-#   before/  home/ (copied into ~) and root/ (copied into / with sudo), like the repo's own home/ and root/
-#   after/   home/ and root/: the compared files after the first install and AFTER_INSTALL, symlinks kept as symlinks
-#            (missing files are left out)
-# install.sh then runs again, and must leave the compared files as they were: an idempotent install, and one that
-# AFTER_INSTALL didn't undo any of. Every container shares DOWNLOADS_DIR as its DOTFILES_DOWNLOAD_CACHE, so pinned
-# downloads are fetched once (see Download Cache in README.md).
+#   case.sh   IMAGE, the image to run in (a directory under tests/images), and ARGS, install.sh's arguments.
+#             Optionally: FILES, the paths under ~ whose regular files after/ holds in full (it starts out as the shell
+#             startup files, so a case can add to it; ~/dotfiles/.backup, where install.sh moves files it replaces, is
+#             always included); ROOT_FILES, absolute paths outside ~ to compare; AFTER_INSTALL, a command to run after
+#             the first install (e.g. an OS update), as the user; and RUN_WITH, a command that runs install.sh (e.g.
+#             dbus-run-session -- for a session bus).
+#   before/   home/ (copied into ~) and root/ (copied into / with sudo), like the repo's own home/ and root/
+#   after/    after the first install and AFTER_INSTALL: manifest, one line for every entry under ~ (but ~/dotfiles
+#             other than its .backup) and ROOT_FILES (see manifest_lines), marked new, changed, kept or removed against
+#             a manifest taken just before the install (see mark_manifest); and home/ and root/, every symlink the
+#             manifest lists, to show the layout, and the regular files under FILES and ROOT_FILES, for readable diffs
+# install.sh then runs again, and must leave all of it as it was: an idempotent install, and one that AFTER_INSTALL
+# didn't undo any of. Every container shares DOWNLOADS_DIR as its DOTFILES_DOWNLOAD_CACHE, so pinned downloads are
+# fetched once (see Download Cache in README.md).
 
 set -euo pipefail
 
@@ -26,6 +28,10 @@ DEFAULT_FILES=".bash_profile .bashrc .profile .zprofile .zshrc"
 IMAGE_PREFIX="dotfiles-fixtures-"
 DOWNLOADS_DIR="$TOOLS_CACHE/fixture-downloads"
 CONTAINER_DOWNLOADS_DIR=/var/cache/dotfiles-downloads
+# Files under ~ whose contents the manifest leaves out, since the claude feature builds them from the tools repos'
+# latest commits.
+# shellcheck disable=SC2088 # manifest paths, not ones to expand
+UNPINNED_FILES="~/.claude/settings.json ~/git/.claude/CLAUDE.md"
 
 # Outputs: _image, _args, _files, _root_files, _after_install and _run_with of fixture $1, read from its case.sh.
 case_config() {
@@ -60,10 +66,11 @@ all_fixtures() {
   printf '%s' "$names"
 }
 
-# Print the entries under directory $1 (none if it is missing) as ./relative paths, sorted.
+# Print the entries under directory $1 (none if it is missing) but directories as ./relative paths, sorted. after/
+# leaves out directories, which git can't hold empty; the manifest lists them.
 tree_entries() {
   [[ -d "$1" ]] || return 0
-  (cd "$1" && find . ! -name . | LC_ALL=C sort)
+  (cd "$1" && find . ! -type d | LC_ALL=C sort)
 }
 
 # Return 0 if path $1 exists, counting dangling symlinks.
@@ -72,14 +79,17 @@ present() {
 }
 
 # Compare tree $2 against the expected tree $1: the same entries, of the same type, with the same symlink targets and
-# file contents. Prints each difference (paths relative to the trees, e.g. home/.bashrc), with a diff for files, and
-# returns 1 if there are any.
+# file contents. Prints each difference (paths relative to the trees, e.g. home/.bashrc), with a diff for files (all of
+# a new one, so a missing after/ file shows in full), and returns 1 if there are any.
 compare_trees() {
   local expected="$1" actual="$2" path name e a differ=0
   while IFS= read -r path; do
     e="$expected/$path" a="$actual/$path" name="${path#./}"
     if ! present "$e"; then
       warn "$name: not expected, but found"
+      if [[ -f "$a" && ! -L "$a" ]]; then
+        diff -u --label expected --label found /dev/null "$a" | sed 's/^/       | /' >&2 || true
+      fi
     elif ! present "$a"; then
       warn "$name: expected, but missing"
     elif [[ -L "$e" || -L "$a" ]]; then
@@ -111,28 +121,148 @@ describe() {
 
 # --- In the container ---
 
-# Copy the paths in $2 (space-separated, relative to ~) that exist, plus ~/dotfiles/.backup, into $1/home, and the
-# absolute paths in $3 that exist into $1/root (read with sudo, since some may be root's alone).
-collect() {
-  local dest="$1" files="$2" root_files="$3" paths=() path
-  for path in $files dotfiles/.backup; do
-    present "$HOME/$path" && paths+=("$path")
-  done
-  # Only directories with something in them, since git can't hold an empty after/home or after/root.
-  mkdir -p "$dest"
-  if [[ ${#paths[@]} -gt 0 ]]; then
-    mkdir "$dest/home"
-    tar -cf - -C "$HOME" "${paths[@]}" | tar -xf - -C "$dest/home"
-  fi
+# Print path $1 as the manifest shows it: starting with ~ under ~.
+shown_path() {
+  case "$1" in
+    "$HOME" | "$HOME"/*) printf '~%s' "${1#"$HOME"}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
 
-  paths=()
+# Print a manifest line for each entry under the paths $2... (themselves included), which find walks under command $1
+# (sudo, or empty): "<path> <type> <mode> <owner>", where type is find's (f, d, l, ...) and owner is "user" for the
+# user's own entries, then "-> <target>" for a symlink and the start of its SHA-256 for a regular file (* for
+# UNPINNED_FILES). Paths and link targets under ~ start with ~. ~/dotfiles is left out (name its .backup to include
+# that). A git clone, whose contents follow upstream, is one "git" line with its remote URL (without credentials), then
+# lines for its untracked and changed files. Returns 1 if a symlink outside ~/dotfiles/.backup dangles.
+manifest_lines() {
+  local sudo="$1" me type mode owner path target line status=0
+  shift
+  me="$(id -un):$(id -gn)"
+  while IFS=$'\t' read -r -d '' type mode owner path target; do
+    [[ "$owner" == "$me" ]] && owner=user
+    line="$(shown_path "$path") $type $mode $owner"
+    case "$type" in
+      l)
+        line+=" -> $(shown_path "$target")"
+        if [[ "$path" != "$HOME/dotfiles/.backup/"* ]] && ! $sudo test -e "$path"; then
+          warn "$(shown_path "$path"): dangling symlink to $target"
+          status=1
+        fi
+        ;;
+      f)
+        if list_contains "$UNPINNED_FILES" "$(shown_path "$path")"; then
+          line+=" *"
+        else
+          line+=" $($sudo sha256sum "$path" | cut -c1-16)"
+        fi
+        ;;
+      git)
+        # Without any user:password@ (tpm clones from https://git::@github.com/...).
+        line+=" $($sudo git -C "$path" remote get-url origin 2>/dev/null | sed 's|^\([a-z+]*://\)[^/@]*@|\1|' \
+          || printf -)"
+        ;;
+    esac
+    printf '%s\n' "$line"
+    if [[ "$type" == git ]]; then
+      clone_changes "$sudo" "$path" || status=1
+    fi
+  done < <($sudo find "$@" -path "$HOME/dotfiles" -prune \
+    -o -type d -exec test -e '{}/.git' ';' -printf 'git\t%m\t%u:%g\t%p\t\0' -prune \
+    -o -printf '%y\t%m\t%u:%g\t%p\t%l\0')
+  return "$status"
+}
+
+# Print manifest lines (see manifest_lines, under command $1) for the untracked and changed files of the git clone $2,
+# and "<path> deleted" for each deleted one.
+clone_changes() {
+  local sudo="$1" clone="$2" entry path status=0
+  while IFS= read -r -d '' entry; do
+    path="$clone/${entry:3}"
+    # A rename is followed by its old path.
+    [[ "$entry" == R* ]] && IFS= read -r -d '' _
+    if present "$path"; then
+      manifest_lines "$sudo" "$path" || status=1
+    else
+      printf '%s deleted\n' "$(shown_path "$path")"
+    fi
+  done < <($sudo git -C "$clone" status --porcelain -z --untracked-files=all)
+  return "$status"
+}
+
+# Copy the regular files and symlinks under the paths $4... (relative to directory $2) into directory $3, keeping their
+# paths, read under command $1 (sudo, or empty). Leaves $3 out if there are none, since git can't hold it empty. A path
+# inside a symlinked directory is an error: tar would copy the link target's files as if they were there.
+copy_files() {
+  local sudo="$1" from="${2%/}" to="$3" path parent list
+  shift 3
+  list="$(mktemp)"
+  for path in "$@"; do
+    present "$from/$path" || continue
+    parent="$(dirname "$from/$path")"
+    [[ "$(cd "$parent" && pwd -P)" == "$parent" ]] \
+      || error "$(shown_path "$from/$path") is inside a symlinked directory; name the symlink instead"
+    (cd "$from/" && $sudo find "$path" \( -type f -o -type l \) -print0) >> "$list"
+  done
+  if [[ -s "$list" ]]; then
+    mkdir -p "$to"
+    LC_ALL=C sort -zu "$list" | $sudo tar -C "$from/" --null -T - -cf - | tar -xf - --no-same-owner -C "$to"
+  fi
+  rm -f "$list"
+}
+
+# Write the sorted manifest lines (see manifest_lines) of ~, with ~/dotfiles/.backup, and of the absolute paths in $2 to
+# file $1. Returns 1 if a symlink dangles.
+write_manifest() {
+  local file="$1" root_files="$2" path homes=("$HOME") roots=() status=0
   for path in $root_files; do
     [[ "$path" == /* ]] || error "ROOT_FILES must be absolute paths, not $path"
-    present "$path" && paths+=("${path#/}")
+    present "$path" && roots+=("$path")
   done
-  [[ ${#paths[@]} -eq 0 ]] && return
-  mkdir -p "$dest/root"
-  sudo tar -cf - -C / "${paths[@]}" | tar -xf - --no-same-owner -C "$dest/root"
+  present "$HOME/dotfiles/.backup" && homes+=("$HOME/dotfiles/.backup")
+  {
+    manifest_lines "" "${homes[@]}" || status=1
+    if [[ ${#roots[@]} -gt 0 ]]; then
+      manifest_lines sudo "${roots[@]}" || status=1
+    fi
+  } > "$file.unsorted"
+  LC_ALL=C sort "$file.unsorted" > "$file"
+  rm "$file.unsorted"
+  return "$status"
+}
+
+# Print the lines of manifest $2, each marked against manifest $1, taken before the install: "new" if $1 has no line
+# for its path, "kept" if $1 has the same line, or "changed" with "(was ...)" and the rest of $1's line; then "removed"
+# and $1's line for each path only $1 has. Sorted by path.
+mark_manifest() {
+  awk '
+    NR == FNR { before[$1] = substr($0, length($1) + 2); next }
+    {
+      rest = substr($0, length($1) + 2)
+      if (!($1 in before)) { printf "%-7s %s\n", "new", $0 }
+      else if (before[$1] == rest) { printf "%-7s %s\n", "kept", $0 }
+      else { printf "%-7s %s (was %s)\n", "changed", $0, before[$1] }
+      after[$1] = 1
+    }
+    END { for (path in before) if (!(path in after)) printf "%-7s %s %s\n", "removed", path, before[path] }
+  ' "$1" "$2" | LC_ALL=C sort -s -b -k2,2
+}
+
+# Write the manifest of ~ and of the absolute paths in $3, marked against manifest $4 (see mark_manifest), to
+# $1/manifest, and copy the symlinks it lists and the regular files and symlinks under the paths in $2 (relative to ~)
+# and ~/dotfiles/.backup into $1/home, and those outside ~ into $1/root (read with sudo, since some may be root's
+# alone).
+collect() {
+  local dest="$1" files="$2" root_files="$3" before="$4" links
+  mkdir -p "$dest"
+  write_manifest "$dest/manifest.unmarked" "$root_files" || error "the symlinks above dangle"
+  mark_manifest "$before" "$dest/manifest.unmarked" > "$dest/manifest"
+  # Each symlink's path, relative to ~ or /.
+  links="$(awk '$2 == "l" { print $1 }' "$dest/manifest.unmarked")"
+  rm "$dest/manifest.unmarked"
+
+  copy_files "" "$HOME" "$dest/home" $files dotfiles/.backup $(printf '%s\n' "$links" | sed -n 's|^~/||p')
+  copy_files sudo / "$dest/root" $(printf '%s\n' $root_files "$links" | sed -n 's|^/||p')
 }
 
 # Run install.sh with the words of $1 as arguments, under the words of command $2 if any, showing its output, indented.
@@ -145,9 +275,9 @@ run_install() {
   [[ "$status" == 0 ]] || error "install.sh failed"
 }
 
-# Run fixture $1 here: copy in before/, install, run AFTER_INSTALL, install again, then compare the results of the first
-# install with after/, or with $2 = true, write them to fd 3 as a tar archive. Refuses to run outside a container,
-# since it changes ~ and /.
+# Run fixture $1 here: copy in before/, take a manifest, install, run AFTER_INSTALL, install again, then compare the
+# results of the first install with after/, or with $2 = true, write them to fd 3 as a tar archive. Refuses to run
+# outside a container, since it changes ~ and /.
 run_inside() {
   local name="$1" update="$2" dir="$FIXTURES_DIR/$1" scratch
   [[ -f /.dockerenv || -f /run/.containerenv ]] || error "--inside changes ~ and /, so it only runs in a container"
@@ -160,15 +290,17 @@ run_inside() {
   if [[ -d "$dir/before/root" ]]; then
     sudo cp -RP --no-preserve=ownership "$dir/before/root/." /
   fi
+  # What the install starts from, to mark what it did. A symlink that already dangles is the fixture's business.
+  write_manifest "$scratch/before" "$_root_files" || true
 
   run_install "$_args" "$_run_with"
   if [[ -n "$_after_install" ]]; then
     info "\$ $_after_install"
     bash -c "$_after_install" 2>&1 | sed 's/^/       | /' || error "AFTER_INSTALL failed"
   fi
-  collect "$scratch/first" "$_files" "$_root_files"
+  collect "$scratch/first" "$_files" "$_root_files" "$scratch/before"
   run_install "$_args" "$_run_with"
-  collect "$scratch/second" "$_files" "$_root_files"
+  collect "$scratch/second" "$_files" "$_root_files" "$scratch/before"
   compare_trees "$scratch/first" "$scratch/second" \
     || error "the second install changed the files above${_after_install:+ (if the first install was idempotent, '$_after_install' undid part of it)}"
 

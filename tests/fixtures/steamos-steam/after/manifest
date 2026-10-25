@@ -1,0 +1,18 @@
+kept    ~ d 700 user
+kept    ~/.local d 755 user
+kept    ~/.local/share d 755 user
+kept    ~/.local/share/Steam d 755 user
+kept    ~/.local/share/Steam/userdata d 755 user
+kept    ~/.local/share/Steam/userdata/123456789 d 755 user
+kept    ~/.local/share/Steam/userdata/123456789/config d 755 user
+changed ~/.local/share/Steam/userdata/123456789/config/localconfig.vdf f 644 user acbf852c1fa9dcdf (was f 644 user f3e2f081aa15e068)
+new     ~/dotfiles/.backup d 755 user
+new     ~/dotfiles/.backup/home d 755 user
+new     ~/dotfiles/.backup/home/deck d 755 user
+new     ~/dotfiles/.backup/home/deck/.local d 755 user
+new     ~/dotfiles/.backup/home/deck/.local/share d 755 user
+new     ~/dotfiles/.backup/home/deck/.local/share/Steam d 755 user
+new     ~/dotfiles/.backup/home/deck/.local/share/Steam/userdata d 755 user
+new     ~/dotfiles/.backup/home/deck/.local/share/Steam/userdata/123456789 d 755 user
+new     ~/dotfiles/.backup/home/deck/.local/share/Steam/userdata/123456789/config d 755 user
+new     ~/dotfiles/.backup/home/deck/.local/share/Steam/userdata/123456789/config/localconfig.vdf f 644 user f3e2f081aa15e068
