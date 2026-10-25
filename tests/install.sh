@@ -77,7 +77,8 @@ variant_info() {
   local variant="$1" out
   out="$(
     set +u
-    for f in "$REPO_ROOT"/install/lib/*.sh "$REPO_ROOT"/install/features/*.sh "$REPO_ROOT/install/variants/$variant.sh"; do
+    for f in "$REPO_ROOT"/install/lib/*.sh "$REPO_ROOT"/install/features/*.sh "$REPO_ROOT"/install/features/*/*.sh \
+      "$REPO_ROOT/install/variants/$variant.sh"; do
       # shellcheck source=/dev/null
       source "$f"
     done
@@ -492,6 +493,75 @@ test_env_sh() {
     '. "$1"; [ -z "${QT_QPA_PLATFORMTHEME:-}" ]' sh "$env_sh"
 }
 
+# Report a check that function $2 of install/lib/infer.sh, called with the remaining args, prints $1.
+infer_prints() {
+  local expected="$1" got
+  shift
+  # shellcheck source=../install/lib/infer.sh
+  got="$(source "$REPO_ROOT/install/lib/infer.sh" && "$@")"
+  if [[ "$got" == "$expected" ]]; then pass "$* -> $expected"; else fail "$* -> '$got', expected '$expected'"; fi
+}
+
+# What --infer picks for a system: the variant from uname, os-release and Coder's CODER, the machine from DMI.
+test_infer() {
+  local os_release="$SCRATCH/os-release"
+  info "infer: variants and machines for known systems"
+  infer_prints steamos variant_for_system Linux steamos arch false
+  infer_prints arch variant_for_system Linux arch "" false
+  infer_prints arch variant_for_system Linux endeavouros arch false
+  infer_prints portable variant_for_system Linux ubuntu debian false
+  infer_prints portable variant_for_system Darwin "" "" false
+  infer_prints coder variant_for_system Linux arch "" true
+  infer_prints "" variant_for_system FreeBSD "" "" false
+  infer_prints framework16 machine_for_dmi Framework "Laptop 16 (AMD Ryzen 7040 Series)"
+  infer_prints generic machine_for_dmi Framework "Laptop 13 (AMD Ryzen 7040Series)"
+  infer_prints generic machine_for_dmi "" ""
+
+  printf '%s\n' 'NAME="SteamOS"' 'ID=steamos' "ID_LIKE='arch'" > "$os_release"
+  check "read_os_release unquotes ID and ID_LIKE" bash -c \
+    'source "$1/install/lib/fn.sh" && source "$1/install/lib/infer.sh" && read_os_release "$2" &&
+     [[ "$_id:$_id_like" == steamos:arch ]]' sh "$REPO_ROOT" "$os_release"
+}
+
+# --machine picks the hardware, which decides whether --all includes features for specific hardware; --infer fills in
+# the variant or machine not given, and only then.
+test_machine() {
+  local out
+  info "machine: --machine, DOTFILES_MACHINE and --infer"
+  new_home
+  install_ok "$_home" --variant steamos --help \
+    && check "  ...lists machine-specific options apart on machine generic" grep -q "For other machines" "$LOG"
+  install_ok "$_home" --variant steamos --machine framework16 --help \
+    && check "  ...lists them with the rest on framework16" sh -c '! grep -q "For other machines" "$1"' sh "$LOG"
+  # --all goes on to webterm, which needs a live systemd user session (see DRY_RUN_SKIP), so ignore the status: udev
+  # runs before it.
+  run_install "$_home" --variant steamos --machine generic --all --dry-run || true
+  check "--all leaves them out on generic" sh -c '! grep -q udevadm "$1"' sh "$LOG"
+  run_install "$_home" --variant steamos --machine framework16 --all --dry-run || true
+  check "--all includes them on framework16" grep -q udevadm "$LOG"
+  install_ok "$_home" --variant steamos --udev --dry-run \
+    && check "  ...naming one runs it on generic, with a warning" grep -q "udev is for machine framework16" "$LOG"
+  install_refused "$_home" --variant steamos --machine nope
+  install_refused "$_home" --machine framework16 --gitconfig
+
+  write_install_conf "$_home" "DOTFILES_VARIANT=steamos" "DOTFILES_MACHINE=framework16"
+  install_ok "$_home" && check "  ...DOTFILES_MACHINE names the default machine" \
+    grep -q "Options for variant 'steamos' on machine 'framework16'" "$LOG"
+  rm "$_home/.config/dotfiles/install.conf"
+
+  if out="$(env -i HOME="$_home" PATH="$PATH" TERM=dumb CODER=true \
+    "$INSTALL_BASH" "$_home/dotfiles/install.sh" --infer --help </dev/null 2>&1)" \
+    && grep -q "Options for variant 'coder'" <<< "$out"; then
+    pass "--infer picks coder in a Coder workspace"
+  else
+    fail "--infer picks coder in a Coder workspace: $out"
+  fi
+  install_ok "$_home" --variant arch --machine generic --infer --help \
+    && check "  ...and infers nothing given" sh -c '! grep -q Inferred "$1"' sh "$LOG"
+  install_ok "$_home" --variant arch --infer --help \
+    && check "  ...and only the machine with --variant" grep -q "Inferred machine '[a-z0-9]*' from" "$LOG"
+}
+
 # The steam feature replaces the hotkeys Steam already wrote, keeps the other settings, warns about missing keys
 # instead of adding them, backs up the file and changes nothing on a second run.
 test_steam() {
@@ -577,6 +647,8 @@ main() {
     test_dry_run "$variant"
     test_install "$variant"
   done
+  test_infer
+  test_machine
   test_steam
   test_download_cache
   test_env_sh

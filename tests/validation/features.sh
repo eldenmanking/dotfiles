@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Validate the feature and variant registry without installing anything: every feature_<name> function in
 # install/features is documented (a feature_description entry, and a doc comment with a description and @machine, @os
-# and @gui tags), every variant's features exist, suit the variant's OS and GUI, and come after the features they
+# and @gui tags), every feature for specific hardware sits in install/features/<os>_<machine>/, every variant's features
+# exist, suit the variant's OS and GUI, and come after the features they
 # require, and every variant's link paths exist, naming single files under root/. Run via `make validate`.
 
 set -euo pipefail
@@ -17,14 +18,41 @@ LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 DRY_RUN=true
 
-for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/variants/*.sh; do
+for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
+  "$INSTALL_DIR"/variants/*.sh; do
   # shellcheck source=/dev/null
   source "$f"
 done
 
 # Outputs: _features, every feature with a feature_<name> function in install/features.
 scan_features() {
-  _features="$(sed -n 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' "$INSTALL_DIR"/features/*.sh | tr '\n' ' ')"
+  _features="$(sed -n 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
+    | tr '\n' ' ')"
+}
+
+# Print the directory under install/features holding feature $1's function: empty for the top level, else its
+# subdirectory's name.
+feature_dir() {
+  local file
+  file="$(grep -l "^$(feature_function "$1")()" "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | head -1)"
+  file="${file#"$INSTALL_DIR"/features/}"
+  [[ "$file" != */* ]] || printf '%s' "${file%%/*}"
+}
+
+# Outputs: _problems, a line if feature $1, for machines $2 and OSes $3, isn't where its tags put it: features for any
+# machine at the top of install/features, the others in a subdirectory named <os>_<machine> after their single
+# @os and @machine values.
+check_feature_dir() {
+  local feature="$1" machine="$2" os="$3" dir
+  dir="$(feature_dir "$feature")"
+  _problems=""
+  if [[ "$machine" == any ]]; then
+    [[ -z "$dir" ]] || _problems="--$feature: is for any machine, so belongs in install/features, not $dir/"$'\n'
+  elif [[ "$machine" == *" "* || "$os" == *" "* ]]; then
+    _problems="--$feature: a feature for specific hardware needs a single @os and @machine, to sit in <os>_<machine>/"$'\n'
+  elif [[ "$dir" != "${os}_$machine" ]]; then
+    _problems="--$feature: belongs in install/features/${os}_$machine/ (its @os and @machine), not ${dir:-the top level}"$'\n'
+  fi
 }
 
 # Outputs: _problems, one line per problem with value list $3 of tag @$2 on feature $1, given allowed values $4.
@@ -78,6 +106,10 @@ check_feature_docs() {
   problems+="$_problems"
   f_write_args check_tag _problems -- "$feature" gui "$gui" "$FEATURE_GUIS"
   problems+="$_problems"
+  if [[ -n "$machine" && -n "$os" ]]; then
+    f_write_args check_feature_dir _problems -- "$feature" "$machine" "$os"
+    problems+="$_problems"
+  fi
   for dep in $requires; do
     list_contains "$known" "$dep" || problems+="--$feature: @requires '$dep' is not a feature"$'\n'
   done

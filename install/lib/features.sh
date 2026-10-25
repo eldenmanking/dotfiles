@@ -66,13 +66,14 @@ feature_doc() {
     /^#/ { block = block $0 "\n"; next }
     index($0, fn "()") == 1 { printf "%s", block; exit }
     { block = "" }
-  ' "$INSTALL_DIR"/features/*.sh)
+  ' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
   _doc="$doc"
 }
 
 # Where feature $1 works and which features it needs, read from the tags in its doc (see feature_doc). Outputs
 # (space-separated lists, empty when the tag is missing):
-#  _machine: @machine, hardware it is for: any, laptop, framework16
+#  _machine: @machine, hardware it is for: any, laptop, framework16. Features for specific hardware live in
+#             install/features/<os>_<machine>/ and are left out of --all on other machines (see machine_supported)
 #  _os: @os, any, linux, macos, arch, steamos (linux covers arch and steamos)
 #  _gui: @gui, any (also headless), desktop (any graphical session), gnome, kde
 #  _requires: @requires (optional), features that must run before it in the same variant
@@ -100,6 +101,12 @@ feature_requirements() {
 os_supported() {
   list_contains "$1" any || list_contains "$1" "$2" \
     || { list_contains "$1" linux && list_contains "arch steamos" "$2"; }
+}
+
+# Return 0 if a feature for machines $1 suits machine $2 (one of MACHINES, in install/lib/infer.sh).
+machine_supported() {
+  list_contains "$1" any || list_contains "$1" "$2" \
+    || { list_contains "$1" laptop && [[ "$2" == framework16 ]]; }
 }
 
 # Return 0 if a feature for GUIs $1 works on a variant targeting GUI $2 (none for headless).

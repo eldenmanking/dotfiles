@@ -61,7 +61,8 @@ clone_checkout_to_root() {
 # Source install/lib, features and variants. They only define functions and constants, so their globals stay global.
 load_install_deps() {
   local f
-  for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/variants/*.sh; do
+  for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
+    "$INSTALL_DIR"/variants/*.sh; do
     # shellcheck source=/dev/null
     source "$f"
   done
@@ -76,20 +77,24 @@ available_variants() {
   printf '%s' "$names"
 }
 
-# Print feature $1's --help line, with the features it requires.
+# Print feature $1's --help line, with the machines it is for and the features it requires.
 usage_feature() {
   f_write_args feature_requirements _machine _os _gui _requires -- "$1"
-  printf '  --%-14s %s%s\n' "$1" "$(feature_description "$1")" "${_requires:+ (requires: --${_requires// / --})}"
+  [[ "$_machine" != any ]] || _machine=""
+  printf '  --%-14s %s%s%s\n' "$1" "$(feature_description "$1")" "${_machine:+ (machine: $_machine)}" \
+    "${_requires:+ (requires: --${_requires// / --})}"
 }
 
 usage() {
-  local variant="$1" v features optional uninstallable=""
+  local variant="$1" machine="${2:-generic}" v features optional other="" uninstallable=""
   cat <<EOF
-Usage: $(basename "$0") [--variant NAME] [OPTIONS]
+Usage: $(basename "$0") [--variant NAME] [--machine NAME] [--infer] [OPTIONS]
 
 dotfiles installation and configuration script. All operations are idempotent.
 Run '$(basename "$0") --variant NAME --help' to list the options of a variant.
-Without --variant, DOTFILES_VARIANT names the variant; without options,
+--variant picks the OS and --machine the hardware (default: generic); --infer
+guesses whichever of them isn't given from this system. Without them,
+DOTFILES_VARIANT and DOTFILES_MACHINE name them; without options,
 DOTFILES_FEATURES lists them (feature names, or all for --all). Set them in
 the environment or in $INSTALL_CONFIG.
 See README.md for more information.
@@ -100,6 +105,7 @@ EOF
     f_write_args variant_config _description -- "$v"
     printf '  %-10s %s\n' "$v" "$_description"
   done
+  printf '\nMachines: %s\n' "$MACHINES"
   variant_exists "$variant" || return 0
 
   f_write_args variant_config _features _optional -- "$variant"
@@ -107,21 +113,36 @@ EOF
   optional="$_optional"
   cat <<EOF
 
-Options for variant '$variant':
-  --variant NAME   select the variant
+Options for variant '$variant' on machine '$machine':
+  --variant NAME   select the variant (the OS)
+  --machine NAME   select the machine (the hardware)
+  --infer          infer the variant or machine not given from this system
   --all            install all default options
 EOF
   for v in $features; do
     feature_uninstallable "$v" && uninstallable+="${uninstallable:+ }$v"
-    list_contains "$optional" "$v" || usage_feature "$v"
+    f_write_args feature_requirements _machine _os _gui _requires -- "$v"
+    if list_contains "$optional" "$v"; then
+      continue
+    elif machine_supported "$_machine" "$machine"; then
+      usage_feature "$v"
+    else
+      other+="${other:+ }$v"
+    fi
   done
   if [[ -n "$optional" ]]; then
     printf '\nOptional (not included in --all):\n'
     for v in $optional; do
       usage_feature "$v"
     done
-    echo
   fi
+  if [[ -n "$other" ]]; then
+    printf "\nFor other machines (not included in --all on '%s'):\n" "$machine"
+    for v in $other; do
+      usage_feature "$v"
+    done
+  fi
+  [[ -z "$optional$other" ]] || echo
   if [[ -n "$uninstallable" ]]; then
     printf '  --%-14s %s (%s)\n' reinstall "uninstall the selected options, then install them" "$uninstallable"
     printf '  --%-14s %s (%s)\n' uninstall "uninstall the selected options" "$uninstallable"
@@ -140,7 +161,7 @@ usage_error() {
 }
 
 parse_args() {
-  local variant="" flags=" " mode=install all=false dry_run=false help=false
+  local variant="" machine="" infer=false flags=" " mode=install all=false dry_run=false help=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -150,6 +171,13 @@ parse_args() {
         shift 2
         ;;
       --variant=*) variant="${1#--variant=}"; shift ;;
+      --machine)
+        [[ $# -ge 2 ]] || usage_error "--machine requires a value"
+        machine="$2"
+        shift 2
+        ;;
+      --machine=*) machine="${1#--machine=}"; shift ;;
+      --infer)     infer=true; shift ;;
       --all)       all=true; shift ;;
       --dry-run)   dry_run=true; shift ;;
       --reinstall|--uninstall)
@@ -165,6 +193,8 @@ parse_args() {
   done
 
   _variant="$variant"
+  _machine="$machine"
+  _infer="$infer"
   _flags="$flags"
   _mode="$mode"
   _all="$all"
@@ -172,28 +202,33 @@ parse_args() {
   _help="$help"
 }
 
-# Outputs: _default_variant and _default_features, from DOTFILES_VARIANT and DOTFILES_FEATURES in the environment or,
-# for each one unset there, in config file $1. The file is sourced in a subshell so it can't change this shell's state.
+# Outputs: _default_variant, _default_machine and _default_features, from DOTFILES_VARIANT, DOTFILES_MACHINE and
+# DOTFILES_FEATURES in the environment or, for each one unset there, in config file $1. The file is sourced in a
+# subshell so it can't change this shell's state.
 load_install_defaults() {
-  local conf="$1" file_variant="" file_features=""
+  local conf="$1" file_variant="" file_machine="" file_features=""
   if [[ -f "$conf" ]]; then
-    { IFS= read -r -d '' file_variant && IFS= read -r -d '' file_features; } < <(
-      unset DOTFILES_VARIANT DOTFILES_FEATURES
+    { IFS= read -r -d '' file_variant && IFS= read -r -d '' file_machine && IFS= read -r -d '' file_features; } < <(
+      unset DOTFILES_VARIANT DOTFILES_MACHINE DOTFILES_FEATURES
       # shellcheck source=/dev/null
       source "$conf" >&2 || exit 1
-      printf '%s\0%s\0' "${DOTFILES_VARIANT:-}" "${DOTFILES_FEATURES:-}"
+      printf '%s\0%s\0%s\0' "${DOTFILES_VARIANT:-}" "${DOTFILES_MACHINE:-}" "${DOTFILES_FEATURES:-}"
     ) || error "Could not read $conf"
   fi
   _default_variant="${DOTFILES_VARIANT:-$file_variant}"
+  _default_machine="${DOTFILES_MACHINE:-$file_machine}"
   _default_features="${DOTFILES_FEATURES:-$file_features}"
 }
 
-# Outputs: _variant, _flags and _all, the parsed variant $1, flags $2 and --all $3 with the defaults applied. Default
-# variant $5 is used when no --variant was given. Default features $6 (feature names, and all for --all) are used when
-# the command line selects none, unless mode $4 is uninstall or the command line names a variant other than $5.
+# Outputs: _variant, _machine, _flags and _all, the parsed variant $1, machine $7, flags $2 and --all $3 with the
+# defaults applied. Default variant $5 is used when no --variant was given, and default machine $8 when no --machine
+# was. Default features $6 (feature names, and all for --all) are used when the command line selects none, unless
+# mode $4 is uninstall or the command line names a variant other than $5.
 apply_install_defaults() {
-  local variant="$1" flags="$2" all="$3" mode="$4" default_variant="$5" default_features="$6" word
+  local variant="$1" flags="$2" all="$3" mode="$4" default_variant="$5" default_features="$6" machine="$7"
+  local default_machine="$8" word
   [[ -n "$variant" ]] || variant="$default_variant"
+  [[ -n "$machine" ]] || machine="$default_machine"
   if [[ "$flags" == " " ]] && ! $all && [[ "$mode" != uninstall ]] \
     && [[ -z "$default_variant" || "$variant" == "$default_variant" ]]; then
     for word in $default_features; do
@@ -202,31 +237,57 @@ apply_install_defaults() {
     done
   fi
   _variant="$variant"
+  _machine="$machine"
   _flags="$flags"
   _all="$all"
 }
 
-# Print usage and exit unless variant $1 can run: with no variant, or with no features selected ($2 flags, $3 --all)
-# or --help ($4). Without a variant this is an error unless --help was given or there were no arguments ($5).
+# Outputs: _variant and _machine to install for: variant $1 and machine $2 as given (by options or defaults), with
+# each one left empty inferred from this system when $3 (--infer) is true. Without --infer, an empty machine is
+# generic and an empty variant stays empty, for exit_with_usage_unless_runnable to report.
+resolve_dimensions() {
+  local variant="$1" machine="$2" infer="$3" inferred=""
+  if $infer && [[ -z "$variant" || -z "$machine" ]]; then
+    f_write_args infer_system _variant _machine _reason
+    if [[ -z "$variant" ]]; then
+      [[ -n "$_variant" ]] || error "Could not infer a variant for this system ($_reason); pass --variant"
+      variant="$_variant"
+      inferred+="variant '$variant'"
+    fi
+    if [[ -z "$machine" ]]; then
+      machine="$_machine"
+      inferred+="${inferred:+ and }machine '$machine'"
+    fi
+    info "Inferred $inferred from: $_reason"
+  fi
+  _variant="$variant"
+  _machine="${machine:-generic}"
+}
+
+# Print usage and exit unless variant $1 can run on machine $6: with no variant, or with no features selected ($2
+# flags, $3 --all) or --help ($4). Without a variant this is an error unless --help was given or there were no
+# arguments ($5).
 exit_with_usage_unless_runnable() {
-  local variant="$1" flags="$2" all="$3" help="$4" no_args="$5"
+  local variant="$1" flags="$2" all="$3" help="$4" no_args="$5" machine="$6"
+  list_contains "$MACHINES" "$machine" || usage_error "Unknown machine '$machine'. Available machines: $MACHINES"
   if [[ -z "$variant" ]]; then
-    $help || $no_args || usage_error "--variant is required"
-    usage ""
+    $help || $no_args || usage_error "--variant (or --infer) is required"
+    usage "" "$machine"
     exit 0
   fi
   variant_exists "$variant" \
     || usage_error "Unknown variant '$variant'. Available variants: $(available_variants)"
   if $help || { [[ "$flags" == " " ]] && ! $all; }; then
-    usage "$variant"
+    usage "$variant" "$machine"
     exit 0
   fi
 }
 
-# Outputs: _enabled, the selected features. Under --uninstall, features
-# without an uninstall function are dropped (with a warning if named).
+# Outputs: _enabled, the selected features of variant $1 on machine $5. --all leaves out optional features and those
+# whose @machine doesn't suit $5; named features run either way (with a warning for the latter). Under --uninstall,
+# features without an uninstall function are dropped (with a warning if named).
 resolve_features() {
-  local variant="$1" flags="$2" all="$3" mode="$4" features optional enabled=" " k
+  local variant="$1" flags="$2" all="$3" mode="$4" machine="$5" features optional enabled=" " k default
 
   f_write_args variant_config _features _optional -- "$variant"
   features="$_features"
@@ -237,7 +298,14 @@ resolve_features() {
       || usage_error "Unknown option for variant '$variant': --$k" "$variant"
   done
   for k in $features; do
-    if list_contains "$flags" "$k" || { $all && ! list_contains "$optional" "$k"; }; then
+    f_write_args feature_requirements _machine _os _gui _requires -- "$k"
+    default=false
+    if ! list_contains "$optional" "$k" && machine_supported "$_machine" "$machine"; then
+      default=true
+    elif list_contains "$flags" "$k" && ! list_contains "$optional" "$k"; then
+      warn "--$k is for machine $_machine, not $machine; running it since it was named"
+    fi
+    if list_contains "$flags" "$k" || { $all && $default; }; then
       if [[ "$mode" != install ]] && ! feature_uninstallable "$k"; then
         if list_contains "$flags" "$k"; then
           if [[ "$mode" == uninstall ]]; then
@@ -295,7 +363,7 @@ reverse_words() {
 # reinstall runs uninstall_feature_<name> (if defined) then feature_<name>, and
 # uninstall runs uninstall_feature_<name> in reverse order.
 run_features() {
-  local variant="$1" enabled="$2" mode="$3" features feature
+  local variant="$1" enabled="$2" mode="$3" machine="$4" features feature
 
   f_write_args variant_config _features -- "$variant"
   features="$_features"
@@ -303,7 +371,7 @@ run_features() {
     features="$(reverse_words "$features")"
   fi
 
-  info "Beginning dotfiles $mode (variant: $variant)..."
+  info "Beginning dotfiles $mode (variant: $variant, machine: $machine)..."
   for feature in $features; do
     list_contains "$enabled" "$feature" || continue
     if [[ "$mode" != install ]] && feature_uninstallable "$feature"; then
@@ -324,17 +392,23 @@ main() {
   bootstrap "$@"
   load_install_deps
 
-  f_write_args parse_args _variant _flags _mode _all _dry_run _help -- "$@"
+  local variant machine
+  f_write_args parse_args _variant _machine _infer _flags _mode _all _dry_run _help -- "$@"
   readonly DRY_RUN="$_dry_run"
 
-  f_write_args load_install_defaults _default_variant _default_features -- "$INSTALL_CONFIG"
-  f_write_args apply_install_defaults _variant _flags _all -- \
-    "$_variant" "$_flags" "$_all" "$_mode" "$_default_variant" "$_default_features"
-  exit_with_usage_unless_runnable "$_variant" "$_flags" "$_all" "$_help" "$([[ $# -eq 0 ]] && echo true || echo false)"
+  f_write_args load_install_defaults _default_variant _default_machine _default_features -- "$INSTALL_CONFIG"
+  f_write_args apply_install_defaults _variant _machine _flags _all -- \
+    "$_variant" "$_flags" "$_all" "$_mode" "$_default_variant" "$_default_features" "$_machine" "$_default_machine"
+  f_write_args resolve_dimensions _variant _machine -- "$_variant" "$_machine" "$_infer"
+  # Copied out of _variant and _machine, which feature_requirements and infer_system write too.
+  variant="$_variant"
+  machine="$_machine"
+  exit_with_usage_unless_runnable "$variant" "$_flags" "$_all" "$_help" \
+    "$([[ $# -eq 0 ]] && echo true || echo false)" "$machine"
 
-  f_write_args resolve_features _enabled -- "$_variant" "$_flags" "$_all" "$_mode"
+  f_write_args resolve_features _enabled -- "$variant" "$_flags" "$_all" "$_mode" "$machine"
   enter_dotfiles_root
-  run_features "$_variant" "$_enabled" "$_mode"
+  run_features "$variant" "$_enabled" "$_mode" "$machine"
 }
 
 main "$@"
