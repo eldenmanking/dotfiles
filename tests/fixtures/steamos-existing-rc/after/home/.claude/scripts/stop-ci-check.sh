@@ -1,0 +1,1 @@
+/home/deck/tools/claude/scripts/stop-ci-check.sh

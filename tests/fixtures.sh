@@ -10,8 +10,9 @@
 #             dbus-run-session -- for a session bus).
 #   before/   home/ (copied into ~) and root/ (copied into / with sudo), like the repo's own home/ and root/
 #   after/    after the first install and AFTER_INSTALL: manifest, one line for every entry under ~ (but ~/dotfiles
-#             other than its .backup) and ROOT_FILES (see manifest_lines), and home/ and root/, the regular files
-#             under FILES and ROOT_FILES, for readable diffs
+#             other than its .backup) and ROOT_FILES (see manifest_lines), marked new, changed, kept or removed against
+#             a manifest taken just before the install (see mark_manifest); and home/ and root/, every symlink the
+#             manifest lists, to show the layout, and the regular files under FILES and ROOT_FILES, for readable diffs
 # install.sh then runs again, and must leave all of it as it was: an idempotent install, and one that AFTER_INSTALL
 # didn't undo any of. Every container shares DOWNLOADS_DIR as its DOTFILES_DOWNLOAD_CACHE, so pinned downloads are
 # fetched once (see Download Cache in README.md).
@@ -189,10 +190,9 @@ clone_changes() {
   return "$status"
 }
 
-# Copy the regular files under the paths $4... (relative to directory $2) into directory $3, keeping their paths, read
-# under command $1 (sudo, or empty). Leaves $3 out if there are none, since git can't hold it empty. Symlinks are left
-# to the manifest, and a path inside a symlinked directory is an error: tar would copy the link target's files as
-# if they were there.
+# Copy the regular files and symlinks under the paths $4... (relative to directory $2) into directory $3, keeping their
+# paths, read under command $1 (sudo, or empty). Leaves $3 out if there are none, since git can't hold it empty. A path
+# inside a symlinked directory is an error: tar would copy the link target's files as if they were there.
 copy_files() {
   local sudo="$1" from="${2%/}" to="$3" path parent list
   shift 3
@@ -202,38 +202,67 @@ copy_files() {
     parent="$(dirname "$from/$path")"
     [[ "$(cd "$parent" && pwd -P)" == "$parent" ]] \
       || error "$(shown_path "$from/$path") is inside a symlinked directory; name the symlink instead"
-    (cd "$from/" && $sudo find "$path" -type f -print0) >> "$list"
+    (cd "$from/" && $sudo find "$path" \( -type f -o -type l \) -print0) >> "$list"
   done
   if [[ -s "$list" ]]; then
     mkdir -p "$to"
-    $sudo tar -C "$from/" --null -T "$list" -cf - | tar -xf - --no-same-owner -C "$to"
+    LC_ALL=C sort -zu "$list" | $sudo tar -C "$from/" --null -T - -cf - | tar -xf - --no-same-owner -C "$to"
   fi
   rm -f "$list"
 }
 
-# Write the manifest of ~ (with ~/dotfiles/.backup) and of the absolute paths in $3 to $1/manifest, and copy the regular
-# files under the paths in $2 (relative to ~) and ~/dotfiles/.backup into $1/home, and those under $3 into $1/root
-# (read with sudo, since some may be root's alone).
-collect() {
-  local dest="$1" files="$2" root_files="$3" path homes=("$HOME") roots=() status=0
+# Write the sorted manifest lines (see manifest_lines) of ~, with ~/dotfiles/.backup, and of the absolute paths in $2 to
+# file $1. Returns 1 if a symlink dangles.
+write_manifest() {
+  local file="$1" root_files="$2" path homes=("$HOME") roots=() status=0
   for path in $root_files; do
     [[ "$path" == /* ]] || error "ROOT_FILES must be absolute paths, not $path"
     present "$path" && roots+=("$path")
   done
   present "$HOME/dotfiles/.backup" && homes+=("$HOME/dotfiles/.backup")
-  mkdir -p "$dest"
   {
     manifest_lines "" "${homes[@]}" || status=1
     if [[ ${#roots[@]} -gt 0 ]]; then
       manifest_lines sudo "${roots[@]}" || status=1
     fi
-  } > "$dest/manifest.unsorted"
-  LC_ALL=C sort "$dest/manifest.unsorted" > "$dest/manifest"
-  rm "$dest/manifest.unsorted"
-  [[ "$status" == 0 ]] || error "the symlinks above dangle"
+  } > "$file.unsorted"
+  LC_ALL=C sort "$file.unsorted" > "$file"
+  rm "$file.unsorted"
+  return "$status"
+}
 
-  copy_files "" "$HOME" "$dest/home" $files dotfiles/.backup
-  copy_files sudo / "$dest/root" $(printf '%s\n' $root_files | sed 's|^/||')
+# Print the lines of manifest $2, each marked against manifest $1, taken before the install: "new" if $1 has no line
+# for its path, "kept" if $1 has the same line, or "changed" with "(was ...)" and the rest of $1's line; then "removed"
+# and $1's line for each path only $1 has. Sorted by path.
+mark_manifest() {
+  awk '
+    NR == FNR { before[$1] = substr($0, length($1) + 2); next }
+    {
+      rest = substr($0, length($1) + 2)
+      if (!($1 in before)) { printf "%-7s %s\n", "new", $0 }
+      else if (before[$1] == rest) { printf "%-7s %s\n", "kept", $0 }
+      else { printf "%-7s %s (was %s)\n", "changed", $0, before[$1] }
+      after[$1] = 1
+    }
+    END { for (path in before) if (!(path in after)) printf "%-7s %s %s\n", "removed", path, before[path] }
+  ' "$1" "$2" | LC_ALL=C sort -s -b -k2,2
+}
+
+# Write the manifest of ~ and of the absolute paths in $3, marked against manifest $4 (see mark_manifest), to
+# $1/manifest, and copy the symlinks it lists and the regular files and symlinks under the paths in $2 (relative to ~)
+# and ~/dotfiles/.backup into $1/home, and those outside ~ into $1/root (read with sudo, since some may be root's
+# alone).
+collect() {
+  local dest="$1" files="$2" root_files="$3" before="$4" links
+  mkdir -p "$dest"
+  write_manifest "$dest/manifest.unmarked" "$root_files" || error "the symlinks above dangle"
+  mark_manifest "$before" "$dest/manifest.unmarked" > "$dest/manifest"
+  # Each symlink's path, relative to ~ or /.
+  links="$(awk '$2 == "l" { print $1 }' "$dest/manifest.unmarked")"
+  rm "$dest/manifest.unmarked"
+
+  copy_files "" "$HOME" "$dest/home" $files dotfiles/.backup $(printf '%s\n' "$links" | sed -n 's|^~/||p')
+  copy_files sudo / "$dest/root" $(printf '%s\n' $root_files "$links" | sed -n 's|^/||p')
 }
 
 # Run install.sh with the words of $1 as arguments, under the words of command $2 if any, showing its output, indented.
@@ -246,9 +275,9 @@ run_install() {
   [[ "$status" == 0 ]] || error "install.sh failed"
 }
 
-# Run fixture $1 here: copy in before/, install, run AFTER_INSTALL, install again, then compare the results of the first
-# install with after/, or with $2 = true, write them to fd 3 as a tar archive. Refuses to run outside a container,
-# since it changes ~ and /.
+# Run fixture $1 here: copy in before/, take a manifest, install, run AFTER_INSTALL, install again, then compare the
+# results of the first install with after/, or with $2 = true, write them to fd 3 as a tar archive. Refuses to run
+# outside a container, since it changes ~ and /.
 run_inside() {
   local name="$1" update="$2" dir="$FIXTURES_DIR/$1" scratch
   [[ -f /.dockerenv || -f /run/.containerenv ]] || error "--inside changes ~ and /, so it only runs in a container"
@@ -261,15 +290,17 @@ run_inside() {
   if [[ -d "$dir/before/root" ]]; then
     sudo cp -RP --no-preserve=ownership "$dir/before/root/." /
   fi
+  # What the install starts from, to mark what it did. A symlink that already dangles is the fixture's business.
+  write_manifest "$scratch/before" "$_root_files" || true
 
   run_install "$_args" "$_run_with"
   if [[ -n "$_after_install" ]]; then
     info "\$ $_after_install"
     bash -c "$_after_install" 2>&1 | sed 's/^/       | /' || error "AFTER_INSTALL failed"
   fi
-  collect "$scratch/first" "$_files" "$_root_files"
+  collect "$scratch/first" "$_files" "$_root_files" "$scratch/before"
   run_install "$_args" "$_run_with"
-  collect "$scratch/second" "$_files" "$_root_files"
+  collect "$scratch/second" "$_files" "$_root_files" "$scratch/before"
   compare_trees "$scratch/first" "$scratch/second" \
     || error "the second install changed the files above${_after_install:+ (if the first install was idempotent, '$_after_install' undid part of it)}"
 

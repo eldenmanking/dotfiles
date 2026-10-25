@@ -1,0 +1,1 @@
+/home/me/dotfiles/home/.tmux/resurrect/strategies/nvim_obsession.sh

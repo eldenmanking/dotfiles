@@ -1,0 +1,1 @@
+/home/me/tools/claude/scripts/statusline.sh

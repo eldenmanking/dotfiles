@@ -1,0 +1,1 @@
+/home/deck/tools/claude/scripts/post-push-ci.sh
