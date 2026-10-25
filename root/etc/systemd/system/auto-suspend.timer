@@ -1,9 +1,0 @@
-[Unit]
-Description=Automatically suspends the system if the battery is too low.
-
-[Timer]
-OnBootSec=10min
-OnUnitActiveSec=5min
-
-[Install]
-WantedBy=timers.target

@@ -125,8 +125,6 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── orei-switch.conf     --- runs sddm-xsetup for the X11 login screen (copied by orei_switch)
 │   │   ├── systemd                  ---
 │   │   │   └── system               ---
-│   │   │       ├── auto-suspend.serv--- laptop auto-suspend service to prevent death
-│   │   │       ├── auto-suspend.time--- auto-suspend timer to check if battery is low
 │   │   │       ├── hdmi-audio-fix.se--- keeps the Framework 16 780M SoC clock up for HDMI audio (copied by hdmi_audio_fix)
 │   │   │       ├── orei-switch-boot.--- re-enables the left ports and turns the projector on at boot (copied by orei_switch)
 │   │   │       ├── orei-switch-power--- turns the projector off over CEC on poweroff (copied by orei_switch)
@@ -149,7 +147,6 @@ This repository contains configuration files for my linux workspace. The followi
 │   └── usr                          ---
 │       ├── local                    ---
 │       │   └── bin                  ---
-│       │       ├── auto-suspend     --- suspends computer if battery is low
 │       │       ├── cmus-reload      --- repopulates cmus library and playlists
 │       │       └── colortest        --- prints 256 terminal colors
 │       └── share                    ---
@@ -232,15 +229,14 @@ Each `feature_<name>` function has a doc comment directly above it: a brief desc
 feature_webterm() {
 ```
 
-Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `services` assumes a laptop, and `udev`, `tmpfiles` and `hdmi_audio_fix` hold Framework 16 fixes. On SteamOS, the features that write into `/etc` outside what SteamOS's default keep list covers (`udev`, `tmpfiles`, `home_units` and `webterm`) also name those files in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, each in its own subblock, with `keep_across_steamos_updates`, so OS updates keep them. `hdmi_audio_fix` needs none: the default list keeps system services and their enablement links.
+Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `udev`, `tmpfiles` and `hdmi_audio_fix` hold Framework 16 fixes. On SteamOS, the features that write into `/etc` outside what SteamOS's default keep list covers (`udev`, `tmpfiles`, `home_units` and `webterm`) also name those files in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, each in its own subblock, with `keep_across_steamos_updates`, so OS updates keep them. `hdmi_audio_fix` needs none: the default list keeps system services and their enablement links.
 
 | Feature | Machine | OS | GUI | Requires |
 |---|---|---|---|---|
 | `pacman`, `terminal`, `printer`, `logiops` | any | arch | any | |
 | `yay` | any | arch | gnome | |
-| `font`, `manual`, `distrobox` | any | linux | any | |
+| `font`, `services`, `manual`, `distrobox` | any | linux | any | |
 | `link`, `info`, `shell`, `starship`, `zsh`, `gng`, `tre`, `claude`, `gitconfig` | any | any | any | |
-| `services` | laptop | linux | any | `link` |
 | `dconf` | any | linux | gnome | |
 | `xdg` | any | linux | gnome | `pacman` |
 | `tmux` | any | any | any | `link` |

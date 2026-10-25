@@ -10,7 +10,7 @@ feature_description() {
     printer)     echo "install and set up HP printer drivers" ;;
     logiops)     echo "install and configure logitech software" ;;
     link)        echo "symlink the variant's dotfiles into ~ (root/ into /)" ;;
-    services)    echo "enable and start custom services" ;;
+    services)    echo "enable and start bluetooth (sudo)" ;;
     manual)      echo "make manual substitutions to files in-place" ;;
     dconf)       echo "load dconf configuration" ;;
     xdg)         echo "load default xdg configuration" ;;

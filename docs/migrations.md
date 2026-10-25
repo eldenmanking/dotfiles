@@ -98,3 +98,14 @@ plugin keep it, and tpm updates keep pulling from upstream.
   `git -C ~/.tmux/plugins/tmux-resurrect reset --hard origin/master`.
 - **Verify:** the check prints nothing, and `grep -c '\\037' ~/.tmux/plugins/tmux-resurrect/scripts/restore.sh`
   prints a nonzero count.
+
+## Remove auto-suspend
+The auto-suspend timer, its service and `auto-suspend` script are gone: `--link` no longer links them and
+`--services` now only enables bluetooth. Applies to arch machines that ran `--link --services`.
+
+### Leftover auto-suspend links (arch)
+- **Check:** `ls -l /etc/systemd/system/auto-suspend.service /etc/systemd/system/auto-suspend.timer /usr/local/bin/auto-suspend 2>/dev/null`
+- **Fix:** after asking, `sudo systemctl disable --now auto-suspend.timer`, then remove each path the check listed
+  with `sudo rm` if it is a symlink into `~/dotfiles` (only links, never regular files), then
+  `sudo systemctl daemon-reload`.
+- **Verify:** the check prints nothing and `systemctl list-timers --all | grep auto-suspend` prints nothing.

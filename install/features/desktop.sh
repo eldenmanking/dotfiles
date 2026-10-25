@@ -82,15 +82,13 @@ feature_logiops() {
   fi
 }
 
-# Enable the auto-suspend timer (suspends when the battery is low) and bluetooth.
+# Enable and start bluetooth.
 #
-# @machine laptop
+# @machine any
 # @os linux
 # @gui any
-# @requires link
 feature_services() {
-  run systemctl enable --now auto-suspend.timer
-  run systemctl enable --now bluetooth.service
+  run sudo systemctl enable --now bluetooth.service
 }
 
 # Edit files that can't be symlinked in place, e.g. turn on bluetooth at boot in /etc/bluetooth/main.conf.

@@ -47,10 +47,7 @@ LINK_DESKTOP_PATHS=(
   home/.local/share/backgrounds
   root/etc/logid.cfg
   root/etc/modprobe.d/hid_apple.conf
-  root/etc/systemd/system/auto-suspend.service
-  root/etc/systemd/system/auto-suspend.timer
   root/etc/vconsole.conf
-  root/usr/local/bin/auto-suspend
   root/usr/local/bin/cmus-reload
   root/usr/local/bin/colortest
   root/usr/share/kbd/keymaps/us-caps.map
