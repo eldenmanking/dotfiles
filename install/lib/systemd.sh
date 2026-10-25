@@ -23,7 +23,7 @@ has_user_session() {
 # The paths are exact, never globs: callers split the output unquoted, which would expand a glob that matches.
 # Usage: unit_keep_paths <units_dir> <src_dir> <unit>...
 unit_keep_paths() {
-  local dir="$1" src_dir="$2" unit target
+  local dir="$1" src_dir="$2" unit line suffix target
   shift 2
   for unit in "$@"; do
     if [[ "$dir" == "$SYSTEM_UNITS_DIR" ]]; then
@@ -34,12 +34,17 @@ unit_keep_paths() {
       continue
     fi
     printf '%s\n' "$dir/$unit"
-    for target in $(sed -n 's/^WantedBy=//p' "$src_dir/$unit"); do
-      printf '%s\n' "$dir/$target.wants/$unit"
-    done
-    for target in $(sed -n 's/^RequiredBy=//p' "$src_dir/$unit"); do
-      printf '%s\n' "$dir/$target.requires/$unit"
-    done
+    while IFS= read -r line; do
+      case "$line" in
+        WantedBy=*) suffix=wants ;;
+        RequiredBy=*) suffix=requires ;;
+        *) continue ;;
+      esac
+      # One line can name several targets.
+      for target in ${line#*=}; do
+        printf '%s\n' "$dir/$target.$suffix/$unit"
+      done
+    done < "$src_dir/$unit"
   done
 }
 
