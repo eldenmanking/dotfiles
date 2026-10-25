@@ -6,7 +6,7 @@ variant_steamos() {
   _features="link neovim starship tmux claude gitconfig flatpak kde steam udev tmpfiles font webterm home_units hdmi_audio_fix orei_switch distrobox steamos_xclip"
   _os="steamos"
   _gui="kde"
-  _optional="orei_switch"
+  _optional=""
   # Link the shell startup files rather than running the shell and zsh features. zsh plugins load from
   # /usr/share/zsh/plugins when present and are skipped otherwise.
   _link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_STEAMOS_PATHS[*]}"

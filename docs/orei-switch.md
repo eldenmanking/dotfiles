@@ -1,7 +1,7 @@
 # OREI HDMI switch handoff (Framework 16)
-The `orei_switch` feature (`./install.sh --variant steamos --orei_switch`) makes an OREI 4K 3-input HDMI switch (auto
-mode) follow a Framework 16's sleep and wake, and turns the projector off on sleep and poweroff and back on on wake. It
-installs `/etc/dotfiles/orei-switch/orei-switch.sh`, a pinned `framework_tool` (Framework's EC tool) beside it,
+The `orei_switch` feature (part of `./install.sh --variant steamos --all`, or alone with `--orei_switch`) makes an OREI
+4K 3-input HDMI switch (auto mode) follow a Framework 16's sleep and wake, and turns the projector off on sleep and
+poweroff and back on on wake. It installs `/etc/dotfiles/orei-switch/orei-switch.sh`, a pinned `framework_tool` (Framework's EC tool) beside it,
 `orei-switch.service` (enabled, wanted by `sleep.target`), `orei-switch-poweroff.service` (wanted by `poweroff.target`,
 so not on reboot) and a SteamOS keep list for `/etc/dotfiles/orei-switch`, without which an OS update deletes the
 script and binary.
