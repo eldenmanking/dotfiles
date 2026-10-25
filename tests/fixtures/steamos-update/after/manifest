@@ -1,5 +1,5 @@
 kept    /etc/atomic-update.conf.d d 755 root:root
-new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root c88b4b201f777f99
+new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root fe1c859ade426024
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
 new     /etc/dotfiles/home-units-start f 755 root:root 9182c4a41c22bf87
 new     /etc/dotfiles/orei-switch/orei-switch.sh f 755 root:root 330df4baeed2ee69
@@ -24,7 +24,13 @@ new     /etc/systemd/system/suspend.target.wants/hdmi-audio-fix.service l 777 ro
 kept    /etc/systemd/user d 755 root:root
 new     /etc/systemd/user/default.target.wants d 755 root:root
 new     /etc/systemd/user/default.target.wants/home-units.service l 777 root:root -> /etc/systemd/user/home-units.service
+new     /etc/systemd/user/gamescope-screenshot.service f 644 root:root eccaf6fa2414876c
+new     /etc/systemd/user/gamescope-session.target.wants d 755 root:root
+new     /etc/systemd/user/gamescope-session.target.wants/gamescope-screenshot.service l 777 root:root -> /etc/systemd/user/gamescope-screenshot.service
+new     /etc/systemd/user/gamescope-session.target.wants/keyboard-rescan.path l 777 root:root -> /etc/systemd/user/keyboard-rescan.path
 new     /etc/systemd/user/home-units.service f 644 root:root 24574d080864c54e
+new     /etc/systemd/user/keyboard-rescan.path f 644 root:root d5b9b372265f7eb8
+new     /etc/systemd/user/keyboard-rescan.service f 644 root:root 56caf1ae2044bfea
 kept    /etc/tmpfiles.d d 755 root:root
 new     /etc/tmpfiles.d/ec-no-wakeup.conf f 644 root:root 118538e1b5e90f59
 kept    /etc/udev/rules.d d 755 root:root
@@ -49,6 +55,7 @@ new     ~/.config/webterm/env l 777 user -> ~/dotfiles/home/.config/webterm/env
 new     ~/.local d 755 user
 new     ~/.local/bin d 755 user
 new     ~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
+new     ~/.local/bin/gamescope-screenshot l 777 user -> ~/dotfiles/home/.local/bin/gamescope-screenshot
 new     ~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
 new     ~/.local/bin/webterm-index l 777 user -> ~/dotfiles/home/.local/bin/webterm-index
 new     ~/.local/bin/webterm-shell l 777 user -> ~/dotfiles/home/.local/bin/webterm-shell
