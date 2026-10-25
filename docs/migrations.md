@@ -19,7 +19,8 @@ You are updating a machine whose `~/dotfiles` checkout was just pulled, or is ab
 4. Report which steps you ran, skipped (and why), and anything that did not verify.
 
 Don't add migration code to `install.sh` or the features for these; when a change needs one, add an entry here
-instead (newest last) in the same shape.
+instead (newest last) in the same shape. The `update-migrations` skill (`.claude/skills/update-migrations`) says when
+an entry is needed, how to write one, and how to fill in its commit once it merges.
 
 ## Merge steamos-config into dotfiles (#18, 9e2f895)
 The standalone steamos-config repo moved into `~/dotfiles/steamos`, and `home_units` started installing its files
@@ -38,7 +39,7 @@ under names after `dotfiles`. Applies to SteamOS machines that ran steamos-confi
   standalone checkout (e.g. `~/steamos-config`) can be deleted, after asking the user.
 - **Verify:** the check prints nothing and the URL `--webterm` prints answers.
 
-## Move steamos/ into home/ and root/ (#46)
+## Move steamos/ into home/ and root/ (#46, ac0512a)
 webterm's scripts, page and units moved from `steamos/` into `home/` (ttyd now downloads to `~/.local/bin/ttyd`),
 home-units and hdmi-audio-fix files moved under `root/etc/`, and `LINK_DESKTOP_PATHS` stopped linking `root/etc`
 and `root/usr` as whole directories.

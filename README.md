@@ -4,7 +4,10 @@ This repository contains configuration files for my linux workspace. The followi
 ```
 . (~/dotfiles)
 ├── .claude                          ---
-│   └── CLAUDE.md                    --- Claude Code instructions for working in this repo
+│   ├── CLAUDE.md                    --- Claude Code instructions for working in this repo
+│   └── skills                       ---
+│       └── update-migrations        ---
+│           └── SKILL.md             --- skill: add docs/migrations.md entries and fill in their commits after merging
 ├── .github                          ---
 │   ├── dependabot.yml               --- keeps the workflows' pinned actions current
 │   └── workflows                    ---
