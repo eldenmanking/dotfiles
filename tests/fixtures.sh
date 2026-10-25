@@ -5,8 +5,9 @@
 #   case.sh  IMAGE, the image to run in (a directory under tests/images), and ARGS, install.sh's arguments. Optionally:
 #            FILES, the paths under ~ to compare (it starts out as the shell startup files, so a case can add to it;
 #            ~/dotfiles/.backup, where install.sh moves files it replaces, is always compared); ROOT_FILES, absolute
-#            paths outside ~ to compare; and AFTER_INSTALL, a command to run after the first install (e.g. an OS
-#            update), as the user.
+#            paths outside ~ to compare; AFTER_INSTALL, a command to run after the first install (e.g. an OS
+#            update), as the user; and RUN_WITH, a command that runs install.sh (e.g. dbus-run-session -- for a session
+#            bus).
 #   before/  home/ (copied into ~) and root/ (copied into / with sudo), like the repo's own home/ and root/
 #   after/   home/ and root/: the compared files after the first install and AFTER_INSTALL, symlinks kept as symlinks
 #            (missing files are left out)
@@ -23,15 +24,16 @@ IMAGES_DIR="$TEST_DIR/images"
 DEFAULT_FILES=".bash_profile .bashrc .profile .zprofile .zshrc"
 IMAGE_PREFIX="dotfiles-fixtures-"
 
-# Outputs: _image, _args, _files, _root_files and _after_install of fixture $1, read from its case.sh.
+# Outputs: _image, _args, _files, _root_files, _after_install and _run_with of fixture $1, read from its case.sh.
 case_config() {
   local out
   out="$(
-    IMAGE="" ARGS="" FILES="$DEFAULT_FILES" ROOT_FILES="" AFTER_INSTALL=""
+    IMAGE="" ARGS="" FILES="$DEFAULT_FILES" ROOT_FILES="" AFTER_INSTALL="" RUN_WITH=""
     # shellcheck source=/dev/null
     source "$FIXTURES_DIR/$1/case.sh"
     # One line each, since the lists may span lines in case.sh, and a last line so $(...) keeps the empty ones.
-    printf '%s\n' "$IMAGE" "${ARGS//$'\n'/ }" "${FILES//$'\n'/ }" "${ROOT_FILES//$'\n'/ }" "${AFTER_INSTALL//$'\n'/ }" .
+    printf '%s\n' "$IMAGE" "${ARGS//$'\n'/ }" "${FILES//$'\n'/ }" "${ROOT_FILES//$'\n'/ }" "${AFTER_INSTALL//$'\n'/ }" \
+      "$RUN_WITH" .
   )"
   {
     IFS= read -r _image
@@ -39,6 +41,7 @@ case_config() {
     IFS= read -r _files
     IFS= read -r _root_files
     IFS= read -r _after_install
+    IFS= read -r _run_with
   } <<< "$out"
   [[ -n "$_image" && -d "$IMAGES_DIR/$_image" ]] || error "$1/case.sh: IMAGE must name a directory in tests/images"
   [[ -n "$_args" ]] || error "$1/case.sh: ARGS is empty"
@@ -129,12 +132,12 @@ collect() {
   sudo tar -cf - -C / "${paths[@]}" | tar -xf - --no-same-owner -C "$dest/root"
 }
 
-# Run install.sh with the words of $1 as arguments, showing its output, indented.
+# Run install.sh with the words of $1 as arguments, under the words of command $2 if any, showing its output, indented.
 run_install() {
-  local args="$1" status=0
-  info "\$ ~/dotfiles/install.sh $args"
+  local args="$1" run_with="$2" status=0
+  info "\$ ${run_with:+$run_with }~/dotfiles/install.sh $args"
   # ~/.local/bin is on the PATH of an installed home (env.sh), where features look for what they installed.
-  PATH="$HOME/.local/bin:$PATH" bash "$HOME/dotfiles/install.sh" $args </dev/null 2>&1 | sed 's/^/       | /' \
+  PATH="$HOME/.local/bin:$PATH" $run_with bash "$HOME/dotfiles/install.sh" $args </dev/null 2>&1 | sed 's/^/       | /' \
     || status=$?
   [[ "$status" == 0 ]] || error "install.sh failed"
 }
@@ -145,7 +148,7 @@ run_install() {
 run_inside() {
   local name="$1" update="$2" dir="$FIXTURES_DIR/$1" scratch
   [[ -f /.dockerenv || -f /run/.containerenv ]] || error "--inside changes ~ and /, so it only runs in a container"
-  f_write_args case_config _image _args _files _root_files _after_install -- "$name"
+  f_write_args case_config _image _args _files _root_files _after_install _run_with -- "$name"
   [[ "$(ls -A "$HOME")" == dotfiles ]] || error "the home must start out empty but for ~/dotfiles; check the image"
   scratch="$(mktemp -d)"
   if [[ -d "$dir/before/home" ]]; then
@@ -155,13 +158,13 @@ run_inside() {
     sudo cp -RP --no-preserve=ownership "$dir/before/root/." /
   fi
 
-  run_install "$_args"
+  run_install "$_args" "$_run_with"
   if [[ -n "$_after_install" ]]; then
     info "\$ $_after_install"
     bash -c "$_after_install" 2>&1 | sed 's/^/       | /' || error "AFTER_INSTALL failed"
   fi
   collect "$scratch/first" "$_files" "$_root_files"
-  run_install "$_args"
+  run_install "$_args" "$_run_with"
   collect "$scratch/second" "$_files" "$_root_files"
   compare_trees "$scratch/first" "$scratch/second" \
     || error "the second install changed the files above${_after_install:+ (if the first install was idempotent, '$_after_install' undid part of it)}"
@@ -189,7 +192,7 @@ repo_archive() {
 # its after/ with the results. Returns 1 if it fails.
 run_fixture() {
   local name="$1" update="$2" dir="$FIXTURES_DIR/$1" archive
-  f_write_args case_config _image _args _files _root_files _after_install -- "$name"
+  f_write_args case_config _image _args _files _root_files _after_install _run_with -- "$name"
   archive="$(mktemp)"
   # The container's stdout carries the results archive, so its messages go to stderr.
   if ! repo_archive | docker run --rm -i "$IMAGE_PREFIX$_image" bash -c \
@@ -224,7 +227,7 @@ main() {
   command -v docker >/dev/null || error "docker is required to run the fixtures"
 
   for name in $names; do
-    f_write_args case_config _image _args _files _root_files _after_install -- "$name"
+    f_write_args case_config _image _args _files _root_files _after_install _run_with -- "$name"
     list_contains "$images" "$_image" || images+=" $_image"
   done
   for name in $images; do

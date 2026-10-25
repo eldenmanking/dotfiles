@@ -102,27 +102,31 @@ feature_manual() {
   confirmsed /etc/bluetooth/main.conf "#AutoEnable=false" "AutoEnable=true" sudo
 }
 
-# Back up the current dconf settings, then load dump/dconf/arch.dconf (GNOME settings).
+# Back up the current dconf settings, then load dump/dconf/arch.dconf (GNOME settings). The first backup is kept, since
+# later ones would hold what an earlier install loaded.
 #
 # @machine any
 # @os linux
 # @gui gnome
 feature_dconf() {
   local dump_file="$DOTFILES_ROOT/dump/dconf/arch.dconf"
+  local backup="$BACKUPS_ROOT$dump_file" tmp
 
-  info "Backing up current dconf configuration..."
-  run mkdir -pv "$(dirname "$BACKUPS_ROOT$dump_file")"
+  if [[ -e "$backup" ]]; then
+    info "Keeping the earlier dconf backup $backup"
+  elif $DRY_RUN; then
+    info "[dry-run] would dump dconf to $backup"
+  else
+    info "Backing up current dconf configuration..."
+    mkdir -p "$(dirname "$backup")"
+    tmp="$(mktemp)"
+    dconf dump / > "$tmp" || { rm -f "$tmp"; error "could not dump dconf"; }
+    mv "$tmp" "$backup"
+  fi
   if $DRY_RUN; then
-    info "[dry-run] would dump dconf to $BACKUPS_ROOT$dump_file"
     info "[dry-run] would load dconf from $dump_file"
     return
   fi
-
-  local tmp
-  tmp="$(mktemp)"
-  trap 'rm -f "$tmp"' RETURN
-  dconf dump / > "$tmp"
-  cp -vi "$tmp" "$BACKUPS_ROOT$dump_file"
 
   dconf load / < "$dump_file"
   info "dconf configuration loaded."

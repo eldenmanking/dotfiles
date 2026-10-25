@@ -1,0 +1,14 @@
+"UserLocalConfigStore"
+{
+	"Gamescope"
+	{
+		"GameResolutionGlobal"		"Default"
+		"GuideKeyboardHotkey"		"Ctrl	KEY_2"
+		"QAMKeyboardHotkey"		"Ctrl	KEY_3"
+		"ShowPerfOverlay"		"0"
+	}
+	"friends"
+	{
+		"PersonaName"		"deck"
+	}
+}
