@@ -1,7 +1,7 @@
 # Feature: tmux plugin manager and plugins.
 
-# Clone tpm, install the tmux plugins listed in the linked ~/.tmux.conf, and link the custom resurrect strategies into
-# tmux-resurrect.
+# Clone tpm and install the tmux plugins listed in the linked ~/.tmux.conf, then load it once more so it can set up the
+# plugins it installed.
 #
 # @machine any
 # @os any
@@ -24,11 +24,11 @@ feature_tmux() {
     warn "Plugin install failed. Open tmux and press 'prefix + I' to bootstrap plugins, then re-run this script."
   fi
 
-  # .tmux.conf links them too when tmux starts, but install_plugins reads it before cloning tmux-resurrect. Only into an
-  # installed plugin: tpm counts a plugin as installed once its directory exists.
-  local resurrect_dir="$HOME/.tmux/plugins/tmux-resurrect" strategy
-  [[ -d "$resurrect_dir" ]] || return 0
-  for strategy in "$DOTFILES_ROOT"/home/.tmux/resurrect/strategies/*.sh; do
-    make_symlink "$strategy" "$resurrect_dir/strategies/$(basename "$strategy")"
-  done
+  # install_plugins reads .tmux.conf before it clones the plugins, so its run-shell lines (e.g. linking the resurrect
+  # strategies) ran without them. Run it again in a throwaway server on its own socket, leaving any running server
+  # alone. source-file, rather than the server's own startup, finishes each run-shell before kill-server runs.
+  if ! tmux -L dotfiles-install -f /dev/null \
+    start-server \; source-file "$HOME/.tmux.conf" \; kill-server 2>/dev/null; then
+    warn "Loading ~/.tmux.conf failed. Start tmux once to finish setting up its plugins."
+  fi
 }
