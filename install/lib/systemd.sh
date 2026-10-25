@@ -5,10 +5,17 @@ USER_UNITS_DIR="$HOME/.config/systemd/user"
 
 # Copy system units $2... from $1 into /etc/systemd/system with sudo (copied, not linked: see copy_system_files),
 # then reload systemd and reenable and restart each unit that changed or isn't enabled yet, so a oneshot service
-# runs again. Outputs: _changed, the space-separated units that were (re)enabled (empty if all were up to date).
-# Usage: f_write_args install_system_units _changed -- <src_dir> <unit>...
+# runs again. With --no-start, only reenable them: for units whose start does something unwanted right away, like
+# one wanted by sleep.target. Outputs: _changed, the space-separated units that were (re)enabled (empty if all were
+# up to date).
+# Usage: f_write_args install_system_units _changed -- [--no-start] <src_dir> <unit>...
 install_system_units() {
-  local src_dir="$1" unit changed=""
+  local start=true src_dir unit changed=""
+  if [[ "$1" == --no-start ]]; then
+    start=false
+    shift
+  fi
+  src_dir="$1"
   shift
   for unit in "$@"; do
     [[ -e "$src_dir/$unit" ]] || error "install_system_units: $src_dir/$unit does not exist"
@@ -21,7 +28,7 @@ install_system_units() {
     run sudo systemctl daemon-reload
     for unit in $changed; do
       run sudo systemctl reenable "$unit"
-      run sudo systemctl restart "$unit"
+      ! $start || run sudo systemctl restart "$unit"
     done
   fi
   _changed="$changed"
