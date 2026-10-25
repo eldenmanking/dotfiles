@@ -129,3 +129,16 @@ started units enabled in the home once dirlock unlocked it, is gone. Applies to 
   `~/dotfiles/install.sh --variant steamos --webterm`.
 - **Verify:** the check prints nothing, `readlink /etc/systemd/user/sockets.target.wants/webterm.socket` is
   `/etc/systemd/user/webterm.socket`, and after a reboot the URL `--webterm` prints answers once you log in.
+
+## Move service scripts into /etc/dotfiles/bin
+The scripts and binaries that system units and the login screen run moved into `/etc/dotfiles/bin`:
+`/etc/dotfiles/orei-switch/orei-switch.sh` is now `/etc/dotfiles/bin/orei-switch`, and `framework_tool` and
+`sddm-xsetup` moved beside it. The units and the SDDM config point at the new paths.
+
+### Old orei-switch directory (framework16)
+- **Check:** `ls -d /etc/dotfiles/orei-switch 2>/dev/null`
+- **Fix:** `~/dotfiles/install.sh --variant steamos --orei_switch` first, so the new files and units are in place;
+  once `systemctl cat orei-switch.service` shows `ExecStart=/etc/dotfiles/bin/orei-switch sleep`, after asking,
+  `sudo rm -rf /etc/dotfiles/orei-switch`.
+- **Verify:** the check prints nothing, `/etc/dotfiles/bin/framework_tool --version` runs, and
+  `grep DisplayCommand /etc/sddm.conf.d/orei-switch.conf` shows `/etc/dotfiles/bin/sddm-xsetup`.

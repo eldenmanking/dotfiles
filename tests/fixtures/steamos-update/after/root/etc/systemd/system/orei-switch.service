@@ -7,8 +7,8 @@ StopWhenUnneeded=yes
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/etc/dotfiles/orei-switch/orei-switch.sh sleep
-ExecStop=/etc/dotfiles/orei-switch/orei-switch.sh wake
+ExecStart=/etc/dotfiles/bin/orei-switch sleep
+ExecStop=/etc/dotfiles/bin/orei-switch wake
 # Reconnecting and retrying the projector can take about 100s.
 TimeoutStopSec=3min
 

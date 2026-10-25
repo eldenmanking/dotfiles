@@ -7,7 +7,7 @@ Before=display-manager.service
 
 [Service]
 Type=oneshot
-ExecStart=/etc/dotfiles/orei-switch/orei-switch.sh boot
+ExecStart=/etc/dotfiles/bin/orei-switch boot
 
 [Install]
 WantedBy=multi-user.target

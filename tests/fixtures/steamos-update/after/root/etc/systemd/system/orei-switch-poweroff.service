@@ -7,7 +7,7 @@ Before=shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=/etc/dotfiles/orei-switch/orei-switch.sh poweroff
+ExecStart=/etc/dotfiles/bin/orei-switch poweroff
 
 [Install]
 WantedBy=poweroff.target

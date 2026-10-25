@@ -114,8 +114,8 @@ This repository contains configuration files for my linux workspace. The followi
 ├── root                             ---
 │   ├── etc                          ---
 │   │   ├── dotfiles                 ---
-│   │   │   └── orei-switch          ---
-│   │   │       ├── orei-switch.sh   --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
+│   │   │   └── bin                  ---
+│   │   │       ├── orei-switch      --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
 │   │   │       └── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
 │   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals
 │   │   ├── modprobe.d               ---
@@ -127,7 +127,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │       ├── hdmi-audio-fix.se--- keeps the Framework 16 780M SoC clock up for HDMI audio (copied by hdmi_audio_fix)
 │   │   │       ├── orei-switch-boot.--- re-enables the left ports and turns the projector on at boot (copied by orei_switch)
 │   │   │       ├── orei-switch-power--- turns the projector off over CEC on poweroff (copied by orei_switch)
-│   │   │       └── orei-switch.servi--- runs orei-switch.sh around sleep (copied by orei_switch)
+│   │   │       └── orei-switch.servi--- runs orei-switch around sleep (copied by orei_switch)
 │   │   ├── tmpfiles.d               ---
 │   │   │   └── ec-no-wakeup.conf    --- stop the embedded controller (ACPI GPE 0x0B) from waking the laptop from s2idle (copied, not linked)
 │   │   ├── udev                     ---
@@ -229,7 +229,7 @@ feature_webterm() {
 
 Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `udev`, `tmpfiles` and `hdmi_audio_fix` hold Framework 16 fixes. On SteamOS, the features that write into `/etc` also name the files SteamOS's default keep list doesn't cover in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, each in its own subblock, with `keep_across_steamos_updates`, so OS updates keep them. It does nothing where `/etc/atomic-update.conf.d` doesn't exist, so features call it on every OS. The default list keeps system services, sockets and mounts with their enablement links, so `hdmi_audio_fix` has nothing to add, but it keeps nothing in `/etc/systemd/user`.
 
-Features copy the systemd units they install, never link them, with the helpers in `install/lib/systemd.sh`. `install_system_units` copies units into `/etc/systemd/system`, then reenables and restarts those that changed (`--no-start` skips the restart); `install_user_units --global` or `--user` copies them into `/etc/systemd/user`, where every user manager sees them from boot even with an encrypted home, and reenables those that changed, for every user or just this one. Both only copy units without an `[Install]` section, which another unit starts. `uninstall_system_units` and `uninstall_user_units` undo them. `unit_keep_paths` lists what a feature must add to its keep list subblock: units in `/etc/systemd/user` with their enablement links, and in `/etc/systemd/system` only units that aren't services, sockets or mounts, such as timers.
+Features copy the systemd units they install, never link them, with the helpers in `install/lib/systemd.sh`. `install_system_units` copies units into `/etc/systemd/system`, then reenables and restarts those that changed (`--no-start` skips the restart); `install_user_units --global` or `--user` copies them into `/etc/systemd/user`, where every user manager sees them from boot even with an encrypted home, and reenables those that changed, for every user or just this one. Both only copy units without an `[Install]` section, which another unit starts. `uninstall_system_units` and `uninstall_user_units` undo them. `unit_keep_paths` lists what a feature must add to its keep list subblock: units in `/etc/systemd/user` with their enablement links, and in `/etc/systemd/system` only units that aren't services, sockets or mounts, such as timers. Scripts and binaries that system units or the login screen run go into `/etc/dotfiles/bin` (`root/etc/dotfiles/bin` in the repo), copied with `copy_system_file` (`install/lib/fs.sh`), since the home may still be locked when they run.
 
 | Feature | Machine | OS | GUI | Requires |
 |---|---|---|---|---|
@@ -414,8 +414,8 @@ Screenshots land in `~/Pictures/Screenshots`, not in Steam's Media tab: Steam on
 To check hotplug on the Framework 16 without touching a cable, cut the power to the right USB-C PD controller (`0`, ports 0 and 1, where the Keychron receiver is plugged in) with the `framework_tool` the `orei_switch` feature installs, then restore it. The watch restarts without the receiver, then again with it (`watching ... Keychron ...`); `framework_tool --pd-info` shows each controller's enabled ports:
 
 ```sh
-sudo /etc/dotfiles/orei-switch/framework_tool --pd-disable 0
-sudo /etc/dotfiles/orei-switch/framework_tool --pd-enable 0
+sudo /etc/dotfiles/bin/framework_tool --pd-disable 0
+sudo /etc/dotfiles/bin/framework_tool --pd-enable 0
 journalctl --user -u gamescope-screenshot.service -u keyboard-rescan.service -n 20
 ```
 
