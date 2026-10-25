@@ -68,7 +68,7 @@ tmpfiles config).
   `sudo udevadm control --reload` if a udev rule was removed.
 - **Verify:** rerunning the check lists only paths in `LINK_DESKTOP_PATHS`.
 
-## Install webterm's units into /etc/systemd/user (#51)
+## Install webterm's units into /etc/systemd/user (#51, 21beb51)
 webterm's units moved from `home/.config/systemd/user` to `root/etc/systemd/user`, and `--webterm` now copies them
 into `/etc/systemd/user` (with sudo), so `home-units-start` can start them after an encrypted home is unlocked
 without a `daemon-reload`.
