@@ -22,6 +22,7 @@ LINK_SHELL_PATHS=(
 # Extra paths linked on steamos.
 LINK_STEAMOS_PATHS=(
   home/.config/webterm
+  home/.local/bin/gamescope-screenshot
   home/.local/bin/webterm-index
   home/.local/bin/webterm-shell
   home/.local/bin/webterm-ttyd

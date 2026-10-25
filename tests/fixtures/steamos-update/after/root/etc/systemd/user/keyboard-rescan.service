@@ -1,0 +1,10 @@
+[Unit]
+Description=Restart the Gaming Mode screenshot watch with the keyboards connected now
+# Installed to /etc/systemd/user by the gamescope_screenshot feature of ~/dotfiles/install.sh and started by
+# keyboard-rescan.path. A keyboard adds several links to /dev/input/by-id at once; the pause lets them all
+# appear first, and changes while this runs don't trigger it again, so one plug-in is one restart.
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/sleep 1
+ExecStart=/usr/bin/systemctl --user try-restart gamescope-screenshot.service
