@@ -2,13 +2,13 @@ kept    /etc/atomic-update.conf.d d 755 root:root
 new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 46bd2196b880dae8
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
 new     /etc/dotfiles/bin/orei-switch f 755 root:root 54700525ff018828
-new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root 4854ad6895051002
-new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 101be814a66199cb
+new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root 3b3111dd183ed5cc
+new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 1f708c32bbc3f993
 removed /etc/dummy.conf f 644 root:root ab7814129600d3fa
 new     /etc/previous d 755 root:root
 new     /etc/previous/dummy.conf f 644 root:root ab7814129600d3fa
 new     /etc/sddm.conf.d d 755 root:root
-new     /etc/sddm.conf.d/orei-switch.conf f 644 root:root 9a04ceffb376eb0e
+new     /etc/sddm.conf.d/orei-switch.conf f 644 root:root d605e909e9754daf
 new     /etc/systemd/logind.conf.d d 755 root:root
 new     /etc/systemd/logind.conf.d/lid.conf f 644 root:root bb2e762a2104672b
 new     /etc/systemd/system/hdmi-audio-fix.service f 644 root:root c1053b5b88efffe7

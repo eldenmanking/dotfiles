@@ -8,16 +8,19 @@
 #    mode, so a 16:9 display squashes it slightly)
 # The layout is applied again whenever the lid or a display connection changes while the login screen is up, e.g.
 # unplugging the projector and opening the lid. Installed into /etc/dotfiles/bin by the orei_switch feature of
-# ~/dotfiles/install.sh and run by SDDM as root (/etc/sddm.conf.d/orei-switch.conf).
+# ~/dotfiles/install.sh and run by SDDM as the sddm user (/etc/sddm.conf.d/orei-switch.conf).
 #
-# SDDM waits for this script before it shows the login screen, and after 30 s gives up on the X server, leaving a
-# black screen. An xrandr call once hung that long with an eGPU attached, so the layout runs in a detached process:
-# the script returns once that has laid the displays out, or after APPLY_WAIT seconds regardless.
+# SDDM waits for this script before it shows the login screen. After 30 s it kills the script, and since a script that
+# fails or is killed ends SDDM's X server too, that leaves a black screen with no way to log in; so it must always exit
+# 0, and soon. Laying out the displays once took over 10 s with an eGPU attached, so the layout runs in a detached
+# process: the script returns once that has laid the displays out, or after APPLY_WAIT seconds regardless, and then
+# logs which step was still running. xrandr --query makes X probe every output of every GPU again, so the layout reads
+# X's current state instead: X probed at startup and probes again on hotplug.
 APPLY_WAIT=10
 
 log() { logger -t orei-switch "login screen: $*"; }
 
-# Print output $1's current mode (WxH) from xrandr --query output $2.
+# Print output $1's current mode (WxH) from xrandr output $2.
 current_mode() {
   awk -v o="$1" '$1 == o { for (i = 2; i <= NF; i++) if ($i ~ /^[0-9]+x[0-9]+\+/) { sub(/\+.*/, "", $i); print $i; exit } }' \
     <<<"$2"
@@ -35,7 +38,7 @@ layout_inputs() {
 
 apply_layout() {
   local outputs internal external mode mode_args size
-  outputs="$(xrandr --query)" || return 1
+  outputs="$(xrandr --current)" || return 1
   internal="$(awk '/^eDP[^ ]* connected/ { print $1; exit }' <<<"$outputs")"
   external="$(awk '/^(DisplayPort|DP|HDMI)[^ ]* connected/ { print $1; exit }' <<<"$outputs")"
   log "$(grep ' connected' <<<"$outputs" | tr '\n' ';')"
@@ -51,14 +54,14 @@ apply_layout() {
 
   if lid_closed; then
     if xrandr --output "$external" "${mode_args[@]}" --primary --pos 0x0 --output "$internal" --off; then
-      log "lid closed: $internal off, $external at $(current_mode "$external" "$(xrandr --query)")"
+      log "lid closed: $internal off, $external at $(current_mode "$external" "$(xrandr --current)")"
       return 0
     fi
     log "lid closed, but could not turn $internal off; mirroring instead"
   fi
 
   xrandr --output "$internal" --auto --primary
-  size="$(current_mode "$internal" "$(xrandr --query)")"
+  size="$(current_mode "$internal" "$(xrandr --current)")"
   if xrandr --output "$external" "${mode_args[@]}" --scale-from "$size" --same-as "$internal"; then
     log "mirroring $internal ($size) onto $external, stretched"
   else
@@ -80,10 +83,13 @@ watch_layout() {
   done
 }
 
-# Lay the displays out, tell the waiting script by removing $1, then keep them laid out until the X server goes away.
+# Lay the displays out, tell the waiting script by removing $1 (which names the step running until then), then keep
+# them laid out until the X server goes away.
 start() {
   # SteamOS's own DisplayCommand, which this replaces.
+  echo holo-rotate-x11-screen >"$1"
   /usr/lib/holo/holo-rotate-x11-screen || true
+  echo 'xrandr layout' >"$1"
   apply_layout
   rm -f "$1"
   watch_layout
@@ -100,6 +106,6 @@ for (( i = 0; i < APPLY_WAIT * 4; i++ )); do
   [[ -e "$pending" ]] || exit 0
   sleep 0.25
 done
-log "displays not laid out after ${APPLY_WAIT}s; showing the login screen anyway"
+log "displays not laid out after ${APPLY_WAIT}s, still in $(cat "$pending" 2>/dev/null); showing the login screen"
 rm -f "$pending"
 exit 0
