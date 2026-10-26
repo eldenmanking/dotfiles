@@ -9,6 +9,11 @@
 # The layout is applied again whenever the lid or a display connection changes while the login screen is up, e.g.
 # unplugging the projector and opening the lid. Installed into /etc/dotfiles/bin by the orei_switch feature of
 # ~/dotfiles/install.sh and run by SDDM as root (/etc/sddm.conf.d/orei-switch.conf).
+#
+# SDDM waits for this script before it shows the login screen, and after 30 s gives up on the X server, leaving a
+# black screen. An xrandr call once hung that long with an eGPU attached, so the layout runs in a detached process:
+# the script returns once that has laid the displays out, or after APPLY_WAIT seconds regardless.
+APPLY_WAIT=10
 
 log() { logger -t orei-switch "login screen: $*"; }
 
@@ -75,13 +80,26 @@ watch_layout() {
   done
 }
 
-if [[ "${1:-}" == --watch ]]; then
+# Lay the displays out, tell the waiting script by removing $1, then keep them laid out until the X server goes away.
+start() {
+  # SteamOS's own DisplayCommand, which this replaces.
+  /usr/lib/holo/holo-rotate-x11-screen || true
+  apply_layout
+  rm -f "$1"
   watch_layout
+}
+
+if [[ "${1:-}" == --start ]]; then
+  start "$2"
   exit 0
 fi
-# SteamOS's own DisplayCommand, which this replaces.
-/usr/lib/holo/holo-rotate-x11-screen || true
-apply_layout
-# SDDM waits for this script, so watch in the background, detached from its output.
-setsid "$0" --watch </dev/null >/dev/null 2>&1 &
+pending="$(mktemp)"
+# Detached from SDDM's session and output, so SDDM doesn't wait for it.
+setsid "$0" --start "$pending" </dev/null >/dev/null 2>&1 &
+for (( i = 0; i < APPLY_WAIT * 4; i++ )); do
+  [[ -e "$pending" ]] || exit 0
+  sleep 0.25
+done
+log "displays not laid out after ${APPLY_WAIT}s; showing the login screen anyway"
+rm -f "$pending"
 exit 0
