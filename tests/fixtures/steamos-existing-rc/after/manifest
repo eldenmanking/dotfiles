@@ -20,7 +20,7 @@ new     ~/.claude/skills/refresh-pr-state l 777 user -> ~/tools/claude/skills/re
 new     ~/.claude/skills/review-sessions l 777 user -> ~/tools/claude/skills/review-sessions
 new     ~/.claude/skills/setup-from-docs l 777 user -> ~/tools/claude/skills/setup-from-docs
 new     ~/.config d 755 user
-new     ~/.config/kcminputrc f 600 user 904daaf1bd50ec99
+new     ~/.config/kcminputrc f 600 user ffd7fb520c395d2f
 new     ~/.config/nvim d 755 user
 new     ~/.config/nvim/core d 755 user
 new     ~/.config/nvim/core/autocommands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/autocommands.vim
