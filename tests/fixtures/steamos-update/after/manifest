@@ -8,7 +8,7 @@ new     /etc/previous d 755 root:root
 new     /etc/previous/dummy.conf f 644 root:root ab7814129600d3fa
 new     /etc/sddm.conf.d d 755 root:root
 new     /etc/sddm.conf.d/orei-switch.conf f 644 root:root 0dfba801ef28477b
-new     /etc/systemd/system/hdmi-audio-fix.service f 644 root:root fd0ae8ed32e2abb9
+new     /etc/systemd/system/hdmi-audio-fix.service f 644 root:root c1053b5b88efffe7
 new     /etc/systemd/system/hibernate.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
 new     /etc/systemd/system/hybrid-sleep.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
 new     /etc/systemd/system/multi-user.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
