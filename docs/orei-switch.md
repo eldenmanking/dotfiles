@@ -75,6 +75,9 @@ It only touches a CEC TV, so sleeping away from the projector or on a plain moni
   with an xrandr transform instead left the login screen in the top left corner of the projector. A background copy
   of the script checks the lid and the DRM connectors every second while the login screen is up, and lays the displays
   out again when they change (e.g. unplugging the projector and opening the lid); it exits with the X server on login.
+  That copy also does the first layout, and the script SDDM runs waits at most 10s for it: SDDM gives up on the X
+  server after its setup command has run for 30s, which once left a black screen with nothing to log into, when the
+  first layout hung with an eGPU attached.
 
 It logs each step; tune `PD_WAIT` and `RESET_WAIT` from the timings (`journalctl -t orei-switch -b -o short-precise`).
 In 15 real suspend/resumes (RTC wakes after 12s to 5 min, the projector on, already in standby, or the ports cut
