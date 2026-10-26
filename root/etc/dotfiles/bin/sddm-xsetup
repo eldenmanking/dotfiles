@@ -7,7 +7,7 @@
 #  - external display, lid open: mirror the panel onto it, stretched to fit (the panel only offers its native 16:10
 #    mode, so a 16:9 display squashes it slightly)
 # The layout is applied again whenever the lid or a display connection changes while the login screen is up, e.g.
-# unplugging the projector and opening the lid. Installed into /etc/dotfiles/orei-switch by the orei_switch feature of
+# unplugging the projector and opening the lid. Installed into /etc/dotfiles/bin by the orei_switch feature of
 # ~/dotfiles/install.sh and run by SDDM as root (/etc/sddm.conf.d/orei-switch.conf).
 
 log() { logger -t orei-switch "login screen: $*"; }

@@ -30,6 +30,39 @@ make_symlink() {
   run ${sudo_cmd:+"$sudo_cmd"} ln -snfv "$src" "$target"
 }
 
+# Scripts and binaries that system services and the login screen run, copied outside the home, which may be
+# encrypted and locked when they run.
+SYSTEM_BIN_DIR=/etc/dotfiles/bin
+
+# Copy repo file $2 (under root/) to its install path with sudo and mode $1, replacing any old symlink, unless it is
+# already up to date. For files run or read while an encrypted home may still be locked.
+# Usage: copy_system_file <mode> <root/path>
+copy_system_file() {
+  local mode="$1" src="$2" dest="/${2#root/}"
+  if [[ ! -L "$dest" ]] && cmp -s "$DOTFILES_ROOT/$src" "$dest"; then
+    info "$dest already up to date"
+    return 0
+  fi
+  run sudo rm -f "$dest"
+  run sudo install -Dvm"$mode" "$DOTFILES_ROOT/$src" "$dest"
+}
+
+# Remove files $1... with sudo, then SYSTEM_BIN_DIR and its parent if that left them empty (other features may still
+# have files there).
+# Usage: remove_system_files <path>...
+remove_system_files() {
+  local path dir
+  for path in "$@"; do
+    [[ -e "$path" || -L "$path" ]] || continue
+    run sudo rm -fv "$path"
+  done
+  for dir in "$SYSTEM_BIN_DIR" "${SYSTEM_BIN_DIR%/*}"; do
+    if [[ -d "$dir" && -z "$(ls -A "$dir")" ]]; then
+      run sudo rmdir "$dir"
+    fi
+  done
+}
+
 # Copy each file in $src_dir matching $glob into $dst_dir with sudo, replacing
 # any old symlink. For system files read at boot, before an encrypted home is
 # mounted, where a symlink into ~ would dangle. Outputs: _changed, the
@@ -276,12 +309,17 @@ STEAMOS_KEEP_DIR=/etc/atomic-update.conf.d
 STEAMOS_KEEP_LIST="$STEAMOS_KEEP_DIR/dotfiles.conf"
 
 # On SteamOS, set feature <name>'s subblock of STEAMOS_KEEP_LIST to the absolute <path>s (with sudo), so OS updates
-# keep those files. Does nothing where the keep list directory doesn't exist.
-# Usage: keep_across_steamos_updates <name> <path>...
+# keep those files, or remove the subblock if no <path> is given. Does nothing where the keep list directory doesn't
+# exist, which is everywhere but SteamOS 3.6 and later.
+# Usage: keep_across_steamos_updates <name> [path...]
 keep_across_steamos_updates() {
   local name="$1" content="" path
   shift
   [[ -d "$STEAMOS_KEEP_DIR" ]] || return 0
+  if [[ $# -eq 0 ]]; then
+    forget_across_steamos_updates "$name"
+    return
+  fi
   for path in "$@"; do
     content+="${content:+$'\n'}$path"
   done

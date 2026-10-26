@@ -99,7 +99,7 @@ plugin keep it, and tpm updates keep pulling from upstream.
 - **Verify:** the check prints nothing, and `grep -c '\\037' ~/.tmux/plugins/tmux-resurrect/scripts/restore.sh`
   prints a nonzero count.
 
-## Remove auto-suspend (#60)
+## Remove auto-suspend (#60, 91fa967)
 The auto-suspend timer, its service and `auto-suspend` script are gone: `--link` no longer links them and
 `--services` now only enables bluetooth. Applies to arch machines that ran `--link --services`.
 
@@ -109,3 +109,36 @@ The auto-suspend timer, its service and `auto-suspend` script are gone: `--link`
   with `sudo rm` if it is a symlink into `~/dotfiles` (only links, never regular files), then
   `sudo systemctl daemon-reload`.
 - **Verify:** the check prints nothing and `systemctl list-timers --all | grep auto-suspend` prints nothing.
+
+## Enable webterm globally and remove home_units (#62)
+`--webterm` now enables its units for all users (`systemctl --global enable`), so their enable links are in
+`/etc/systemd/user` with the units and start from boot even with an encrypted home. The `home_units` feature, which
+started units enabled in the home once dirlock unlocked it, is gone. Applies to SteamOS machines that ran
+`--webterm` or `--home_units`.
+
+### Old home-units files in /etc (steamos)
+- **Check:** `ls /etc/systemd/user/home-units.service /etc/systemd/user/default.target.wants/home-units.service /etc/dotfiles/home-units-start 2>/dev/null; grep -x '## feature home_units' /etc/atomic-update.conf.d/dotfiles.conf 2>/dev/null`
+- **Fix:** after asking, `sudo systemctl --global disable home-units.service`, then
+  `sudo rm -f /etc/systemd/user/home-units.service /etc/dotfiles/home-units-start` and
+  `sudo sed -i '/^## feature home_units$/,/^$/d' /etc/atomic-update.conf.d/dotfiles.conf`.
+- **Verify:** the check prints nothing, and `ls /etc/dotfiles` still lists `orei-switch` if `--orei_switch` ran.
+
+### webterm still enabled per user (steamos)
+- **Check:** `ls ~/.config/systemd/user/sockets.target.wants/webterm.socket 2>/dev/null`
+- **Fix:** if it is a symlink, `rm ~/.config/systemd/user/sockets.target.wants/webterm.socket`, then
+  `~/dotfiles/install.sh --variant steamos --webterm`.
+- **Verify:** the check prints nothing, `readlink /etc/systemd/user/sockets.target.wants/webterm.socket` is
+  `/etc/systemd/user/webterm.socket`, and after a reboot the URL `--webterm` prints answers once you log in.
+
+## Move service scripts into /etc/dotfiles/bin (#62)
+The scripts and binaries that system units and the login screen run moved into `/etc/dotfiles/bin`:
+`/etc/dotfiles/orei-switch/orei-switch.sh` is now `/etc/dotfiles/bin/orei-switch`, and `framework_tool` and
+`sddm-xsetup` moved beside it. The units and the SDDM config point at the new paths.
+
+### Old orei-switch directory (framework16)
+- **Check:** `ls -d /etc/dotfiles/orei-switch 2>/dev/null`
+- **Fix:** `~/dotfiles/install.sh --variant steamos --orei_switch` first, so the new files and units are in place;
+  once `systemctl cat orei-switch.service` shows `ExecStart=/etc/dotfiles/bin/orei-switch sleep`, after asking,
+  `sudo rm -rf /etc/dotfiles/orei-switch`.
+- **Verify:** the check prints nothing, `/etc/dotfiles/bin/framework_tool --version` runs, and
+  `grep DisplayCommand /etc/sddm.conf.d/orei-switch.conf` shows `/etc/dotfiles/bin/sddm-xsetup`.

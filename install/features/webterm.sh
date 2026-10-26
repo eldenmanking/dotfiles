@@ -1,13 +1,11 @@
 # Feature: webterm, a browser shell served by ttyd and started on demand by systemd socket activation (steamos).
-# The units go into /etc/systemd/user, outside an encrypted home, so the user manager sees them from boot and
-# home-units-start can start them after the unlock without a daemon-reload. See Webterm in README.md.
+# The units go into /etc/systemd/user and are enabled globally, so both the units and their links are outside an
+# encrypted home and the user manager starts the socket from boot. See Webterm in README.md.
 
 WEBTERM_UNITS_SRC="$DOTFILES_ROOT/root/etc/systemd/user"
 WEBTERM_SOCKET="$WEBTERM_UNITS_SRC/webterm.socket"
 WEBTERM_SERVICES=(webterm.service webterm-ttyd.service)
 WEBTERM_UNITS=(webterm.socket "${WEBTERM_SERVICES[@]}")
-# The link 'systemctl --user enable webterm.socket' makes, from its WantedBy=sockets.target.
-WEBTERM_ENABLED_LINK="$HOME/.config/systemd/user/sockets.target.wants/webterm.socket"
 WEBTERM_STATE_DIR="$HOME/.local/state/webterm"
 WEBTERM_CONF_DIR="$HOME/.config/webterm"
 WEBTERM_ENV="$WEBTERM_CONF_DIR/env"
@@ -96,8 +94,7 @@ check_socket_activation() {
 feature_webterm() {
   local token url
   require_commands curl sha256sum systemctl
-  systemctl --user show-environment >/dev/null 2>&1 \
-    || error "no systemd user session (log in graphically or via ssh, not su/sudo)"
+  has_user_session || error "no systemd user session (log in graphically or via ssh, not su/sudo)"
   [[ -x "$WEBTERM_PROXYD" ]] || error "$WEBTERM_PROXYD not found"
   [[ -f "$WEBTERM_ENV" ]] || $DRY_RUN || error "$WEBTERM_ENV not found; run with --link first"
 
@@ -106,11 +103,10 @@ feature_webterm() {
     || warn "could not build the webterm page; ttyd will serve its stock page"
   token="$(webterm_token)"
   save_token "$token"
-  f_write_args install_user_units _changed -- "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
-  # SteamOS's default keep list covers nothing in /etc/systemd/user.
-  keep_across_steamos_updates webterm "${WEBTERM_UNITS[@]/#/$USER_UNITS_DIR/}"
+  keep_across_steamos_updates webterm $(unit_keep_paths "$USER_UNITS_DIR" "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}")
+  f_write_args install_user_units _changed -- --global "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
 
-  run systemctl --user enable --now webterm.socket
+  run systemctl --user start webterm.socket
   # If it's running, restart it so the new units and settings apply right away.
   # Open tabs reconnect on their own (their shells are restarted).
   run systemctl --user try-restart "${WEBTERM_SERVICES[@]}"
@@ -121,37 +117,15 @@ feature_webterm() {
   check_socket_activation "$url"
 }
 
-# Stop webterm and remove its units, its enable link, ttyd and the page it built. The URL token is kept.
+# Stop webterm and remove its units, their enable links, ttyd and the page it built. The URL token is kept.
 uninstall_feature_webterm() {
-  local unit session=false installed=false
-  systemctl --user show-environment >/dev/null 2>&1 && session=true
-  for unit in "${WEBTERM_UNITS[@]}"; do
-    [[ -e "$USER_UNITS_DIR/$unit" ]] && installed=true
-  done
-  # Stopping units that aren't loaded fails, so only while their files are there.
-  if $installed && $session; then
-    run systemctl --user stop "${WEBTERM_UNITS[@]}"
-  elif $installed; then
-    info "No systemd user session: webterm keeps running until the next login"
-  fi
-  if [[ -L "$WEBTERM_ENABLED_LINK" ]]; then
-    run rm -f "$WEBTERM_ENABLED_LINK"
-  fi
-  for unit in "${WEBTERM_UNITS[@]}"; do
-    if [[ -e "$USER_UNITS_DIR/$unit" || -L "$USER_UNITS_DIR/$unit" ]]; then
-      info "Removing $USER_UNITS_DIR/$unit..."
-      run sudo rm -f "$USER_UNITS_DIR/$unit"
-    fi
-  done
+  f_write_args uninstall_user_units _removed -- --global "${WEBTERM_UNITS[@]}"
   forget_across_steamos_updates webterm
   if [[ -e "$TTYD_BIN" ]]; then
     run rm -f "$TTYD_BIN"
   fi
   if [[ -d "$WEBTERM_STATE_DIR" ]]; then
     run rm -rf "$WEBTERM_STATE_DIR"
-  fi
-  if $session; then
-    run systemctl --user daemon-reload
   fi
   info "Removed webterm. Your URL token stays in $WEBTERM_TOKEN_FILE."
 }
