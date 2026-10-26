@@ -7,9 +7,9 @@ os_steamos() {
 
 # SteamOS desktop (KDE and Game Mode), plus webterm.
 os_steamos_desktop() {
-  # distrobox is near the end since it leaves you in the new container's shell; steamos_xclip follows it to
-  # reuse that container instead of downloading another image.
-  _features="link neovim starship tmux claude gitconfig flatpak kde steam udev tmpfiles logind font webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox steamos_xclip"
+  # distrobox is near the end since it leaves you in the new container's shell; steamos_xclip and
+  # steamos_make follow it to reuse that container instead of downloading another image.
+  _features="link neovim starship tmux claude gitconfig flatpak kde steam udev tmpfiles logind font webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox steamos_xclip steamos_make"
   _gui="kde"
   _optional=""
   # Link the shell startup files rather than running the shell and zsh features. zsh plugins load from
