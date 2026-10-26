@@ -121,7 +121,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   ├── modprobe.d               ---
 │   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
 │   │   ├── sddm.conf.d              ---
-│   │   │   └── orei-switch.conf     --- runs sddm-xsetup for the X11 login screen (copied by orei_switch)
+│   │   │   └── orei-switch.conf     --- uses the X11 login screen and runs sddm-xsetup for it (copied by orei_switch)
 │   │   ├── systemd                  ---
 │   │   │   ├── logind.conf.d        ---
 │   │   │   │   └── lid.conf         --- don't suspend on lid close while on external power (copied by logind)

@@ -67,7 +67,12 @@ It only touches a CEC TV, so sleeping away from the projector or on a plain moni
   `/etc`, so the locked home doesn't matter.
 - **Poweroff:** if a CEC TV is connected, turn it off.
 - **Login screen:** a dirlock-encrypted home can't be unlocked by autologin, so every boot stops at SDDM's X11 login
-  screen (its Wayland one needs `weston`, which SteamOS lacks). With the projector connected, X11's default layout put
+  screen: SteamOS asks for a Wayland one, but SDDM starts it with `weston`, which SteamOS lacks, so it fell back to
+  X11 after a failed attempt on every boot, and `/etc/sddm.conf.d/orei-switch.conf` sets `DisplayServer=x11` to ask
+  for X11 directly. This also avoids a race: the fallback (`x11-user`) switches to the session's VT while the login
+  screen's X server is still exiting, and once that switch hung for 30s, so SDDM counted the session as failed and
+  killed it (and Gaming Mode with it) a minute later. Plain X11 stops the login screen before switching; a VM with an
+  encrypted home logged in fine 13 times either way, so the hang may need amdgpu. With the projector connected, X11's default layout put
   the panel and projector side by side, which left the panel black and the projector without a signal.
   `/etc/sddm.conf.d/orei-switch.conf` replaces SteamOS's setup command (`holo-rotate-x11-screen`, which it still runs)
   with `sddm-xsetup`. With the lid closed (`/proc/acpi/button/lid/*/state`) it turns the panel off, so the login screen
