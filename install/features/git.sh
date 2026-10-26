@@ -6,13 +6,13 @@
 # @os any
 # @gui any
 feature_gitconfig() {
-  local variant="$1" git_fsmonitor
+  local os="$1" profile="$2" git_fsmonitor
   if ! command -v git &>/dev/null; then
     warn "git command not found, skipping git config setup."
     return
   fi
 
-  f_write_args variant_config _git_fsmonitor -- "$variant"
+  f_write_args os_profile_config _git_fsmonitor -- "$os" "$profile"
   git_fsmonitor="$_git_fsmonitor"
 
   info "Configuring global git settings..."

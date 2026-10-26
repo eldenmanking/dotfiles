@@ -137,7 +137,7 @@ feature_yay() {
 # @os arch
 # @gui any
 feature_terminal() {
-  local enabled="$2"
+  local enabled="$3"
   if ! list_contains "$enabled" pacman; then
     info "Installing pacman packages for terminal..."
     run_tty sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"

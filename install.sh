@@ -3,8 +3,10 @@
 ################################################################################
 # Program: install.sh
 # Description: Installs essential packages for configuration and creates
-#              symlinks in the proper locations. Supports several variants
-#              (see install/variants/) and toggles features with flags.
+#              symlinks in the proper locations. Installs for an OS, profile
+#              and machine (see install/os/, install/profiles/ and the
+#              variants naming an OS and profile in install/variants/) and
+#              toggles features with flags.
 # Location: ~/dotfiles/install.sh
 ################################################################################
 
@@ -58,23 +60,15 @@ clone_checkout_to_root() {
   exec bash "$DOTFILES_ROOT/install.sh" "$@"
 }
 
-# Source install/lib, features and variants. They only define functions and constants, so their globals stay global.
+# Source install/lib, features, OSes, profiles and variants. They only define functions and constants, so their
+# globals stay global.
 load_install_deps() {
   local f
   for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
-    "$INSTALL_DIR"/variants/*.sh; do
+    "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh; do
     # shellcheck source=/dev/null
     source "$f"
   done
-}
-
-available_variants() {
-  local f names=""
-  for f in "$INSTALL_DIR"/variants/*.sh; do
-    f="$(basename "$f" .sh)"
-    names+="${names:+ }$f"
-  done
-  printf '%s' "$names"
 }
 
 # Print feature $1's --help line, with the machines it is for and the features it requires.
@@ -85,38 +79,51 @@ usage_feature() {
     "${_requires:+ (requires: --${_requires// / --})}"
 }
 
+# Print the variants, OSes and profiles, then the options of OS $1 with profile $2 on machine $3 if they can run.
 usage() {
-  local variant="$1" machine="${2:-generic}" v features optional other="" uninstallable=""
+  local os="$1" profile="$2" machine="${3:-generic}" v features optional other="" uninstallable=""
   cat <<EOF
-Usage: $(basename "$0") [--variant NAME] [--machine NAME] [--infer] [OPTIONS]
+Usage: $(basename "$0") [--variant NAME | --os NAME --profile NAME] [--machine NAME] [--infer] [OPTIONS]
 
 dotfiles installation and configuration script. All operations are idempotent.
-Run '$(basename "$0") --variant NAME --help' to list the options of a variant.
---variant picks the OS and --machine the hardware (default: generic); --infer
-guesses whichever of them isn't given from this system. Without them,
-DOTFILES_VARIANT and DOTFILES_MACHINE name them; without options,
-DOTFILES_FEATURES lists them (feature names, or all for --all). Set them in
-the environment or in $INSTALL_CONFIG.
+An install is for an OS, a profile (how the machine is used) and a machine
+(the hardware, default generic). --variant names an OS and profile, which
+--os and --profile override; --infer guesses whichever isn't given from this
+system. Run with them and --help to list their options. Without them,
+DOTFILES_VARIANT, DOTFILES_OS, DOTFILES_PROFILE and DOTFILES_MACHINE name
+them; without options, DOTFILES_FEATURES lists them (feature names, or all
+for --all). Set them in the environment or in $INSTALL_CONFIG.
 See README.md for more information.
 
 Variants:
 EOF
-  for v in $(available_variants); do
-    f_write_args variant_config _description -- "$v"
+  for v in $(available_names variants); do
+    f_write_args variant_config _os _profile -- "$v"
+    printf '  %-10s --os %s --profile %s\n' "$v" "$_os" "$_profile"
+  done
+  printf '\nOSes (profiles; machines):\n'
+  for v in $(available_names os); do
+    f_write_args os_config _description _machines -- "$v"
+    printf '  %-10s %s (%s; %s)\n' "$v" "$_description" "$(os_profiles "$v")" "$_machines"
+  done
+  printf '\nProfiles:\n'
+  for v in $(available_names profiles); do
+    f_write_args profile_config _description -- "$v"
     printf '  %-10s %s\n' "$v" "$_description"
   done
-  printf '\nMachines: %s\n' "$MACHINES"
-  variant_exists "$variant" || return 0
+  os_supports_profile "$os" "$profile" || return 0
 
-  f_write_args variant_config _features _optional -- "$variant"
+  f_write_args os_profile_config _features _optional -- "$os" "$profile"
   features="$_features"
   optional="$_optional"
   cat <<EOF
 
-Options for variant '$variant' on machine '$machine':
-  --variant NAME   select the variant (the OS)
+Options for OS '$os' with profile '$profile' on machine '$machine':
+  --variant NAME   select an OS and profile
+  --os NAME        select the OS
+  --profile NAME   select the profile
   --machine NAME   select the machine (the hardware)
-  --infer          infer the variant or machine not given from this system
+  --infer          infer the OS, profile or machine not given from this system
   --all            install all default options
 EOF
   for v in $features; do
@@ -153,29 +160,32 @@ EOF
 EOF
 }
 
+# Warn with message $1, print usage (of OS $2 with profile $3 on machine $4, if given) and exit.
 usage_error() {
-  local message="$1" variant="${2:-}"
+  local message="$1" os="${2:-}" profile="${3:-}" machine="${4:-}"
   warn "$message"
-  usage "$variant" >&2
+  usage "$os" "$profile" "$machine" >&2
   exit 1
 }
 
 parse_args() {
-  local variant="" machine="" infer=false flags=" " mode=install all=false dry_run=false help=false
+  local variant="" os="" profile="" machine="" infer=false flags=" " mode=install all=false dry_run=false help=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --variant)
-        [[ $# -ge 2 ]] || usage_error "--variant requires a value"
-        variant="$2"
+      --variant|--os|--profile|--machine)
+        [[ $# -ge 2 ]] || usage_error "$1 requires a value"
+        case "$1" in
+          --variant) variant="$2" ;;
+          --os)      os="$2" ;;
+          --profile) profile="$2" ;;
+          --machine) machine="$2" ;;
+        esac
         shift 2
         ;;
       --variant=*) variant="${1#--variant=}"; shift ;;
-      --machine)
-        [[ $# -ge 2 ]] || usage_error "--machine requires a value"
-        machine="$2"
-        shift 2
-        ;;
+      --os=*)      os="${1#--os=}"; shift ;;
+      --profile=*) profile="${1#--profile=}"; shift ;;
       --machine=*) machine="${1#--machine=}"; shift ;;
       --infer)     infer=true; shift ;;
       --all)       all=true; shift ;;
@@ -193,6 +203,8 @@ parse_args() {
   done
 
   _variant="$variant"
+  _os="$os"
+  _profile="$profile"
   _machine="$machine"
   _infer="$infer"
   _flags="$flags"
@@ -202,100 +214,135 @@ parse_args() {
   _help="$help"
 }
 
-# Outputs: _default_variant, _default_machine and _default_features, from DOTFILES_VARIANT, DOTFILES_MACHINE and
-# DOTFILES_FEATURES in the environment or, for each one unset there, in config file $1. The file is sourced in a
-# subshell so it can't change this shell's state.
+# Outputs: _default_variant, _default_os, _default_profile, _default_machine and _default_features, from
+# DOTFILES_VARIANT, DOTFILES_OS, DOTFILES_PROFILE, DOTFILES_MACHINE and DOTFILES_FEATURES in the environment or, for
+# each one unset there, in config file $1. The file is sourced in a subshell so it can't change this shell's state.
 load_install_defaults() {
-  local conf="$1" file_variant="" file_machine="" file_features=""
+  local conf="$1" file_variant="" file_os="" file_profile="" file_machine="" file_features=""
   if [[ -f "$conf" ]]; then
-    { IFS= read -r -d '' file_variant && IFS= read -r -d '' file_machine && IFS= read -r -d '' file_features; } < <(
-      unset DOTFILES_VARIANT DOTFILES_MACHINE DOTFILES_FEATURES
+    { IFS= read -r -d '' file_variant && IFS= read -r -d '' file_os && IFS= read -r -d '' file_profile \
+      && IFS= read -r -d '' file_machine && IFS= read -r -d '' file_features; } < <(
+      unset DOTFILES_VARIANT DOTFILES_OS DOTFILES_PROFILE DOTFILES_MACHINE DOTFILES_FEATURES
       # shellcheck source=/dev/null
       source "$conf" >&2 || exit 1
-      printf '%s\0%s\0%s\0' "${DOTFILES_VARIANT:-}" "${DOTFILES_MACHINE:-}" "${DOTFILES_FEATURES:-}"
+      printf '%s\0%s\0%s\0%s\0%s\0' "${DOTFILES_VARIANT:-}" "${DOTFILES_OS:-}" "${DOTFILES_PROFILE:-}" \
+        "${DOTFILES_MACHINE:-}" "${DOTFILES_FEATURES:-}"
     ) || error "Could not read $conf"
   fi
   _default_variant="${DOTFILES_VARIANT:-$file_variant}"
+  _default_os="${DOTFILES_OS:-$file_os}"
+  _default_profile="${DOTFILES_PROFILE:-$file_profile}"
   _default_machine="${DOTFILES_MACHINE:-$file_machine}"
   _default_features="${DOTFILES_FEATURES:-$file_features}"
 }
 
-# Outputs: _variant, _machine, _flags and _all, the parsed variant $1, machine $7, flags $2 and --all $3 with the
-# defaults applied. Default variant $5 is used when no --variant was given, and default machine $8 when no --machine
-# was. Default features $6 (feature names, and all for --all) are used when the command line selects none, unless
-# mode $4 is uninstall or the command line names a variant other than $5.
-apply_install_defaults() {
-  local variant="$1" flags="$2" all="$3" mode="$4" default_variant="$5" default_features="$6" machine="$7"
-  local default_machine="$8" word
-  [[ -n "$variant" ]] || variant="$default_variant"
-  [[ -n "$machine" ]] || machine="$default_machine"
+# Outputs: _os and _profile, OS $2 and profile $3, with each one left empty filled in from variant $1 (if given).
+variant_dimensions() {
+  local variant="$1" os="$2" profile="$3"
+  if [[ -n "$variant" ]]; then
+    variant_exists "$variant" \
+      || usage_error "Unknown variant '$variant'. Available variants: $(available_names variants)"
+    f_write_args variant_config _os _profile -- "$variant"
+    [[ -n "$os" ]] || os="$_os"
+    [[ -n "$profile" ]] || profile="$_profile"
+  fi
+  _os="$os"
+  _profile="$profile"
+}
+
+# Outputs: _flags and _all, flags $1 and --all $2 with default features $4 (feature names, and all for --all) added
+# when the command line selects none, unless mode $3 is uninstall or the OS and profile to install for ($5, $6) aren't
+# the ones the defaults name ($7, $8; both empty when the defaults name none).
+apply_default_features() {
+  local flags="$1" all="$2" mode="$3" default_features="$4" os="$5" profile="$6" default_os="$7"
+  local default_profile="$8" word
   if [[ "$flags" == " " ]] && ! $all && [[ "$mode" != uninstall ]] \
-    && [[ -z "$default_variant" || "$variant" == "$default_variant" ]]; then
+    && [[ -z "$default_os$default_profile" || "$os $profile" == "$default_os $default_profile" ]]; then
     for word in $default_features; do
       word="${word#--}"
       if [[ "$word" == all ]]; then all=true; else flags+="$word "; fi
     done
   fi
-  _variant="$variant"
-  _machine="$machine"
   _flags="$flags"
   _all="$all"
 }
 
-# Outputs: _variant and _machine to install for: variant $1 and machine $2 as given (by options or defaults), with
-# each one left empty inferred from this system when $3 (--infer) is true. Without --infer, an empty machine is
-# generic and an empty variant stays empty, for exit_with_usage_unless_runnable to report.
+# Outputs: _os, _profile and _machine to install for: OS $1, profile $2 and machine $3 as given (by options or
+# defaults), with each one left empty inferred from this system when $4 (--infer) is true, to suit the given ones:
+# an OS that lacks the given profile becomes portable if that has it (portable runs anywhere), and a machine the OS
+# doesn't support becomes generic. Without --infer, an empty machine is generic and an empty OS or profile stays
+# empty, for exit_with_usage_unless_runnable to report.
 resolve_dimensions() {
-  local variant="$1" machine="$2" infer="$3" inferred=""
-  if $infer && [[ -z "$variant" || -z "$machine" ]]; then
-    f_write_args infer_system _variant _machine _reason
-    if [[ -z "$variant" ]]; then
-      [[ -n "$_variant" ]] || error "Could not infer a variant for this system ($_reason); pass --variant"
-      variant="$_variant"
-      inferred+="variant '$variant'"
+  local os="$1" profile="$2" machine="$3" infer="$4" inferred=""
+  if $infer && [[ -z "$os" || -z "$profile" || -z "$machine" ]]; then
+    f_write_args infer_system _os _machine _coder _reason
+    if [[ -z "$os" ]]; then
+      [[ -n "$_os" ]] || error "Could not infer an OS for this system ($_reason); pass --os or --variant"
+      os="$_os"
+      if [[ -n "$profile" ]] && ! os_supports_profile "$os" "$profile" && os_supports_profile portable "$profile"; then
+        os=portable
+      fi
+      inferred+="OS '$os'"
+    fi
+    if [[ -z "$profile" ]]; then
+      profile="$(profile_for_system "$os" "$_coder")"
+      inferred+="${inferred:+, }profile '$profile'"
     fi
     if [[ -z "$machine" ]]; then
       machine="$_machine"
-      inferred+="${inferred:+ and }machine '$machine'"
+      if os_exists "$os"; then
+        f_write_args os_config _machines -- "$os"
+        list_contains "$_machines" "$machine" || machine=generic
+      fi
+      inferred+="${inferred:+, }machine '$machine'"
     fi
     info "Inferred $inferred from: $_reason"
   fi
-  _variant="$variant"
+  _os="$os"
+  _profile="$profile"
   _machine="${machine:-generic}"
 }
 
-# Print usage and exit unless variant $1 can run on machine $6: with no variant, or with no features selected ($2
-# flags, $3 --all) or --help ($4). Without a variant this is an error unless --help was given or there were no
-# arguments ($5).
+# Print usage and exit unless OS $5 with profile $6 can run on machine $7: with no OS and profile, or with no
+# features selected ($1 flags, $2 --all) or --help ($3). Without an OS and profile this is an error unless --help was
+# given or there were no arguments ($4), as is an OS, profile or machine that doesn't exist or doesn't go together.
 exit_with_usage_unless_runnable() {
-  local variant="$1" flags="$2" all="$3" help="$4" no_args="$5" machine="$6"
+  local flags="$1" all="$2" help="$3" no_args="$4" os="$5" profile="$6" machine="$7"
   list_contains "$MACHINES" "$machine" || usage_error "Unknown machine '$machine'. Available machines: $MACHINES"
-  if [[ -z "$variant" ]]; then
-    $help || $no_args || usage_error "--variant (or --infer) is required"
-    usage "" "$machine"
+  if [[ -z "$os" && -z "$profile" ]]; then
+    $help || $no_args || usage_error "--variant, or --os and --profile, is required (or --infer)"
+    usage "" "" "$machine"
     exit 0
   fi
-  variant_exists "$variant" \
-    || usage_error "Unknown variant '$variant'. Available variants: $(available_variants)"
+  [[ -z "$os" ]] || os_exists "$os" || usage_error "Unknown OS '$os'. Available OSes: $(available_names os)"
+  [[ -z "$profile" ]] || profile_exists "$profile" \
+    || usage_error "Unknown profile '$profile'. Available profiles: $(available_names profiles)"
+  [[ -n "$os" ]] || usage_error "--profile $profile needs --os (or --infer)"
+  [[ -n "$profile" ]] || usage_error "--os $os needs --profile, one of: $(os_profiles "$os") (or --infer)"
+  os_supports_profile "$os" "$profile" \
+    || usage_error "OS '$os' has no profile '$profile'; it has: $(os_profiles "$os")"
+  f_write_args os_config _machines -- "$os"
+  list_contains "$_machines" "$machine" \
+    || usage_error "OS '$os' doesn't support machine '$machine'; it supports: $_machines"
   if $help || { [[ "$flags" == " " ]] && ! $all; }; then
-    usage "$variant" "$machine"
+    usage "$os" "$profile" "$machine"
     exit 0
   fi
 }
 
-# Outputs: _enabled, the selected features of variant $1 on machine $5. --all leaves out optional features and those
-# whose @machine doesn't suit $5; named features run either way (with a warning for the latter). Under --uninstall,
-# features without an uninstall function are dropped (with a warning if named).
+# Outputs: _enabled, the selected features of OS $1 with profile $2 on machine $6. --all leaves out optional features
+# and those whose @machine doesn't suit $6; named features run either way (with a warning for the latter). Under
+# --uninstall, features without an uninstall function are dropped (with a warning if named).
 resolve_features() {
-  local variant="$1" flags="$2" all="$3" mode="$4" machine="$5" features optional enabled=" " k default
+  local os="$1" profile="$2" flags="$3" all="$4" mode="$5" machine="$6" features optional enabled=" " k default
 
-  f_write_args variant_config _features _optional -- "$variant"
+  f_write_args os_profile_config _features _optional -- "$os" "$profile"
   features="$_features"
   optional="$_optional"
 
   for k in $flags; do
     list_contains "$features" "$k" \
-      || usage_error "Unknown option for variant '$variant': --$k" "$variant"
+      || usage_error "Unknown option for OS '$os' with profile '$profile': --$k" "$os" "$profile" "$machine"
   done
   for k in $features; do
     f_write_args feature_requirements _machine _os _gui _requires -- "$k"
@@ -359,31 +406,31 @@ reverse_words() {
   printf '%s' "$reversed"
 }
 
-# Run the enabled features in variant order: install runs feature_<name>,
-# reinstall runs uninstall_feature_<name> (if defined) then feature_<name>, and
-# uninstall runs uninstall_feature_<name> in reverse order.
+# Run the enabled features in the order of OS $1 with profile $2: install runs feature_<name>, reinstall runs
+# uninstall_feature_<name> (if defined) then feature_<name>, and uninstall runs uninstall_feature_<name> in reverse
+# order. Each gets the OS, the profile and the enabled features.
 run_features() {
-  local variant="$1" enabled="$2" mode="$3" machine="$4" features feature
+  local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" features feature
 
-  f_write_args variant_config _features -- "$variant"
+  f_write_args os_profile_config _features -- "$os" "$profile"
   features="$_features"
   if [[ "$mode" == uninstall ]]; then
     features="$(reverse_words "$features")"
   fi
 
-  info "Beginning dotfiles $mode (variant: $variant, machine: $machine)..."
+  info "Beginning dotfiles $mode (os: $os, profile: $profile, machine: $machine)..."
   for feature in $features; do
     list_contains "$enabled" "$feature" || continue
     if [[ "$mode" != install ]] && feature_uninstallable "$feature"; then
       info "Uninstalling feature: $feature"
-      "$(uninstall_function "$feature")" "$variant" "$enabled"
+      "$(uninstall_function "$feature")" "$os" "$profile" "$enabled"
     fi
     [[ "$mode" != uninstall ]] || continue
     if $DRY_RUN && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
       info "[dry-run] would run feature: $feature"
       continue
     fi
-    "$(feature_function "$feature")" "$variant" "$enabled"
+    "$(feature_function "$feature")" "$os" "$profile" "$enabled"
   done
   info "dotfiles $mode complete."
 }
@@ -392,23 +439,38 @@ main() {
   bootstrap "$@"
   load_install_deps
 
-  local variant machine
-  f_write_args parse_args _variant _machine _infer _flags _mode _all _dry_run _help -- "$@"
+  local os profile machine default_os default_profile
+  f_write_args parse_args _variant _os _profile _machine _infer _flags _mode _all _dry_run _help -- "$@"
   readonly DRY_RUN="$_dry_run"
-
-  f_write_args load_install_defaults _default_variant _default_machine _default_features -- "$INSTALL_CONFIG"
-  f_write_args apply_install_defaults _variant _machine _flags _all -- \
-    "$_variant" "$_flags" "$_all" "$_mode" "$_default_variant" "$_default_features" "$_machine" "$_default_machine"
-  f_write_args resolve_dimensions _variant _machine -- "$_variant" "$_machine" "$_infer"
-  # Copied out of _variant and _machine, which feature_requirements and infer_system write too.
-  variant="$_variant"
+  f_write_args variant_dimensions _os _profile -- "$_variant" "$_os" "$_profile"
+  os="$_os"
+  profile="$_profile"
   machine="$_machine"
-  exit_with_usage_unless_runnable "$variant" "$_flags" "$_all" "$_help" \
-    "$([[ $# -eq 0 ]] && echo true || echo false)" "$machine"
 
-  f_write_args resolve_features _enabled -- "$variant" "$_flags" "$_all" "$_mode" "$machine"
+  # Each dimension the command line leaves out comes from the defaults, where DOTFILES_OS and DOTFILES_PROFILE override
+  # DOTFILES_VARIANT's.
+  f_write_args load_install_defaults _default_variant _default_os _default_profile _default_machine _default_features \
+    -- "$INSTALL_CONFIG"
+  f_write_args variant_dimensions _os _profile -- "$_default_variant" "$_default_os" "$_default_profile"
+  default_os="$_os"
+  default_profile="$_profile"
+  os="${os:-$default_os}"
+  profile="${profile:-$default_profile}"
+  machine="${machine:-$_default_machine}"
+  f_write_args apply_default_features _flags _all -- \
+    "$_flags" "$_all" "$_mode" "$_default_features" "$os" "$profile" "$default_os" "$default_profile"
+
+  # Copied out of _os, _profile and _machine, which feature_requirements and infer_system write too.
+  f_write_args resolve_dimensions _os _profile _machine -- "$os" "$profile" "$machine" "$_infer"
+  os="$_os"
+  profile="$_profile"
+  machine="$_machine"
+  exit_with_usage_unless_runnable "$_flags" "$_all" "$_help" "$([[ $# -eq 0 ]] && echo true || echo false)" \
+    "$os" "$profile" "$machine"
+
+  f_write_args resolve_features _enabled -- "$os" "$profile" "$_flags" "$_all" "$_mode" "$machine"
   enter_dotfiles_root
-  run_features "$variant" "$_enabled" "$_mode" "$machine"
+  run_features "$os" "$profile" "$_enabled" "$_mode" "$machine"
 }
 
 main "$@"
