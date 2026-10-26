@@ -1,6 +1,6 @@
 # Feature: symlink dotfiles into place.
 
-# Paths linked by every variant. Directories link every file under them.
+# Paths linked by every OS and profile. Directories link every file under them.
 LINK_COMMON_PATHS=(
   home/.tmux.conf
   home/.tmux/resurrect/saferestore.sh
@@ -10,7 +10,7 @@ LINK_COMMON_PATHS=(
   home/.local/bin/clip
 )
 
-# Shell startup files, for variants that link them instead of writing managed blocks with the shell feature.
+# Shell startup files, for OSes and profiles that link them instead of writing managed blocks with the shell feature.
 LINK_SHELL_PATHS=(
   home/.bash_profile
   home/.bashrc
@@ -63,14 +63,14 @@ link_dotfile() {
   esac
 }
 
-# Symlink the variant's _link_paths: home/ into $HOME and root/ into / (with sudo).
+# Symlink the OS and profile's _link_paths: home/ into $HOME and root/ into / (with sudo).
 #
 # @machine any
 # @os any
 # @gui any
 feature_link() {
-  local variant="$1" link_paths entry file
-  f_write_args variant_config _link_paths -- "$variant"
+  local os="$1" profile="$2" link_paths entry file
+  f_write_args os_profile_config _link_paths -- "$os" "$profile"
   link_paths="$_link_paths"
   for entry in $link_paths; do
     if [[ ! -e "$DOTFILES_ROOT/$entry" ]]; then

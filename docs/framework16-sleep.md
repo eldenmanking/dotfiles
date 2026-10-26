@@ -14,7 +14,7 @@ The rule disables wake for every I2C device that has it enabled. On this laptop 
 
 Rule file: `root/etc/udev/rules.d/90-touchpad-nowake.rules`, installed to `/etc/udev/rules.d/` with:
 ```sh
-./install.sh --variant steamos --udev
+./install.sh --variant steamos --machine framework16 --udev
 ```
 
 Home is encrypted and udev runs before login, so the feature **copies** the rule into /etc instead of symlinking it. The `90-` prefix only sets ordering: udev sorts rules by filename, so this one runs after the distro's rules.
@@ -61,7 +61,7 @@ Evidence, on battery, with a 180 s sleep woken by an RTC alarm:
 
 Config file: `root/etc/tmpfiles.d/ec-no-wakeup.conf`, installed to `/etc/tmpfiles.d/` and applied immediately (no reboot needed) with:
 ```sh
-./install.sh --variant steamos --tmpfiles
+./install.sh --variant steamos --machine framework16 --tmpfiles
 ```
 
 Like the udev rule, the feature **copies** the file into /etc instead of symlinking it: systemd-tmpfiles runs at early boot, before the encrypted home is unlocked, so a symlink into ~ would silently fail.

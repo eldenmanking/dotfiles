@@ -1,5 +1,6 @@
 # OREI HDMI switch handoff (Framework 16)
-The `orei_switch` feature (part of `./install.sh --variant steamos --all`, or alone with `--orei_switch`) makes an OREI
+The `orei_switch` feature (part of `./install.sh --variant steamos --machine framework16 --all`, which `--infer --all`
+picks on the laptop, or alone with `--orei_switch`) makes an OREI
 4K 3-input HDMI switch (auto mode) follow a Framework 16's sleep and wake, and turns the projector off on sleep and
 poweroff and back on on wake. It installs `/etc/dotfiles/bin/orei-switch`, a pinned `framework_tool` (Framework's EC
 tool) beside it, `orei-switch.service` (enabled, wanted by `sleep.target`), `orei-switch-poweroff.service` (wanted by
@@ -95,7 +96,7 @@ Known gaps:
 ## Operating
 - Logs: `journalctl -t orei-switch -b`
 - Recovery, if the left ports stay dead: `sudo /etc/dotfiles/bin/framework_tool --pd-enable 1` (or reboot)
-- Remove: `./install.sh --variant steamos --orei_switch --uninstall`
+- Remove: `./install.sh --variant steamos --machine framework16 --orei_switch --uninstall`
 
 ## Open questions
 - Verify a real poweroff and boot, the UCSI reset fallback on wake, and turning on a projector that is still shutting

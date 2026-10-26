@@ -48,7 +48,7 @@ install_framework_tool() {
 # the poweroff one turns the projector off.
 #
 # @machine framework16
-# @os linux
+# @os steamos
 # @gui any
 feature_orei_switch() {
   local entry mode src

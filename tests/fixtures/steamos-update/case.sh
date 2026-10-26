@@ -5,7 +5,7 @@
 # list. gamescope_screenshot's user units and their global enable links in /etc/systemd/user survive
 # through dotfiles.conf. See tests/images/steamos/steamos-update.
 IMAGE=steamos
-ARGS="--variant steamos --link --udev --tmpfiles --logind --hdmi_audio_fix --orei_switch --gamescope_screenshot"
+ARGS="--variant steamos --machine framework16 --link --udev --tmpfiles --logind --hdmi_audio_fix --orei_switch --gamescope_screenshot"
 # framework_tool is left out of ROOT_FILES, as a binary too big to commit, so check it survived here instead.
 AFTER_INSTALL="sudo steamos-update && test -x /etc/dotfiles/bin/framework_tool"
 ROOT_FILES="/etc/atomic-update.conf.d /etc/udev/rules.d /etc/tmpfiles.d /etc/systemd/logind.conf.d /etc/systemd/user /etc/previous /etc/dummy.conf"
