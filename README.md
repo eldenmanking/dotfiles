@@ -37,6 +37,8 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   └── vimium.conf              --- configuration for chrome vimium extension
 │   ├── insync                       ---
 │   │   └── ignorerules              ---
+│   ├── keychron                     ---
+│   │   └── k3-ultra-8k-ansi.json    --- Keychron Launcher keymap export for the K3 Ultra 8K
 │   ├── okular                       ---
 │   │   └── default.shortcuts        ---
 │   ├── vscode                       ---
