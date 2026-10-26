@@ -573,11 +573,11 @@ test_machine() {
   install_ok "$_home" --variant steamos --machine framework16 --help \
     && check "  ...lists them with the rest on framework16" sh -c '! grep -q "For other machines" "$1"' sh "$LOG"
   # --all goes on to webterm, which needs a live systemd user session (see DRY_RUN_SKIP), so ignore the status: udev
-  # runs before it.
+  # runs before it. It names its rule whether it copies it or finds it already up to date, as on a configured machine.
   run_install "$_home" --variant steamos --machine generic --all --dry-run || true
-  check "--all leaves them out on generic" sh -c '! grep -q udevadm "$1"' sh "$LOG"
+  check "--all leaves them out on generic" sh -c '! grep -q 90-touchpad-nowake.rules "$1"' sh "$LOG"
   run_install "$_home" --variant steamos --machine framework16 --all --dry-run || true
-  check "--all includes them on framework16" grep -q udevadm "$LOG"
+  check "--all includes them on framework16" grep -q /etc/udev/rules.d/90-touchpad-nowake.rules "$LOG"
   install_ok "$_home" --variant steamos --udev --dry-run \
     && check "  ...naming one runs it on generic, with a warning" grep -q "udev is for machine framework16" "$LOG"
   install_refused "$_home" --variant steamos --machine nope
