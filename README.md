@@ -272,6 +272,7 @@ Features copy the systemd units they install, never link them, with the helpers 
 | `logind` | laptop | linux | any | |
 | `orei_switch` | framework16 | steamos | any | |
 | `steamos_xclip` | any | steamos | desktop | |
+| `steamos_make` | any | steamos | any | |
 | `webterm` | any | linux | any | `link` |
 | `steam` | any | steamos | any | |
 | `gamescope_screenshot` | any | steamos | any | `link` |
