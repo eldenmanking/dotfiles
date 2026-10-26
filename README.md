@@ -116,12 +116,13 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   ├── dotfiles                 ---
 │   │   │   └── bin                  ---
 │   │   │       ├── orei-switch      --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
-│   │   │       └── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
+│   │   │       ├── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
+│   │   │       └── sddm-xstop       --- finishes the VT switch to the session after the login screen exits (copied by orei_switch)
 │   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals
 │   │   ├── modprobe.d               ---
 │   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
 │   │   ├── sddm.conf.d              ---
-│   │   │   └── orei-switch.conf     --- runs sddm-xsetup for the X11 login screen (copied by orei_switch)
+│   │   │   └── orei-switch.conf     --- runs sddm-xsetup and sddm-xstop for the X11 login screen (copied by orei_switch)
 │   │   ├── systemd                  ---
 │   │   │   ├── logind.conf.d        ---
 │   │   │   │   └── lid.conf         --- don't suspend on lid close while on external power (copied by logind)

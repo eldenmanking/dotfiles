@@ -79,6 +79,18 @@ It only touches a CEC TV, so sleeping away from the projector or on a plain moni
   That copy also does the first layout, and the script SDDM runs waits at most 10s for it: SDDM gives up on the X
   server after its setup command has run for 30s, which once left a black screen with nothing to log into, when the
   first layout hung with an eGPU attached.
+- **Login screen exit:** on login, SDDM switches to the session's VT around the time the login screen's X server
+  exits. X holds its VT in `VT_PROCESS` mode, so the kernel waits for X to acknowledge a switch, and if X exits first
+  it never does: the switch stays pending until something asks for it again. On one boot that took 30s, SDDM's limit
+  for a session to start, so it logged `Session started false` and killed Gaming Mode (and the game in it) a minute
+  later. `orei-switch.conf` also replaces SteamOS's stop command (`gamescope-wayland-teardown-workaround`, which it
+  still runs) with `sddm-xstop`, which SDDM runs as the `sddm` user once the X server has exited. If the switch to the
+  session's VT is still pending 3s later, it asks logind for it again (`loginctl activate`, which polkit allows while
+  the login screen's session lasts). It waits first because SDDM sometimes only asks for the switch after the script
+  starts, and a session can't take over a VT something else switched to (`Failed to take control of "/dev/ttyN"`),
+  while a normal switch finishes within a fraction of a second. Setting `DisplayServer=x11` avoids the race too, since
+  SDDM then stops the login screen before switching, but it keeps a root X server (and `sddm-xsetup`) running beside
+  every session, and gamescope then aborted with `drm: fatal flip error` on every start.
 
 It logs each step; tune `PD_WAIT` and `RESET_WAIT` from the timings (`journalctl -t orei-switch -b -o short-precise`).
 In 15 real suspend/resumes (RTC wakes after 12s to 5 min, the projector on, already in standby, or the ports cut

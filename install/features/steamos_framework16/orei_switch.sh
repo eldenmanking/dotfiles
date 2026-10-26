@@ -1,7 +1,8 @@
 # Feature: hand an OREI HDMI switch to another input while a Framework 16 sleeps, and back on wake, by cutting power
 # to the left USB-C PD controller with Framework's framework_tool, and turn the projector off over CEC on sleep and
 # poweroff and back on on wake and boot (see root/etc/dotfiles/bin/orei-switch). Also lay out the boot login screen for
-# the projector (root/etc/dotfiles/bin/sddm-xsetup).
+# the projector (root/etc/dotfiles/bin/sddm-xsetup), and keep its exit from leaving a VT switch pending
+# (root/etc/dotfiles/bin/sddm-xstop).
 
 OREI_SWITCH_UNITS_SRC="root/etc/systemd/system"
 OREI_SWITCH_UNITS="orei-switch.service orei-switch-boot.service orei-switch-poweroff.service"
@@ -13,6 +14,7 @@ FRAMEWORK_TOOL="$SYSTEM_BIN_DIR/framework_tool"
 OREI_SWITCH_FILES=(
   "755 root/etc/dotfiles/bin/orei-switch"
   "755 root/etc/dotfiles/bin/sddm-xsetup"
+  "755 root/etc/dotfiles/bin/sddm-xstop"
   "644 root/etc/sddm.conf.d/orei-switch.conf"
 )
 

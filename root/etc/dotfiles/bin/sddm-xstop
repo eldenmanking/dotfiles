@@ -1,0 +1,51 @@
+#!/bin/bash
+# Finish the switch to the new session's VT after SDDM's X11 login screen exits. SDDM runs this as the sddm user right
+# after the login screen's X server exits (/etc/sddm.conf.d/orei-switch.conf), in place of SteamOS's own stop command.
+#
+# On login, SDDM switches to the session's VT around the time the login screen's X server shuts down. X holds its VT in
+# VT_PROCESS mode, so the kernel only switches once X acknowledges, and an X that exits first never does: the switch
+# stays pending until someone asks for it again. On one boot that took 30 s, SDDM's limit for a session to start, so it
+# counted Gaming Mode as failed and killed it a minute later. Asking again once X is gone completes the switch at once.
+# Asking too early breaks the login instead: SDDM sometimes only asks after this script starts, and its session can't
+# take over a VT someone else switched to ("Failed to take control of /dev/ttyN"). A normal switch finishes within a
+# fraction of a second, so this only asks again once the switch has been pending for SWITCH_WAIT seconds; SDDM gives
+# the script 5.
+# Installed into /etc/dotfiles/bin by the orei_switch feature of ~/dotfiles/install.sh.
+SWITCH_WAIT=3
+SESSION_WAIT=1
+
+log() { logger -t orei-switch "login screen: $*"; }
+
+# Print the id and VT of seat0's newest user session, if it has one.
+user_session() {
+  local id
+  for id in $(loginctl show-seat seat0 --property=Sessions --value); do
+    [[ "$(loginctl show-session "$id" --property=Class --value)" == user ]] || continue
+    [[ "$(loginctl show-session "$id" --property=State --value)" != closing ]] || continue
+    printf '%s %s\n' "$id" "$(loginctl show-session "$id" --property=VTNr --value)"
+  done | tail -n 1
+}
+
+# SteamOS's own DisplayStopCommand, which this replaces.
+/usr/bin/gamescope-wayland-teardown-workaround || true
+
+# Wait for the session that's logging in; there is none when the login screen stops for another reason (e.g. poweroff).
+id='' vt=''
+for (( i = 0; i < SESSION_WAIT * 10; i++ )); do
+  read -r id vt <<<"$(user_session)"
+  [[ -n "$vt" && "$vt" != 0 ]] && break
+  sleep 0.1
+done
+[[ -n "$vt" && "$vt" != 0 ]] || exit 0
+
+for (( i = 0; i < SWITCH_WAIT * 10; i++ )); do
+  [[ "$(cat /sys/class/tty/tty0/active)" == "tty$vt" ]] && exit 0
+  sleep 0.1
+done
+# The sddm user may switch VTs through logind (polkit's org.freedesktop.login1.chvt) while its greeter session lasts.
+if loginctl activate "$id"; then
+  log "switch to tty$vt was still pending ${SWITCH_WAIT}s after the X server exited; asked again"
+else
+  log "switch to tty$vt was still pending ${SWITCH_WAIT}s after the X server exited, and asking again failed"
+fi
+exit 0

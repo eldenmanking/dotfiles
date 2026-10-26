@@ -9,7 +9,7 @@ ARGS="--variant steamos --machine framework16 --link --udev --tmpfiles --logind 
 # framework_tool is left out of ROOT_FILES, as a binary too big to commit, so check it survived here instead.
 AFTER_INSTALL="sudo steamos-update && test -x /etc/dotfiles/bin/framework_tool"
 ROOT_FILES="/etc/atomic-update.conf.d /etc/udev/rules.d /etc/tmpfiles.d /etc/systemd/logind.conf.d /etc/systemd/user /etc/previous /etc/dummy.conf"
-ROOT_FILES="$ROOT_FILES /etc/dotfiles/bin/orei-switch /etc/dotfiles/bin/sddm-xsetup /etc/sddm.conf.d"
+ROOT_FILES="$ROOT_FILES /etc/dotfiles/bin/orei-switch /etc/dotfiles/bin/sddm-xsetup /etc/dotfiles/bin/sddm-xstop /etc/sddm.conf.d"
 # Each unit and the link for each target in its WantedBy=, rather than all of /etc/systemd/system, which holds the
 # image's own units too.
 for target in multi-user suspend hibernate hybrid-sleep suspend-then-hibernate; do
