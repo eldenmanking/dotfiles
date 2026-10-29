@@ -36,6 +36,7 @@ feature_description() {
     hdmi_audio_fix) echo "install hdmi-audio-fix.service into /etc (sudo): a socclk floor on the Framework 16 780M, for HDMI audio" ;;
     gamescope_screenshot) echo "install systemd user units into /etc (sudo) that save a Gaming Mode screenshot on Print Screen or Shift+Meta+4" ;;
     kde)         echo "merge partial KDE config files (e.g. home/.config/kcminputrc) into ~/.config with kwriteconfig" ;;
+    light_sleep) echo "install light-sleep into /etc (sudo): idle with the displays off instead of suspending while an eGPU is on the expansion bay" ;;
     orei_switch) echo "download framework_tool and install the OREI HDMI switch sleep/wake handoff into /etc (sudo)" ;;
     distrobox)   echo "create an 'arch' distrobox from archlinux:latest and enter it" ;;
     *)           echo "" ;;
@@ -117,7 +118,7 @@ gui_supported() {
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
