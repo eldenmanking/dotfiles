@@ -9,9 +9,9 @@ os_steamos() {
 os_steamos_desktop() {
   # distrobox is near the end since it leaves you in the new container's shell; steamos_xclip and
   # steamos_make follow it to reuse that container instead of downloading another image.
-  _features="link neovim starship tmux claude gitconfig flatpak kde steam udev tmpfiles logind font webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox steamos_xclip steamos_make"
+  _features="link neovim starship tmux claude gitconfig flatpak kde steam udev tmpfiles logind font webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox steamos_xclip steamos_make steamos_arch_vm"
   _gui="kde"
-  _optional=""
+  _optional="steamos_arch_vm"
   # Link the shell startup files rather than running the shell and zsh features. zsh plugins load from
   # /usr/share/zsh/plugins when present and are skipped otherwise.
   _link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_STEAMOS_PATHS[*]}"

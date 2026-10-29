@@ -30,6 +30,7 @@ feature_description() {
     tmpfiles)    echo "copy root/etc/tmpfiles.d configs into /etc (not symlinked) and apply them" ;;
     logind)      echo "copy root/etc/systemd/logind.conf.d drop-ins into /etc (not symlinked; no lid suspend on external power) and reload logind" ;;
     steamos_make) echo "install make to ~/.local/bin by copying it out of the 'arch' distrobox (created if missing, then kept)" ;;
+    steamos_arch_vm) echo "create a GNOME Boxes VM for testing Arch installs: a 5G disk holding the Arch ISO as the install medium and a blank 40G disk to install onto" ;;
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of the 'arch' distrobox (created if missing, then kept)" ;;
     steam)       echo "write Steam settings (game mode menu hotkeys) into localconfig.vdf, while Steam is closed" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units into /etc (browser shell on localhost)" ;;
@@ -117,7 +118,7 @@ gui_supported() {
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
