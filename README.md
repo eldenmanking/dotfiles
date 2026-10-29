@@ -275,6 +275,7 @@ Features copy the systemd units they install, never link them, with the helpers 
 | `orei_switch` | framework16 | steamos | any | |
 | `steamos_xclip` | any | steamos | desktop | |
 | `steamos_make` | any | steamos | any | |
+| `steamos_arch_vm` | any | steamos | desktop | `flatpak` |
 | `webterm` | any | linux | any | `link` |
 | `steam` | any | steamos | any | |
 | `gamescope_screenshot` | any | steamos | any | `link` |
@@ -448,6 +449,14 @@ sudo /etc/dotfiles/bin/framework_tool --pd-disable 0
 sudo /etc/dotfiles/bin/framework_tool --pd-enable 0
 journalctl --user -u gamescope-screenshot.service -u keyboard-rescan.service -n 20
 ```
+
+#### Arch install test VM
+The optional `--steamos_arch_vm` feature (on the `steamos` desktop profile; `--all` skips it) defines a GNOME Boxes VM named `arch-install` for trying out Arch installs, with two disks in Boxes' image directory (`~/.var/app/org.gnome.Boxes/data/gnome-boxes/images`):
+
+- `arch-install-medium.img`, the install medium: a sparse 5G image with the latest Arch ISO written to its start (`~/Downloads/archlinux-x86_64.iso`, downloaded and checked against the mirror's `sha256sums.txt` if missing). The ISO is a hybrid image, so it boots as a disk, and the rest of the 5G stays free for files the installer needs. The VM attaches it as a removable USB disk, first in the boot order.
+- `arch-install-target.qcow2`, a blank thin-provisioned 40G disk on virtio (`/dev/vda` in the guest) to install onto.
+
+The VM is UEFI (OVMF) with Secure Boot off, since the Arch ISO isn't signed, with 8 vCPUs and 6 GiB of RAM. The disks have the serials `ARCHMEDIUM` and `ARCHTARGET`, so `/dev/disk/by-id` tells them apart. The feature runs `virsh` and `qemu-img` from inside the Boxes Flatpak, so the domain XML (`arch_vm_domain_xml` in `install/features/steamos_arch_vm.sh`) is written under the Flatpak's cache directory, the only place its sandbox can see. Each step is skipped when its result exists; `--reinstall` recreates everything, and `--uninstall` removes the VM and both disks after asking (the downloaded ISO is kept). The sizes, memory and vCPUs are the `ARCH_VM_*` constants at the top of the file.
 
 ## Testing
 Checks come in three kinds, each with a make target; `make check` runs all three. Fixtures (`make fixtures`) are a fourth, kept out of `make check` since they need docker and network access.
