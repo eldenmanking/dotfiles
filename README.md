@@ -28,6 +28,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── migrations.md                --- manual steps after pulling changes that leave stale files behind
 │   ├── orei-switch.md               --- OREI HDMI switch sleep/wake handoff: findings and the orei_switch feature
 │   ├── steamos-setup.md             --- SteamOS install, Steam settings, encryption and Windows VMs
+│   ├── upstream-sync.md             --- plan for rewriting and merging with the upstream repo this was forked from
 │   ├── windows-setup.md             ---
 │   └── wsl-setup.md                 ---
 ├── dump                             --- exported configuration settings
@@ -104,6 +105,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── .pylintrc                    --- pylint global configuration file
 │   ├── .tmux                        ---
 │   │   └── resurrect                ---
+│   │       ├── claude_save.sh       --- post-save hook resuming Claude panes on restore
 │   │       ├── saferestore.sh       --- safe restore script for tmux resurrect
 │   │       └── strategies           ---
 │   │           └── nvim_obsession.s ---
