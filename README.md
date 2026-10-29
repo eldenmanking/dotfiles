@@ -104,6 +104,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── .pylintrc                    --- pylint global configuration file
 │   ├── .tmux                        ---
 │   │   └── resurrect                ---
+│   │       ├── claude_save.sh       --- post-save hook resuming Claude panes on restore
 │   │       ├── saferestore.sh       --- safe restore script for tmux resurrect
 │   │       └── strategies           ---
 │   │           └── nvim_obsession.s ---

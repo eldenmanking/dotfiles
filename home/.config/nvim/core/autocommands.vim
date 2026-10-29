@@ -18,3 +18,8 @@ augroup accurate_syntax_sync
   autocmd BufRead,BufNewFile * syntax sync fromstart
 augroup end
 
+" After loading a session (e.g. a tmux-resurrect restore), cd to the session file's directory
+augroup session_cwd
+  au!
+  autocmd SessionLoadPost * silent CdToSession
+augroup end

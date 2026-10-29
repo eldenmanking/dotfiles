@@ -3,6 +3,7 @@
 # Paths linked by every OS and profile. Directories link every file under them.
 LINK_COMMON_PATHS=(
   home/.tmux.conf
+  home/.tmux/resurrect/claude_save.sh
   home/.tmux/resurrect/saferestore.sh
   home/.config/nvim
   home/.config/starship.toml
