@@ -66,6 +66,7 @@ new     ~/.profile l 777 user -> ~/dotfiles/home/.profile
 new     ~/.tmux d 755 user
 new     ~/.tmux.conf l 777 user -> ~/dotfiles/home/.tmux.conf
 new     ~/.tmux/resurrect d 755 user
+new     ~/.tmux/resurrect/claude_save.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/claude_save.sh
 new     ~/.tmux/resurrect/saferestore.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/saferestore.sh
 new     ~/.zprofile l 777 user -> ~/dotfiles/home/.zprofile
 new     ~/.zshrc l 777 user -> ~/dotfiles/home/.zshrc

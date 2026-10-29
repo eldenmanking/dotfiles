@@ -55,6 +55,7 @@ new     ~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh l 777 user -
 new     ~/.tmux/plugins/tmux-sensible git 755 user https://github.com/tmux-plugins/tmux-sensible
 new     ~/.tmux/plugins/tpm git 755 user https://github.com/tmux-plugins/tpm
 new     ~/.tmux/resurrect d 755 user
+new     ~/.tmux/resurrect/claude_save.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/claude_save.sh
 new     ~/.tmux/resurrect/saferestore.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/saferestore.sh
 new     ~/.zprofile l 777 user -> ~/dotfiles/home/.zprofile
 changed ~/.zshrc l 777 user -> ~/dotfiles/home/.zshrc (was f 644 user 52f8d5f824113661)
