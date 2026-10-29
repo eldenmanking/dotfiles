@@ -1,0 +1,54 @@
+#!/bin/bash
+# Suspend, or idle with the displays off while an eGPU sits on the Framework 16 expansion bay. Installed into
+# /etc/dotfiles/bin by the light_sleep feature of ~/dotfiles/install.sh, and run by systemd-suspend.service in place of
+# systemd-sleep (see its drop-in light-sleep.conf). See docs/light-sleep.md.
+#
+# An eGPU on the bay's M.2 slot loses its PCIe link whenever the SoC reaches hardware sleep (S0i3) and never gets it
+# back: it has its own power supply, so it never sees the reset a new link needs. Nothing in Linux keeps s2idle out of
+# S0i3, so while a live one is attached, sleep is a light sleep instead: switch to an empty VT so logind takes the
+# displays from gamescope, power them off, freeze user.slice as systemd-sleep does, and wait for a key press, the power
+# button or the lid opening. logind, Steam and the units on sleep.target still see an ordinary suspend.
+ROOT_PORT=0000:00:01.5  # the expansion bay's PCIe root port
+VT=8                    # an empty VT: logind only starts gettys on 1 to 6
+HELPER=/etc/dotfiles/bin/light-sleep-helper
+SYSTEMD_SLEEP=/usr/lib/systemd/systemd-sleep
+
+log() { logger -t light-sleep "$*"; }
+
+# Print the PCI address of each display controller below ROOT_PORT that still answers: once the link is gone its
+# config space reads all ones (sysfs's vendor file is cached, so read the config space itself).
+live_egpus() {
+  local dev
+  for dev in /sys/bus/pci/devices/*; do
+    [[ "$(readlink -f "$dev")" == */$ROOT_PORT/* ]] || continue
+    [[ "$(cat "$dev/class")" == 0x03* ]] || continue
+    [[ "$(od -An -tx2 -N2 "$dev/config" | tr -d ' ')" != ffff ]] && echo "${dev##*/}"
+  done
+  return 0
+}
+
+# Undo light_sleep: thaw the session, turn the displays back on and return to VT $1.
+wake() {
+  systemctl thaw user.slice || log "failed to thaw user.slice"
+  "$HELPER" dpms on || log "failed to turn the displays back on"
+  chvt "$1" || log "failed to switch back to VT $1"
+}
+
+light_sleep() {
+  local vt
+  vt="$(cat /sys/class/tty/tty0/active)"
+  vt="${vt#tty}"
+  trap "wake $vt" EXIT
+  # logind drops the session's DRM master as the VT switches, and gamescope stops drawing.
+  chvt "$VT"
+  "$HELPER" dpms off || log "failed to turn the displays off"
+  systemctl freeze user.slice || log "failed to freeze user.slice"
+  "$HELPER" wait || log "waiting for a wake event failed"
+}
+
+[[ "$1" == suspend ]] || exec "$SYSTEMD_SLEEP" "$@"
+egpus="$(live_egpus)"
+[[ -n "$egpus" ]] || exec "$SYSTEMD_SLEEP" "$@"
+log "light sleep instead of suspend: the eGPU at ${egpus//$'\n'/ } would lose its link"
+light_sleep
+log "woke from light sleep"

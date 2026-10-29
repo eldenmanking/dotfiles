@@ -1,0 +1,227 @@
+#!/usr/bin/python3 -I
+"""Display power and wake events for light-sleep (installed beside it into /etc/dotfiles/bin by the light_sleep feature
+of ~/dotfiles/install.sh).
+
+  light-sleep-helper dpms off   turn off every display that is on, on every DRM card, and remember which
+  light-sleep-helper dpms on    turn those back on
+  light-sleep-helper wait       return on a key or button press, or when the lid opens
+
+dpms needs DRM master, which is free once logind has taken it from the session, after a switch to another VT. Gamescope
+has no way to turn its displays off, and the console doesn't take the CRTCs over, so set each connector's DPMS
+property instead. wait grabs the input devices, so the press that wakes the laptop reaches nothing else.
+"""
+import array
+import errno
+import fcntl
+import glob
+import os
+import select
+import struct
+import sys
+import time
+
+import evdev
+from evdev import ecodes
+
+STATE = '/run/light-sleep/dpms'  # "<card> <connector id>" for each display dpms off turned off
+MASTER_WAIT = 3                  # seconds to wait for logind to give up DRM master after the VT switch
+RESCAN = 5                       # seconds between looks for input devices that appeared during the sleep
+DPMS_ON, DPMS_OFF = 0, 3
+CONNECTOR = 0xc0c0c0c0           # DRM_MODE_OBJECT_CONNECTOR
+
+
+def iowr(nr, size):
+    return (3 << 30) | (size << 16) | (ord('d') << 8) | nr
+
+
+SET_MASTER = (ord('d') << 8) | 0x1e
+GETRESOURCES = iowr(0xA0, 64)       # struct drm_mode_card_res
+GETPROPERTY = iowr(0xAA, 64)        # struct drm_mode_get_property
+OBJ_GETPROPERTIES = iowr(0xB9, 32)  # struct drm_mode_obj_get_properties
+OBJ_SETPROPERTY = iowr(0xBA, 24)    # struct drm_mode_obj_set_property
+
+
+def ptr(arr):
+    return arr.buffer_info()[0]
+
+
+def connectors(fd):
+    """Return the IDs of card fd's connectors."""
+    res = bytearray(64)
+    fcntl.ioctl(fd, GETRESOURCES, res)
+    count = struct.unpack_from('I', res, 40)[0]
+    ids = array.array('I', [0] * max(count, 1))
+    res = bytearray(struct.pack('QQQQ8I', 0, 0, ptr(ids), 0, 0, 0, count, 0, 0, 0, 0, 0))
+    fcntl.ioctl(fd, GETRESOURCES, res)
+    return list(ids[:count])
+
+
+def dpms_property(fd, conn):
+    """Return (property ID, value) of connector conn's DPMS property, or (None, None)."""
+    req = bytearray(struct.pack('QQIII4x', 0, 0, 0, conn, CONNECTOR))
+    fcntl.ioctl(fd, OBJ_GETPROPERTIES, req)
+    count = struct.unpack_from('I', req, 16)[0]
+    props = array.array('I', [0] * max(count, 1))
+    values = array.array('Q', [0] * max(count, 1))
+    req = bytearray(struct.pack('QQIII4x', ptr(props), ptr(values), count, conn, CONNECTOR))
+    fcntl.ioctl(fd, OBJ_GETPROPERTIES, req)
+    for prop, value in zip(props[:count], values[:count]):
+        info = bytearray(struct.pack('QQII32sII', 0, 0, prop, 0, b'', 0, 0))
+        fcntl.ioctl(fd, GETPROPERTY, info)
+        if info[24:56].split(b'\0')[0] == b'DPMS':
+            return prop, value
+    return None, None
+
+
+def set_dpms(fd, conn, prop, value):
+    fcntl.ioctl(fd, OBJ_SETPROPERTY, bytearray(struct.pack('QIII4x', value, prop, conn, CONNECTOR)))
+
+
+def open_master(card):
+    """Open DRM card as master, waiting up to MASTER_WAIT seconds for logind to give it up."""
+    fd = os.open(card, os.O_RDWR | os.O_CLOEXEC)
+    deadline = time.monotonic() + MASTER_WAIT
+    while True:
+        try:
+            fcntl.ioctl(fd, SET_MASTER)
+            return fd
+        except OSError as e:
+            if e.errno != errno.EBUSY or time.monotonic() > deadline:
+                os.close(fd)
+                raise
+            time.sleep(0.1)
+
+
+def dpms_off():
+    turned_off = []
+    for card in sorted(glob.glob('/dev/dri/card[0-9]*')):
+        try:
+            fd = open_master(card)
+        except OSError as e:
+            print('%s: %s' % (card, e), file=sys.stderr)
+            continue
+        try:
+            for conn in connectors(fd):
+                prop, value = dpms_property(fd, conn)
+                if prop is not None and value == DPMS_ON:
+                    set_dpms(fd, conn, prop, DPMS_OFF)
+                    turned_off.append('%s %d' % (card, conn))
+        except OSError as e:
+            print('%s: %s' % (card, e), file=sys.stderr)
+        finally:
+            os.close(fd)
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    with open(STATE, 'w') as f:
+        f.writelines(line + '\n' for line in turned_off)
+    print('turned off: %s' % (', '.join(turned_off) or 'nothing'))
+
+
+def dpms_on():
+    try:
+        with open(STATE) as f:
+            entries = [line.split() for line in f if line.strip()]
+    except FileNotFoundError:
+        return
+    failed = False
+    for card in sorted({card for card, _ in entries}):
+        try:
+            fd = open_master(card)
+        except OSError as e:
+            print('%s: %s' % (card, e), file=sys.stderr)
+            failed = True
+            continue
+        try:
+            for conn in (int(c) for k, c in entries if k == card):
+                prop, _ = dpms_property(fd, conn)
+                if prop is not None:
+                    set_dpms(fd, conn, prop, DPMS_ON)
+        except OSError as e:
+            print('%s: %s' % (card, e), file=sys.stderr)
+            failed = True
+        finally:
+            os.close(fd)
+    os.remove(STATE)
+    if failed:
+        sys.exit(1)
+
+
+def wakes(dev):
+    """Return True if input device dev is a keyboard, gamepad or power button."""
+    keys = dev.capabilities().get(ecodes.EV_KEY, [])
+    return any(k in keys for k in (ecodes.KEY_POWER, ecodes.KEY_SPACE, ecodes.BTN_SOUTH))
+
+
+def lid_open():
+    states = []
+    for path in glob.glob('/proc/acpi/button/lid/*/state'):
+        with open(path) as f:
+            states.append(f.read().split()[-1])
+    return 'open' in states
+
+
+def wait():
+    devices = {}  # path -> grabbed InputDevice
+
+    def scan():
+        for path in evdev.list_devices():
+            if path in devices:
+                continue
+            try:
+                dev = evdev.InputDevice(path)
+            except OSError:
+                continue
+            if not wakes(dev):
+                dev.close()
+                continue
+            try:
+                dev.grab()
+            except OSError:
+                pass
+            devices[path] = dev
+
+    lid_was_open = lid_open()
+    scan()
+    next_scan = time.monotonic() + RESCAN
+    try:
+        while True:
+            ready, _, _ = select.select(list(devices.values()), [], [], 1)
+            for dev in ready:
+                try:
+                    events = list(dev.read())
+                except OSError:
+                    del devices[dev.path]
+                    continue
+                for ev in events:
+                    # Only presses: a key still held from before the sleep only repeats.
+                    if ev.type == ecodes.EV_KEY and ev.value == 1:
+                        print('woken by %s on %s' % (ecodes.KEY.get(ev.code, ecodes.BTN.get(ev.code, ev.code)),
+                                                     dev.name))
+                        return
+            if lid_open() and not lid_was_open:
+                print('woken by the lid opening')
+                return
+            if time.monotonic() > next_scan:
+                scan()
+                next_scan = time.monotonic() + RESCAN
+    finally:
+        for dev in devices.values():
+            try:
+                dev.ungrab()
+            except OSError:
+                pass
+            dev.close()
+
+
+def main(args):
+    if args == ['dpms', 'off']:
+        dpms_off()
+    elif args == ['dpms', 'on']:
+        dpms_on()
+    elif args == ['wait']:
+        wait()
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
