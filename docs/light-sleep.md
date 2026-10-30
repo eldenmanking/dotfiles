@@ -35,8 +35,14 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   leave the link training with nothing answering.
 - Linux has no way to keep s2idle out of S0i3, and the laptop offers no other sleep state (`/sys/power/mem_sleep`:
   `[s2idle]`).
-- Once, with no suspend, the idle card was `device lost from bus!` the moment Steam's startup GPU query woke it, and
-  Gaming Mode stayed blank (the SDMA rings timed out every 10 s) until a forced shutdown. Not fixed here.
+- The idle card was also lost without any suspend, three times: amdgpu powers it off while idle (BACO), which also
+  lets the root port and the card's switch drop to D3hot, and the next wake failed with `device lost from bus!` or
+  `rlc autoload: gc ucode autoload timeout`, then a gfx or SMU resume error (`-110`, `-62`). Gaming Mode then stays
+  blank until a cold boot. It matches AMD's own fix for Navi 3x laptops that use BACO while the root port powers down
+  (kernel commit 134b8c5d, "Fix detection of _PR3 on the PCIe root port"), which doesn't cover an eGPU on an M.2 slot.
+  `root/etc/udev/rules.d/90-egpu-no-runpm.rules` (the `udev` feature) sets `power/control` to `on` for an amdgpu card
+  below `00:01.5` as soon as it binds, so the card and the bridges above it stay powered; with it, the card came
+  through all of the light sleep tests below. The card draws its idle power from the dock's supply instead.
 
 ## What light-sleep does
 - **No live eGPU** (no display controller below `00:01.5`, or one whose config space reads `ffff`): runs
@@ -57,6 +63,11 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
 - The laptop draws idle power, not sleep power, while the eGPU is attached, including on battery.
 
 ## Tested
+With `90-egpu-no-runpm.rules` in place and `orei-switch.service` enabled, these all passed: a 60 s, an 8 s and a
+150 s sleep, a key pressed 1 s in (while orei-switch is still handing over; that press doesn't count, the next one
+wakes it), a second suspend 5 s after a wake (while orei-switch's wake step is still running), and a sleep with the
+projector already in standby. After each, amdgpu's test job passed on every ring and the projector was back on.
+
 A `systemctl suspend` (the same logind request Steam sends) with amdgpu driving the eGPU took the light sleep path,
 never reached hardware sleep (`last_hw_sleep` 0), woke on a key press, and Steam and gamescope logged a normal suspend
 and resume. Before and after, the link answered, amdgpu was bound and `amdgpu_test_ib` (debugfs, as root) passed on
