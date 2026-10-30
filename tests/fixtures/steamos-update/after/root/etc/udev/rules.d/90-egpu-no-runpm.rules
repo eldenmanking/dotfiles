@@ -1,0 +1,4 @@
+# Keep an eGPU on the Framework 16 expansion bay (below root port 0000:00:01.5) powered while idle. Its runtime
+# power-off (BACO) also powers down the root port and the card's switch, and the card is often lost on the next wake
+# ("device lost from bus!", then gfx or SMU resume -110/-62) until a cold boot. See docs/light-sleep.md.
+ACTION=="bind", SUBSYSTEM=="pci", DRIVER=="amdgpu", KERNELS=="0000:00:01.5", ATTR{power/control}="on"
