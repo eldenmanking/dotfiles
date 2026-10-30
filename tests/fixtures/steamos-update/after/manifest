@@ -1,5 +1,5 @@
 kept    /etc/atomic-update.conf.d d 755 root:root
-new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 46bd2196b880dae8
+new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 61a172c55facab86
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
 new     /etc/dotfiles/bin/orei-switch f 755 root:root 54700525ff018828
 new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root 3b3111dd183ed5cc
@@ -33,6 +33,7 @@ new     /etc/systemd/user/keyboard-rescan.service f 644 root:root 56caf1ae2044bf
 kept    /etc/tmpfiles.d d 755 root:root
 new     /etc/tmpfiles.d/ec-no-wakeup.conf f 644 root:root 118538e1b5e90f59
 kept    /etc/udev/rules.d d 755 root:root
+new     /etc/udev/rules.d/90-egpu-no-runpm.rules f 644 root:root 480368f152b8ae33
 new     /etc/udev/rules.d/90-touchpad-nowake.rules f 644 root:root 326d5ab0b866125c
 kept    ~ d 700 user
 new     ~/.bash_profile l 777 user -> ~/dotfiles/home/.bash_profile

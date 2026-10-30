@@ -143,6 +143,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── ec-no-wakeup.conf    --- stop the embedded controller (ACPI GPE 0x0B) from waking the laptop from s2idle (copied, not linked)
 │   │   ├── udev                     ---
 │   │   │   └── rules.d              ---
+│   │   │       ├── 90-egpu-no-runpm.--- keep an eGPU on the Framework 16 expansion bay powered while idle: it is often lost waking from BACO (copied, not linked; see docs/light-sleep.md)
 │   │   │       └── 90-touchpad-nowak--- stop I2C devices (Framework 16 touchpad) from waking the laptop (copied, not linked; candidate for removal, see docs/framework16-sleep.md)
 │   │   ├── systemd                  ---
 │   │   │   └── user                 ---
