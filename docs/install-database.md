@@ -20,31 +20,40 @@ Not in scope for now: transaction-level hooks (one `daemon-reload` for the whole
 before any feature runs (see Later).
 
 ## Layout
-- `~/.local/state/dotfiles/`: entries for paths under `$HOME` and per-user state (user units, settings).
-- `/var/lib/dotfiles/` (root-owned): entries for paths outside `$HOME` and system state (system units, packages).
-  SteamOS updates replace `/etc` but keep `/var`. This needs confirming with the `steamos-update` fixture.
-
-Both have the same shape:
+The database lives in the checkout, ignored by git, next to everything else `install.sh` owns:
 
 ```
-<db>/
-├── features/<name>/manifest   --- entries for <name>, as of its last run
-├── backups/<name>/<path>      --- files and links an entry replaced, at their original path
-└── fallback                   --- present only while a commit fallback is in progress
+~/dotfiles/.state/
+├── manifest                   --- every feature's entries, as of each feature's last run
+├── backups/<feature>/<path>   --- files and links an entry replaced, at their original path
+├── fallback                   --- present only while a commit fallback is in progress
+└── lock                       --- present while install.sh runs, so two runs can't interleave
 ```
+
+- `.state` goes in `.gitignore`. Old commits' `.gitignore` doesn't list it, but git leaves untracked paths alone on
+  checkout, so the commit fallback doesn't disturb it. The fallback's clean-tree check ignores untracked files.
+- Entries outside `$HOME` (system files, system units, packages) are recorded here too. That gives no new power to
+  anyone who can write the checkout: they can already change the code `install.sh` runs with sudo.
+- Backups of files outside `$HOME` are written with sudo and keep their owner and mode, under a root-owned
+  `backups/<feature>/` directory, so a root-only file doesn't become readable by copying it into the home.
+- Deleting the checkout deletes the database, as it already deletes `.backup`. A fresh clone starts with no
+  database, so it behaves like a machine that installed before the database existed.
+- Encrypted homes are not a concern: the database is read only when `install.sh` runs, never at boot.
 
 ## Manifest format
-A manifest is a text file with one record per line and fields separated by tabs. bash 3.2 can read it with
-`IFS=$'\t' read -r`. The header comes first:
+The manifest is one text file with one record per line and fields separated by tabs. bash 3.2 can read it with
+`IFS=$'\t' read -r`. Its first line is the format version, then each installed feature has a header line followed by
+its entries:
 
 ```
 version	1
-commit	<sha of the checkout that wrote it>
-variant	<variant>
+feature	<name>	<sha of the checkout its last run used>	<variant>
+<name>	<kind>	<key...>	<written>	<prior>
+...
 ```
 
-Each later line is an entry: `<kind>	<key...>	<written>	<prior>`. Entries appear in the order they were made, and
-are undone in reverse. A path containing a tab or newline is an error.
+Each feature keeps its own commit, since runs can install a subset of features (`--tmux`) or fail partway. A feature's
+entries appear in the order they were made, and are undone in reverse. A path containing a tab or newline is an error.
 
 | Kind | Made by | Key | `written` | `prior` |
 |---|---|---|---|---|
@@ -61,20 +70,22 @@ tree it loads into first.
 ## Recording
 - Helpers record entries. Features don't call the database directly, so a feature written with the helpers gets a
   manifest for free.
-- A key is owned by one feature. Recording a key another feature's manifest holds is an error, the same as a pacman
+- A key is owned by one feature. Recording a key the manifest gives another feature is an error, the same as a pacman
   file conflict.
 - `prior` is captured when a feature first takes ownership of a key. It is carried forward unchanged while the key stays
   in the manifest, so it always describes the state before dotfiles, never dotfiles' own earlier output. A key that is
   dropped (undone) and later recorded again captures a fresh `prior`.
 - `written` is what the entry last wrote. If the current state differs from it, the user has changed it since.
-- The new manifest is written to a temporary file and moved into place when the feature finishes, so a crash never
-  leaves half a manifest behind.
+- A feature's entries are collected in a temporary file. When the feature finishes, the whole manifest is rewritten
+  with that feature's section replaced, to a temporary file that is then moved into place, so a crash never leaves
+  half a manifest behind.
 - `--dry-run` never writes the database. It reports the entries it would record and undo.
 
 ## Install and reinstall
 For each selected feature, in `_features` order:
-1. Read its manifest. If the manifest's `version` isn't the current one, or it holds a kind this code doesn't know, take
-   the commit fallback for it (below) before going on. Never undo part of a manifest.
+1. Read the manifest. If its `version` isn't the current one, take the commit fallback (below) for every feature in
+   it before going on. If only this feature's section holds a kind this code doesn't know, take it for this feature.
+   Never undo part of a feature's entries.
 2. Run the feature, recording entries.
 3. If it succeeded, undo the old entries whose keys weren't recorded this run, newest first, and write the new
    manifest. If it failed, write the old entries plus the new ones and undo nothing, so the next run can still clean up.
@@ -95,7 +106,7 @@ and reported, never overwritten or deleted (like pacman's `.pacsave`).
 | `package` | report only; never removed automatically (see Open questions) |
 | `setting` | restore `prior`, or unset it |
 
-`--uninstall` undoes every entry in a feature's manifest, newest first, then removes the manifest and its backups.
+`--uninstall` undoes every entry of a feature, newest first, then removes its section and its backups.
 `uninstall_feature_<name>` still runs first for anything entries can't express, and becomes rare.
 
 ## Versioning the format
@@ -103,28 +114,30 @@ The manifest format has one integer version. Bump it on any change a reader must
 kind, changing what a field means, or adding a kind, since older code can't undo it. Fields a reader may ignore can
 be added without a bump. Readers accept only their own version. A mismatch is never converted in code. It takes the
 commit fallback, which runs the code that wrote the manifest and so understands it. Dropping a kind therefore needs no
-compatibility code: machines with old manifests take the fallback once.
+compatibility code: machines with an old manifest take the fallback once, for all their features.
 
 ## Commit fallback
-Each manifest records the commit that wrote it, and `refs/dotfiles/installed/<feature>` points at it so git never
+Each feature's header records the commit that wrote its entries, and `refs/dotfiles/installed/<feature>` points at it so git never
 garbage-collects it (e.g. after a squash merge removes the branch it was on). To undo a feature the current code can't:
 
-1. Refuse if `~/dotfiles` has uncommitted changes.
-2. Write `<db>/fallback` with the current branch or commit and the features being undone.
+1. Refuse if `~/dotfiles` has uncommitted changes to tracked files.
+2. Write `.state/fallback` with the current branch or commit and the features being undone.
 3. Group the features by recorded commit. For each commit: `git checkout --detach <commit>`, then
    `./install.sh --uninstall --variant <variant> --<feature>...`. Before the database existed, this runs the old
    `uninstall_feature_<name>`; after, the old code's own generic undo.
-4. Check out the branch or commit from step 2 again, remove `<db>/fallback`, and continue the install.
+4. Check out the branch or commit from step 2 again, remove `.state/fallback`, and continue the install.
 
-A run that finds `<db>/fallback` was interrupted. It restores the checkout before doing anything else. The checkout
+A run that finds `.state/fallback` was interrupted. It restores the checkout before doing anything else. The checkout
 happens in place because `install.sh` only runs from `~/dotfiles`, and linked config points into it.
 
 Because old commits are invoked this way, `./install.sh --uninstall --variant <v> --<feature>` is a compatibility
 contract: later versions must keep accepting it.
 
 ## Relation to existing pieces
-- `BACKUPS_ROOT` (`~/dotfiles/.backup`) is replaced by `<db>/backups`. Backups recorded in `prior` are restorable, and a
-  later backup can't overwrite an earlier one.
+- `BACKUPS_ROOT` (`~/dotfiles/.backup`) is replaced by `.state/backups`. Backups recorded in `prior` are restorable,
+  and a later backup can't overwrite an earlier one.
+- The fixtures leave `~/dotfiles` out of the files they compare, except `.backup`. They would include `.state` in its
+  place, with the commit in the manifest normalized, so each case pins what its install records.
 - `uninstall_feature_<name>` stays for steps entries can't express.
 - `docs/migrations.md` stays for machines installed before the database, and for changes outside any entry.
 
