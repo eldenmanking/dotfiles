@@ -24,6 +24,7 @@ This repository contains configuration files for my linux workspace. The followi
 ├── docs                             ---
 │   ├── bootloader.md                ---
 │   ├── framework16-sleep.md         --- Framework 16 sleep battery drain diagnosis and fix
+│   ├── install-database.md          --- design proposal: record what features install, to undo it and restore what it replaced
 │   ├── mac-os-setup.md              ---
 │   ├── migrations.md                --- manual steps after pulling changes that leave stale files behind
 │   ├── orei-switch.md               --- OREI HDMI switch sleep/wake handoff: findings and the orei_switch feature
