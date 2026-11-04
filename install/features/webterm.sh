@@ -1,4 +1,4 @@
-# Feature: webterm, a browser shell served by ttyd and started on demand by systemd socket activation (steamos).
+# Feature: webterm, a browser shell served by ttyd and started on demand by systemd socket activation.
 # The units go into /etc/systemd/user and are enabled globally, so both the units and their links are outside an
 # encrypted home and the user manager starts the socket from boot. See Webterm in README.md.
 
@@ -106,7 +106,13 @@ feature_webterm() {
   keep_across_steamos_updates webterm $(unit_keep_paths "$USER_UNITS_DIR" "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}")
   f_write_args install_user_units _changed -- --global "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
 
-  run systemctl --user start webterm.socket
+  # A socket that is already listening keeps its old address until restarted. Restarting it stops the services too
+  # (they require it); the next visit starts them again.
+  if [[ " $_changed " == *" webterm.socket "* ]]; then
+    run systemctl --user restart webterm.socket
+  else
+    run systemctl --user start webterm.socket
+  fi
   # If it's running, restart it so the new units and settings apply right away.
   # Open tabs reconnect on their own (their shells are restarted).
   run systemctl --user try-restart "${WEBTERM_SERVICES[@]}"

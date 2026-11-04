@@ -5,14 +5,14 @@ os_arch() {
   _machines="generic framework16"
 }
 
-# Arch desktop with pacman/yay packages, gnome and dconf.
+# Arch desktop with pacman/yay packages, gnome and dconf, plus webterm.
 os_arch_desktop() {
-  _features="pacman yay terminal font printer logiops link services udev tmpfiles logind hdmi_audio_fix manual tmux claude gitconfig dconf xdg info"
+  _features="pacman yay terminal font printer logiops link webterm services udev tmpfiles logind hdmi_audio_fix manual tmux claude gitconfig dconf xdg info"
   _gui="gnome"
   # Optional features run only when named, not with --all. pacman + yay cover the packages --terminal would install,
   # and --printer is only needed on machines with a printer.
   _optional="terminal printer"
-  _link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_DESKTOP_PATHS[*]}"
+  _link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_DESKTOP_PATHS[*]} ${LINK_WEBTERM_PATHS[*]}"
 }
 
 # Arch terminal setup: the terminal pacman packages, with the shell startup files linked.
