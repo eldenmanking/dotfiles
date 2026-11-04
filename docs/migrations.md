@@ -143,7 +143,7 @@ The scripts and binaries that system units and the login screen run moved into `
 - **Verify:** the check prints nothing, `/etc/dotfiles/bin/framework_tool --version` runs, and
   `grep DisplayCommand /etc/sddm.conf.d/orei-switch.conf` shows `/etc/dotfiles/bin/sddm-xsetup`.
 
-## Move webterm to port 7681 (#PR)
+## Move webterm to port 7681 (#79)
 `webterm.socket` listens on `127.0.0.1:7681` instead of `127.0.0.1:3000`, which dev servers often take. Applies to
 machines that ran `--webterm` (steamos).
 
