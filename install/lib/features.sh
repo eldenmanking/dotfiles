@@ -10,7 +10,7 @@ feature_description() {
     printer)     echo "install and set up HP printer drivers" ;;
     logiops)     echo "install and configure logitech software" ;;
     link)        echo "symlink the OS and profile's dotfiles into ~ (root/ into /)" ;;
-    services)    echo "enable and start bluetooth (sudo)" ;;
+    desktop)     echo "enable bluetooth and the GDM login screen, and boot into it (sudo)" ;;
     manual)      echo "make manual substitutions to files in-place" ;;
     dconf)       echo "load dconf configuration" ;;
     xdg)         echo "load default xdg configuration" ;;
@@ -117,7 +117,7 @@ gui_supported() {
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link desktop manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
