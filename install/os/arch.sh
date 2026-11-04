@@ -7,7 +7,7 @@ os_arch() {
 
 # Arch desktop with pacman/yay packages, gnome and dconf, plus webterm.
 os_arch_desktop() {
-  _features="pacman yay terminal font printer logiops link webterm services udev tmpfiles logind hdmi_audio_fix manual tmux claude gitconfig dconf xdg info"
+  _features="pacman yay terminal font printer logiops link webterm desktop udev tmpfiles logind hdmi_audio_fix manual tmux claude gitconfig dconf xdg info"
   _gui="gnome"
   # Optional features run only when named, not with --all. pacman + yay cover the packages --terminal would install,
   # and --printer is only needed on machines with a printer.
