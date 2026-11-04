@@ -39,6 +39,8 @@ new     ~/.config/sh/aliases.sh l 777 user -> ~/dotfiles/home/.config/sh/aliases
 new     ~/.config/sh/env.sh l 777 user -> ~/dotfiles/home/.config/sh/env.sh
 new     ~/.config/sh/starship.sh l 777 user -> ~/dotfiles/home/.config/sh/starship.sh
 new     ~/.config/starship.toml l 777 user -> ~/dotfiles/home/.config/starship.toml
+new     ~/.config/webterm d 755 user
+new     ~/.config/webterm/env l 777 user -> ~/dotfiles/home/.config/webterm/env
 new     ~/.config/yapf d 755 user
 new     ~/.config/yapf/style l 777 user -> ~/dotfiles/home/.config/yapf/style
 new     ~/.config/zsh d 755 user
@@ -54,11 +56,16 @@ new     ~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
 new     ~/.local/bin/squidpdf l 777 user -> ~/dotfiles/home/.local/bin/squidpdf
 new     ~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
 new     ~/.local/bin/vm-usb l 777 user -> ~/dotfiles/home/.local/bin/vm-usb
+new     ~/.local/bin/webterm-index l 777 user -> ~/dotfiles/home/.local/bin/webterm-index
+new     ~/.local/bin/webterm-shell l 777 user -> ~/dotfiles/home/.local/bin/webterm-shell
+new     ~/.local/bin/webterm-ttyd l 777 user -> ~/dotfiles/home/.local/bin/webterm-ttyd
 new     ~/.local/share d 755 user
 new     ~/.local/share/applications d 755 user
 new     ~/.local/share/applications/Alacritty.desktop l 777 user -> ~/dotfiles/home/.local/share/applications/Alacritty.desktop
 new     ~/.local/share/backgrounds d 755 user
 new     ~/.local/share/backgrounds/GH2.jpg l 777 user -> ~/dotfiles/home/.local/share/backgrounds/GH2.jpg
+new     ~/.local/share/webterm d 755 user
+new     ~/.local/share/webterm/tab-keys.html l 777 user -> ~/dotfiles/home/.local/share/webterm/tab-keys.html
 new     ~/.ocamlformat l 777 user -> ~/dotfiles/home/.ocamlformat
 new     ~/.profile l 777 user -> ~/dotfiles/home/.profile
 new     ~/.pylintrc l 777 user -> ~/dotfiles/home/.pylintrc

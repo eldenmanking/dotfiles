@@ -14,7 +14,7 @@ os_steamos_desktop() {
   _optional=""
   # Link the shell startup files rather than running the shell and zsh features. zsh plugins load from
   # /usr/share/zsh/plugins when present and are skipped otherwise.
-  _link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_STEAMOS_PATHS[*]}"
+  _link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_STEAMOS_PATHS[*]} ${LINK_WEBTERM_PATHS[*]}"
 }
 
 # SteamOS terminal setup, with the shell startup files linked.

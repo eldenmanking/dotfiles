@@ -142,3 +142,13 @@ The scripts and binaries that system units and the login screen run moved into `
   `sudo rm -rf /etc/dotfiles/orei-switch`.
 - **Verify:** the check prints nothing, `/etc/dotfiles/bin/framework_tool --version` runs, and
   `grep DisplayCommand /etc/sddm.conf.d/orei-switch.conf` shows `/etc/dotfiles/bin/sddm-xsetup`.
+
+## Move webterm to port 7681 (#PR)
+`webterm.socket` listens on `127.0.0.1:7681` instead of `127.0.0.1:3000`, which dev servers often take. Applies to
+machines that ran `--webterm` (steamos).
+
+### webterm still on port 3000 (steamos)
+- **Check:** `grep -x 'ListenStream=127.0.0.1:3000' /etc/systemd/user/webterm.socket 2>/dev/null; systemctl --user show -p Listen webterm.socket 2>/dev/null | grep ':3000'`
+- **Fix:** `~/dotfiles/install.sh --variant steamos --webterm`, which copies the new socket unit and restarts it.
+  Then tell the user to replace their bookmark with the URL it prints (`http://localhost:7681/<token>/`).
+- **Verify:** the check prints nothing, and the URL `--webterm` prints answers.
