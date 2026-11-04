@@ -127,10 +127,13 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
 │   │   ├── sddm.conf.d              ---
 │   │   │   └── orei-switch.conf     --- runs sddm-xsetup and sddm-xstop for the X11 login screen (copied by orei_switch)
+│   │   ├── sudoers.d                ---
+│   │   │   └── wheel                --- lets the wheel group use sudo (copied into the new system by arch_chroot)
 │   │   ├── systemd                  ---
 │   │   │   ├── logind.conf.d        ---
 │   │   │   │   └── lid.conf         --- don't suspend on lid close while on external power (copied by logind)
 │   │   │   └── system               ---
+│   │   │       ├── grub-btrfsd.servi--- timeshift.conf: gives timeshift snapshots GRUB boot entries (copied into the new system by arch_chroot)
 │   │   │       ├── hdmi-audio-fix.se--- keeps the Framework 16 780M SoC clock up for HDMI audio (copied by hdmi_audio_fix)
 │   │   │       ├── orei-switch-boot.--- re-enables the left ports and turns the projector on at boot (copied by orei_switch)
 │   │   │       ├── orei-switch-power--- turns the projector off over CEC on poweroff (copied by orei_switch)
@@ -193,7 +196,7 @@ This repository contains configuration files for my linux workspace. The followi
 ```
 
 ## Installation
-`install.sh` is the single entry point. Choose what to install for with `--variant` (`coder`, `arch`, `steamos`, `portable`), which names an OS and a profile, or with `--os`, `--profile` and `--machine`, or let `--infer` guess them (see [OS, Profile and Machine](#os-profile-and-machine)), and toggle features with flags; run `./install.sh --variant <name> --help` to list the features, and `--all` to enable all of the default ones. Optional features (listed under "Optional" in `--help`, e.g. `--printer` on `arch`) are skipped by `--all` and run only when named. With no arguments it prints usage, unless defaults are set (see [Defaults](#defaults)). Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each OS lives in `install/os/`, each profile in `install/profiles/`, each variant in `install/variants/` and each feature in `install/features/`, and the files each OS and profile link are listed in `install/features/link.sh`. Files under `home/` are installed into `$HOME` and files under `root/` into `/`, at the same path: most are linked, while some are copied by the feature that needs them (e.g. udev rules, which are read before an encrypted home is mounted, or systemd units). Paths under `root/` are linked one file at a time, never as a whole directory, so a copied file can't get linked too; `make validate` checks this. Everything else at the top level stays in the repo.
+`install.sh` is the single entry point. Choose what to install for with `--variant` (`coder`, `arch`, `arch_chroot`, `steamos`, `portable`), which names an OS and a profile, or with `--os`, `--profile` and `--machine`, or let `--infer` guess them (see [OS, Profile and Machine](#os-profile-and-machine)), and toggle features with flags; run `./install.sh --variant <name> --help` to list the features, and `--all` to enable all of the default ones. Optional features (listed under "Optional" in `--help`, e.g. `--printer` on `arch`) are skipped by `--all` and run only when named. With no arguments it prints usage, unless defaults are set (see [Defaults](#defaults)). Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each OS lives in `install/os/`, each profile in `install/profiles/`, each variant in `install/variants/` and each feature in `install/features/`, and the files each OS and profile link are listed in `install/features/link.sh`. Files under `home/` are installed into `$HOME` and files under `root/` into `/`, at the same path: most are linked, while some are copied by the feature that needs them (e.g. udev rules, which are read before an encrypted home is mounted, or systemd units). Paths under `root/` are linked one file at a time, never as a whole directory, so a copied file can't get linked too; `make validate` checks this. Everything else at the top level stays in the repo.
 
 The repo must live at `~/dotfiles`, since everything `install.sh` links points there, and `install.sh` refuses to run from any other checkout. `~/dotfiles` may be a symlink, but the checkout itself must be a directory named `dotfiles`, which lint relies on. When run from a git checkout elsewhere (such as the one Coder clones to `~/.config/coderv2/dotfiles`) and `~/dotfiles` doesn't exist, `install.sh` clones that checkout's current commit to `~/dotfiles`, sets the clone's `origin` to the checkout's, and re-runs from the clone with the same arguments; uncommitted changes aren't copied. `install.sh` doesn't clean up after layout changes, so after pulling, follow [docs/migrations.md](docs/migrations.md) for any changes that left stale files behind (it is written so an agent can work through it). `install.sh` doesn't run on its own: it refuses without its `install/` directory beside it.
 
@@ -206,7 +209,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/in
 
 #### OS, Profile and Machine
 An install is for three things:
- - the OS (`--os`): `arch` (Arch Linux or Arch-based), `steamos`, or `portable` (any Linux or macOS, e.g. WSL, without its package manager or root);
+ - the OS (`--os`): `arch` (Arch Linux or Arch-based), `steamos`, `portable` (any Linux or macOS, e.g. WSL, without its package manager or root), or `archiso` (the Arch Linux live ISO, to install Arch onto a disk);
  - the profile (`--profile`), how the machine is used: `desktop` (your own machine with a desktop session), `minimal` (a terminal setup only) or `workspace` (a Coder workspace);
  - the machine (`--machine`), the hardware: `generic` (the default) or `framework16`.
 
@@ -217,6 +220,7 @@ Only these combinations exist:
 | `arch` | `desktop`, `minimal` | `generic`, `framework16` | `arch` (desktop) |
 | `steamos` | `desktop`, `minimal` | `generic`, `framework16` | `steamos` (desktop) |
 | `portable` | `minimal`, `workspace` | `generic` | `portable` (minimal), `coder` (workspace) |
+| `archiso` | `desktop` | `generic`, `framework16` | `arch_chroot` (desktop) |
 
 Each OS is a file in `install/os/`: `os_<os>` sets the `@os` values its features must suit (`_platforms`) and the machines it supports (`_machines`), and an `os_<os>_<profile>` function for each profile it supports sets that combination's `_features` (in the order they run), `_optional`, `_gui` and `_link_paths`. Each profile is a file in `install/profiles/` whose `profile_<name>` sets what holds for it on every OS (`_git_fsmonitor`, off for workspaces). Each variant in `install/variants/` only names an OS and profile; `--os` and `--profile` override the variant's, so `--variant steamos --profile minimal` is the SteamOS terminal setup. Features get the OS, the profile and the enabled features as `feature_<name> <os> <profile> <enabled>`.
 
@@ -279,8 +283,9 @@ Features copy the systemd units they install, never link them, with the helpers 
 | `steam` | any | steamos | any | |
 | `gamescope_screenshot` | any | steamos | any | `link` |
 | `kde` | any | linux | kde | |
+| `arch_chroot` | any | archiso | any | |
 
-`linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The OSes target the platforms `arch`, `steamos`, and `linux` and `macos` (`portable`); the `desktop` profile targets GNOME on `arch` and KDE on `steamos`, and the other profiles no GUI.
+`linux` covers `arch` and `steamos`, but not `archiso`; GUI `any` also works headless, and `desktop` needs some graphical session. The OSes target the platforms `arch`, `steamos`, and `linux` and `macos` (`portable`); the `desktop` profile targets GNOME on `arch` and KDE on `steamos`, and the other profiles no GUI.
 
 The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `steam` feature sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, replacing only keys Steam already wrote and only while Steam is closed, since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`. Its `orei_switch` feature, another Framework 16 fix, makes an OREI HDMI switch hand over to another input while the laptop sleeps; see [docs/orei-switch.md](docs/orei-switch.md). Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd from user units it copies into `/etc/systemd/user` and enables for all users (with sudo), so they start from boot even with an encrypted home; see [Webterm](#webterm) and [docs/steamos-setup.md](docs/steamos-setup.md). Its `gamescope_screenshot` feature takes Game Mode screenshots from the keyboard; see [Gaming Mode screenshots](#gaming-mode-screenshots). Its `logind` feature copies `root/etc/systemd/logind.conf.d/lid.conf` into `/etc` (with sudo) so that closing the lid on external power doesn't suspend: logind only counts the laptop as docked while an external display is in use, so a lid closed all session otherwise suspends it in the gaps, like between the login screen and Gaming Mode or after gamescope crashes, and an eGPU doesn't come back from that. Its `hdmi_audio_fix` feature, a Framework 16 fix like `udev` and `tmpfiles`, copies `root/etc/systemd/system/hdmi-audio-fix.service` into `/etc/systemd/system` (with sudo). At boot and after every resume it sets the 780M to the `manual` level and gives its SoC clock a 720 MHz floor (`pp_dpm_socclk` levels 2 to 7), leaving the graphics, memory and fabric clocks free. It retries for up to 30 s while amdgpu still refuses the write at boot, and only matches the 780M's PCI ID, so an eGPU is never touched. At idle `socclk` otherwise drops to 400 MHz and HDMI audio stutters; games aren't capped (PipeWire buffer settings don't help: it reports no underruns); `--uninstall` removes it and sets the level back to `auto`.
 
@@ -301,25 +306,24 @@ The `arch` variant is designed to work for Arch Linux (or other Arch-based distr
 A basic Arch installation along with `install.sh` requires ~15gb of drive space.
 
 #### Arch Linux Installation
-To setup a new computer, install Arch Linux using the [installation guide](https://wiki.archlinux.org/title/installation_guide), or use the `archinstall` utility available in live ISO's. Useful packages to install while chroot'ed using the live ISO include:
- - sudo
- - networkmanager
- - neovim
- - git
- - tmux
- - zsh
- - os-prober (for autodetecting other boot partitions with grub)
- - vi
-
-You can install these with the command `pacman -S sudo networkmanager neovim git tmux zsh os-prober vi`. Remember to `systemctl enable NetworkManager.service` to enable NetworkManager. To enable os-prober, uncomment the following line in `/etc/default/grub`.
-```
-GRUB_DISABLE_OS_PROBER=false
-```
-Then mount the boot partitions which should be detected to `/mnt` and remake the grub configuration file with the command `grub-mkconfig -o /boot/grub/grub.cfg`. After rebooting, make a new user with the following command.
+To set up a new computer, boot the Arch Linux live ISO in UEFI mode (Secure Boot off), connect to the network (`iwctl` for Wi-Fi), and run the `arch_chroot` variant as root:
 ```bash
-useradd -m -G wheel -s /bin/zsh *username*
+pacman -Sy --needed git
+git clone https://github.com/eldenmanking/dotfiles ~/dotfiles
+~/dotfiles/install.sh --variant arch_chroot --all
 ```
-To enable `sudo`, use the command `visudo` and uncomment `%wheel AL=(ALL:ALL) NOPASSWD: ALL`. You can login as a user with `su *username*` and set a password with `passwd`, or just with the command `login`. Then, clone dotfiles in the user home directory and run `install.sh` to setup a standard configuration. To enable the Gnome display manager, `systemctl enable gdm.service` and reboot. To disable system sounds in Gnome, go to "Settings > Sound" and zero the "System Sounds" option (if it is already zero, try increasing it and decreasing it).
+Its `arch_chroot` feature follows [mjkstra's guide](https://gist.github.com/mjkstra/96ce7a5689d753e7a6bdd92cdc169bae) up to the first reboot:
+ - It erases the disk you choose and partitions it as GPT, with a 512 MiB EFI system partition mounted at `/efi` (so the kernels in `/boot` stay in snapshots of `@`) and btrfs on the rest, with the subvolumes `@` (`/`) and `@home` (`/home`) mounted with `compress=zstd`.
+ - It installs the guide's packages with `pacstrap`, plus `amd-ucode` or `intel-ucode` to match the CPU, and writes `/etc/fstab` with `genfstab`.
+ - In the new system, it sets the time zone, locale, console keymap, hostname and `/etc/hosts`, and creates your user in `wheel` with zsh as the login shell. The sudoers drop-in `root/etc/sudoers.d/wheel` lets `wheel` use sudo.
+ - It installs GRUB, with `grub-btrfs` adding a boot entry for each timeshift snapshot through the `grub-btrfsd` drop-in `root/etc/systemd/system/grub-btrfsd.service.d/timeshift.conf`, and enables NetworkManager, systemd-timesyncd and `grub-btrfsd`.
+ - It copies `~/dotfiles` into the new user's home and unmounts everything.
+
+It asks for the disk, hostname, username, time zone, locale and console keymap unless `ARCH_CHROOT_DISK`, `ARCH_CHROOT_HOSTNAME`, `ARCH_CHROOT_USER`, `ARCH_CHROOT_TIMEZONE`, `ARCH_CHROOT_LOCALE` and `ARCH_CHROOT_KEYMAP` are set. It always asks for the root and user passwords, and for the disk to be typed again before erasing it. A disk with anything on it mounted (such as the install medium) is refused. Each run is a fresh install. There is no swap or disk encryption yet.
+
+Then reboot, remove the install medium, log in as the new user and run `~/dotfiles/install.sh --variant arch --all` to set up the desktop. To enable the Gnome display manager, run `sudo systemctl enable gdm.service` and reboot. To disable system sounds in Gnome, go to "Settings > Sound" and zero the "System Sounds" option (if it is already zero, try increasing it and decreasing it).
+
+To boot other operating systems from GRUB, install `os-prober`, uncomment `GRUB_DISABLE_OS_PROBER=false` in `/etc/default/grub`, mount their boot partitions and run `sudo grub-mkconfig -o /boot/grub/grub.cfg`.
 
 #### Printer Installation
 Included in the `install.sh` script are packages for HP printers--in particular, the `hplip` package is used to install drivers for specific HP printers, whereas `cups` and `system-config-printer` are more general. To install the drivers for a physically connected printer, execute `hp-setup -i` in the terminal (`-i` for CLI interactive mode) and follow the prompts. See this [Stack Exchange post](https://unix.stackexchange.com/questions/359531/installing-hp-printer-driver-for-arch-linux) for more information.

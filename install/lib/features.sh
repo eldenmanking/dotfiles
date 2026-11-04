@@ -38,13 +38,14 @@ feature_description() {
     kde)         echo "merge partial KDE config files (e.g. home/.config/kcminputrc) into ~/.config with kwriteconfig" ;;
     orei_switch) echo "download framework_tool and install the OREI HDMI switch sleep/wake handoff into /etc (sudo)" ;;
     distrobox)   echo "create an 'arch' distrobox from archlinux:latest and enter it" ;;
+    arch_chroot) echo "erase a disk and install Arch Linux onto it from the live ISO (btrfs, GRUB), as root" ;;
     *)           echo "" ;;
   esac
 }
 
 # Values the requirement tags may use.
 FEATURE_MACHINES="any laptop framework16"
-FEATURE_OSES="any linux macos arch steamos"
+FEATURE_OSES="any linux macos arch steamos archiso"
 FEATURE_GUIS="any desktop gnome kde"
 
 # Outputs: _doc, the comment block directly above feature $1's feature_<name> function in install/features, with
@@ -75,7 +76,7 @@ feature_doc() {
 # (space-separated lists, empty when the tag is missing):
 #  _machine: @machine, hardware it is for: any, laptop, framework16. Features for specific hardware live in
 #             install/features/<os>_<machine>/ and are left out of --all on other machines (see machine_supported)
-#  _os: @os, any, linux, macos, arch, steamos (linux covers arch and steamos)
+#  _os: @os, any, linux, macos, arch, steamos, archiso (linux covers arch and steamos, not the live ISO)
 #  _gui: @gui, any (also headless), desktop (any graphical session), gnome, kde
 #  _requires: @requires (optional), features that must run before it in the same OS and profile
 # Each OS sets the _platforms (@os values) and each OS and profile the _gui it targets; tests/validation/features.sh
@@ -117,7 +118,7 @@ gui_supported() {
 }
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link services manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch gamescope_screenshot distrobox arch_chroot "
 
 feature_function() {
   printf 'feature_%s' "${1//-/_}"

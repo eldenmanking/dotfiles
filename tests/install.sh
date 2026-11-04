@@ -149,7 +149,7 @@ test_usage() {
   new_home
   install_ok "$_home" || true
   for variant in $variants; do
-    install_ok "$_home" --variant "$variant" --help && check "  ...lists --link" grep -q -- '--link' "$LOG"
+    install_ok "$_home" --variant "$variant" --help && check "  ...lists its options" grep -q "Options for OS" "$LOG"
   done
   install_refused "$_home" --variant nope
   install_refused "$_home" --variant coder --nope
@@ -478,6 +478,10 @@ check_shells_load() {
 test_install() {
   local setup="$1" flags=(--os "${1%/*}" --profile "${1#*/}" --link --gitconfig) managed=false repo_before first
   setup_info "$setup"
+  if ! list_contains "$_features" link; then
+    info "$setup: no real install (it links nothing)"
+    return
+  fi
   case " $_link_paths" in
     *" root/"*)
       info "$setup: no real install (its links include root/, which needs sudo)"
@@ -560,6 +564,50 @@ test_infer() {
   check "read_os_release unquotes ID and ID_LIKE" bash -c \
     'source "$1/install/lib/fn.sh" && source "$1/install/lib/infer.sh" && read_os_release "$2" &&
      [[ "$_id:$_id_like" == steamos:arch ]]' sh "$REPO_ROOT" "$os_release"
+}
+
+# Return 0 if the remaining args, run as a command, fail.
+fails() {
+  ! "$@"
+}
+
+# Report a check that the remaining args, a function of install/ and its args, print $1.
+install_prints() {
+  local expected="$1" got
+  shift
+  got="$(with_install_loaded "$@")"
+  if [[ "$got" == "$expected" ]]; then pass "$* -> $expected"; else fail "$* -> '$got', expected '$expected'"; fi
+}
+
+# arch_chroot's pure helpers, and its --dry-run with the settings from the environment, which must ask nothing.
+test_arch_chroot() {
+  local home
+  info "arch_chroot: partitions, microcode and the dry run of an install"
+  install_prints /dev/sda1 partition_path /dev/sda 1
+  install_prints /dev/nvme0n1p2 partition_path /dev/nvme0n1 2
+  install_prints /dev/mmcblk0p1 partition_path /dev/mmcblk0 1
+  install_prints amd-ucode microcode_package AuthenticAMD
+  install_prints intel-ucode microcode_package GenuineIntel
+  install_prints "" microcode_package ""
+  check "valid_hostname accepts my-laptop" with_install_loaded valid_hostname my-laptop
+  check "valid_hostname rejects My_Laptop" fails with_install_loaded valid_hostname My_Laptop
+  check "valid_username rejects 1user" fails with_install_loaded valid_username 1user
+
+  new_home
+  home="$_home"
+  if env -i HOME="$home" PATH="$PATH" TERM=dumb ARCH_CHROOT_DISK=/dev/nvme0n1 ARCH_CHROOT_USER=me \
+    ARCH_CHROOT_TIMEZONE=Europe/Rome "$INSTALL_BASH" "$home/dotfiles/install.sh" --variant arch_chroot --all --dry-run \
+    </dev/null >"$LOG" 2>&1; then
+    pass "install.sh --variant arch_chroot --all --dry-run, with the settings in the environment"
+    check "  ...formats the btrfs partition" grep -q 'mkfs.btrfs -f -L arch /dev/nvme0n1p2' "$LOG"
+    check "  ...mounts @home with compression" grep -q 'subvol=@home /dev/nvme0n1p2 /mnt/home' "$LOG"
+    check "  ...runs pacstrap" grep -q 'pacstrap -K /mnt base ' "$LOG"
+    check "  ...sets the time zone" grep -q 'zoneinfo/Europe/Rome /etc/localtime' "$LOG"
+    check "  ...creates the user" grep -q 'useradd -m -G wheel -s /bin/zsh me' "$LOG"
+  else
+    fail "install.sh --variant arch_chroot --all --dry-run"
+    sed 's/^/       | /' "$LOG" >&2
+  fi
 }
 
 # --machine picks the hardware, which decides whether --all includes features for specific hardware; --infer fills in
@@ -691,6 +739,7 @@ main() {
   test_infer
   test_machine
   test_steam
+  test_arch_chroot
   test_download_cache
   test_env_sh
 

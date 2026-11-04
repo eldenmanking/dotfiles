@@ -16,6 +16,17 @@ run() {
   fi
 }
 
+# Run the remaining args as a command with its output written to file $1, or just announce it under --dry-run.
+run_to_file() {
+  local dest="$1"
+  shift
+  if $DRY_RUN; then
+    printf '\033[36m[dry-run]\033[0m %s > %s\n' "$*" "$dest"
+  else
+    "$@" >"$dest"
+  fi
+}
+
 # Like run, but routes stdin from the controlling terminal when one exists.
 # Used for commands like `pacman` that may prompt for confirmation; falls
 # back to inherited stdin in non-interactive contexts (CI, nested scripts).
