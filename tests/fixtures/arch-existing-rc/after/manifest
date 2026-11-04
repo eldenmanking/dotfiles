@@ -11,6 +11,7 @@ new     ~/.claude/scripts/pr-state.sh l 777 user -> ~/tools/claude/scripts/pr-st
 new     ~/.claude/scripts/refresh-pr-state-core.sh l 777 user -> ~/tools/claude/scripts/refresh-pr-state-core.sh
 new     ~/.claude/scripts/statusline.sh l 777 user -> ~/tools/claude/scripts/statusline.sh
 new     ~/.claude/scripts/stop-ci-check.sh l 777 user -> ~/tools/claude/scripts/stop-ci-check.sh
+new     ~/.claude/scripts/tmux-session-id.sh l 777 user -> ~/tools/claude/scripts/tmux-session-id.sh
 new     ~/.claude/settings.json f 644 user *
 new     ~/.claude/skills d 755 user
 new     ~/.claude/skills/babysit-ci l 777 user -> ~/tools/claude/skills/babysit-ci
