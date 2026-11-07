@@ -263,10 +263,11 @@ Features copy the systemd units they install, never link them, with the helpers 
 |---|---|---|---|---|
 | `pacman`, `terminal`, `printer`, `logiops` | any | arch | any | |
 | `yay` | any | arch | gnome | |
-| `font`, `services`, `manual`, `distrobox` | any | linux | any | |
+| `font`, `manual`, `distrobox` | any | linux | any | |
 | `link`, `info`, `shell`, `starship`, `zsh`, `gng`, `tre`, `claude`, `gitconfig` | any | any | any | |
 | `dconf` | any | linux | gnome | |
 | `xdg` | any | linux | gnome | `pacman` |
+| `desktop` | any | arch | gnome | `pacman` |
 | `tmux` | any | any | any | `link` |
 | `binaries`, `neovim` | any | linux, macos | any | |
 | `flatpak` | any | linux | desktop | |
@@ -292,7 +293,7 @@ The `arch` variant is designed to work for Arch Linux (or other Arch-based distr
  - tmux
  - Neovim
  - LaTeX
- - Gnome (desktop environment, display manager, theme)
+ - Gnome (desktop environment, the GDM login screen enabled from the next boot, theme)
  - dconf configuration
  - Audiovisual media viewers and basic editors
  - Insync
