@@ -132,6 +132,12 @@ repo_status() {
   git -C "$REPO_ROOT" status --porcelain --untracked-files=all --ignored
 }
 
+# Print the setup variant $1 stands for, as os/profile.
+print_variant_setup() {
+  variant_config "$1"
+  printf '%s/%s' "$_os" "$_profile"
+}
+
 # Print every OS and profile that go together, as os/profile.
 print_all_setups() {
   local os profile setups=""
@@ -149,7 +155,9 @@ test_usage() {
   new_home
   install_ok "$_home" || true
   for variant in $variants; do
-    install_ok "$_home" --variant "$variant" --help && check "  ...lists --link" grep -q -- '--link' "$LOG"
+    setup_info "$(with_install_loaded print_variant_setup "$variant")"
+    install_ok "$_home" --variant "$variant" --help \
+      && check "  ...lists --${_features%% *}" grep -q -- "--${_features%% *} " "$LOG"
   done
   install_refused "$_home" --variant nope
   install_refused "$_home" --variant coder --nope
@@ -478,6 +486,10 @@ check_shells_load() {
 test_install() {
   local setup="$1" flags=(--os "${1%/*}" --profile "${1#*/}" --link --gitconfig) managed=false repo_before first
   setup_info "$setup"
+  if ! list_contains "$_features" link; then
+    info "$setup: no real install (it has no --link)"
+    return
+  fi
   case " $_link_paths" in
     *" root/"*)
       info "$setup: no real install (its links include root/, which needs sudo)"
@@ -560,6 +572,35 @@ test_infer() {
   check "read_os_release unquotes ID and ID_LIKE" bash -c \
     'source "$1/install/lib/fn.sh" && source "$1/install/lib/infer.sh" && read_os_release "$2" &&
      [[ "$_id:$_id_like" == steamos:arch ]]' sh "$REPO_ROOT" "$os_release"
+}
+
+# Check that a function of install/features/archiso.sh, run with the remaining args, prints $1.
+archiso_prints() {
+  local expected="$1" got
+  shift
+  # shellcheck source=../install/features/archiso.sh
+  got="$(source "$REPO_ROOT/install/features/archiso.sh" && "$@")"
+  if [[ "$got" == "$expected" ]]; then pass "$* -> $expected"; else fail "$* -> '$got', expected '$expected'"; fi
+}
+
+# The pure helpers of the archiso features: partition names, the microcode package, /etc/hosts and shadow passwords.
+test_archiso() {
+  local shadow_file="$SCRATCH/shadow"
+  info "archiso: partition names, microcode, hosts and passwords"
+  archiso_prints /dev/vda1 archiso_partition /dev/vda 1
+  archiso_prints /dev/sdb2 archiso_partition /dev/sdb 2
+  archiso_prints /dev/nvme0n1p2 archiso_partition /dev/nvme0n1 2
+  archiso_prints /dev/mmcblk0p1 archiso_partition /dev/mmcblk0 1
+  archiso_prints amd-ucode archiso_ucode AuthenticAMD
+  archiso_prints intel-ucode archiso_ucode GenuineIntel
+  archiso_prints "" archiso_ucode ""
+  archiso_prints $'127.0.0.1 localhost\n::1 localhost\n127.0.1.1 box' archiso_hosts box
+  printf '%s\n' 'root:*:19000::::::' 'locked:!:19000::::::' 'me:$6$salt$hash:19000::::::' 'empty::19000::::::' > "$shadow_file"
+  check "archiso_has_password: a hash counts" bash -c \
+    'source "$1/install/features/archiso.sh" && archiso_has_password "$2" me' sh "$REPO_ROOT" "$shadow_file"
+  check "archiso_has_password: *, !, empty and missing don't" bash -c \
+    'source "$1/install/features/archiso.sh" && ! archiso_has_password "$2" root && ! archiso_has_password "$2" locked &&
+     ! archiso_has_password "$2" empty && ! archiso_has_password "$2" nobody' sh "$REPO_ROOT" "$shadow_file"
 }
 
 # --machine picks the hardware, which decides whether --all includes features for specific hardware; --infer fills in
@@ -689,6 +730,7 @@ main() {
     test_install "$setup"
   done
   test_infer
+  test_archiso
   test_machine
   test_steam
   test_download_cache
