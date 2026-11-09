@@ -2,7 +2,7 @@
 The `light_sleep` feature (part of `./install.sh --variant steamos --machine framework16 --all`, or alone with
 `--light_sleep`) keeps an eGPU on the Framework 16 expansion bay working across sleep. While a live one is attached,
 a suspend idles with the displays off instead, and anything else suspends as before. It installs
-`/etc/dotfiles/bin/light-sleep`, its helper `light-sleep-helper` and a `systemd-suspend.service` drop-in that runs
+`/etc/dotfiles/bin/light-sleep` and a `systemd-suspend.service` drop-in that runs
 `light-sleep suspend` in place of `systemd-sleep suspend`, plus a SteamOS keep list entry for the scripts.
 
 ## Setup
@@ -47,16 +47,20 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
 ## What light-sleep does
 - **No live eGPU** (no display controller below `00:01.5`, or one whose config space reads `ffff`): runs
   `systemd-sleep suspend`, as without the drop-in.
-- **Sleep:** switches to the empty VT 8, so logind takes DRM master from gamescope and gamescope stops drawing.
-  Gamescope turns its outputs off itself on logind's `PrepareForSleep`, so in practice nothing is lit by then (the
-  helper logs `turned off: nothing`). As a fallback for anything still lit, the helper opens each DRM card as master
-  and sets every lit connector's DPMS property to off, noting which in `/run/light-sleep/dpms`: forcing a connector's
-  sysfs status off doesn't make gamescope let go, and the framebuffer console doesn't take the CRTCs over on the VT
-  switch (even with `setterm --powersave powerdown --blank force`). Then it freezes `user.slice`, as `systemd-sleep`
-  does, and waits.
-- **Wake:** on a key press on a keyboard, gamepad or power button (grabbed, so the press reaches nothing else), or the
-  lid opening. Then it thaws `user.slice`, turns those connectors back on and switches back to the session's VT, where
-  gamescope takes the displays again.
+- **Sleep:** the compositor has already turned the displays off on logind's `PrepareForSleep`, as it does before any
+  suspend (gamescope and KWin both do), so light-sleep freezes `user.slice`, as `systemd-sleep` does, and waits. In
+  Desktop Mode it first runs `kscreen-doctor --dpms off` as `deck`: when `orei-switch` cuts PD 1, the projector's
+  output vanishes and KWin lights the laptop panel, which would then stay lit all sleep. This runs after the PD cut, as
+  `orei-switch` is ordered before `systemd-suspend.service`. Switching VT is not just unneeded but harmful: with KWin it
+  lights the display up again.
+- **Wake:** on a key press on a keyboard, or the power button. Each has an `evtest --grab`, so the press reaches
+  nothing else; without the grab, the frozen session's input queues would deliver it on thaw, and Steam would suspend
+  again on the power button. The grabs stay for a second after the press, to swallow any presses after it. `udevadm
+  monitor` starts an `evtest` for a keyboard connected during the sleep, if it has a
+  `/dev/input/by-id/*-event-kbd` link (USB ones do, Bluetooth ones often don't), and one exits by itself when its device
+  goes away, so the `evtest`s are only stopped on wake. That uses `SIGKILL`: a `SIGTERM` sent just after forking one can
+  be lost to the script's `EXIT` trap, and the sleep would then never end. Then it thaws `user.slice`, and the
+  compositor turns the displays back on (in Desktop Mode, `kscreen-doctor --dpms on`, as KWin only answers once thawed).
 - logind, Steam and the units on `sleep.target` (such as `orei-switch.service`) see an ordinary suspend: logind still
   sends `PrepareForSleep`, and the sleep only ends when `systemd-suspend.service` does. The hooks in
   `/usr/lib/systemd/system-sleep` are skipped: SteamOS's only act on hibernate or with a flag file.
@@ -74,4 +78,4 @@ and resume. Before and after, the link answered, amdgpu was bound and `amdgpu_te
 every ring. The config space read alone isn't proof the card works: after a warm reboot amdgpu can fail to start it
 (`discovery failed: -2`) with the link up, which a dock power cycle with the laptop off fixes.
 
-Check with `journalctl -t light-sleep -b` and `journalctl -u systemd-suspend -b` (the helper's output).
+Check with `journalctl -t light-sleep -b` and `journalctl -u systemd-suspend -b`.
