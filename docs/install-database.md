@@ -159,7 +159,28 @@ contract: later versions must keep accepting it.
 - `uninstall_feature_<name>` stays for steps entries can't express.
 - `docs/migrations.md` stays for machines installed before the database, and for changes outside any entry.
 
-## Later
+## Follow-ups
+From an audit of what the current features change that the kinds above don't yet cover:
+- Directory trees: a `dir` kind that records the tree's file list, for the font, git clones (zsh plugins, tpm and its
+  plugins, the tools repos) and extracted releases. A git checkout is removed only if it has no local changes or
+  unpushed commits; otherwise it is kept and reported.
+- Installers: audit each installer that writes files without listing them (tmux's and logiops' `make install`, gng's
+  and starship's install scripts, tpm's `install_plugins`, neovim's `cp -r` into `~/.local`), and sandbox them: run
+  each into a staging directory (`DESTDIR`, a temporary prefix, an extract to a temporary directory) and install the
+  result through the helpers, so every file is recorded.
+- Escape hatch: whatever the generic undo can't remove (e.g. the distrobox container, the webterm token that
+  uninstall keeps) is still recorded as an entry, with its prior state, and undone by the feature's own code.
+  Normal undo may keep such an entry and report it, but a forced uninstall should almost always have a clean way to
+  remove it.
+- Side effects: temporary ones (`udevadm` reloads, service restarts, `fc-cache`) aren't recorded. Permanent ones
+  are, with their prior state where it can be read: e.g. the paths `systemd-tmpfiles --create` makes, and what
+  installers like gng's write outside their own files.
+- Settings: give `setting` an accessor per tool, each able to read (for `prior`), write and unset: `git-config`,
+  `kconfig`, `dconf` (per key), `xdg-mime`, `json` (key path, for `settings.json`), `vdf` (Steam) and `line` (a file
+  plus a pattern, for `confirmsed`). The flathub remote is a `flatpak-remote` setting.
+- Helpers for what features now do directly: enabling a unit dotfiles didn't install (`unit` with `prior`
+  `installed`, undone by disabling only), `git clone`, `cp` and `sudo install`. A check in `tests/lint/` then
+  flags direct writes in `install/features/`, so new code can't bypass the manifest.
 - Conflict pre-check: plan every selected feature (a dry run that records entries) and check the keys against the
   disk and other features' manifests before changing anything.
 - Transaction-level hooks.
