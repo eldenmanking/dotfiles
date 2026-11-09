@@ -90,8 +90,14 @@ For each selected feature, in `_features` order:
 3. If it succeeded, undo the old entries whose keys weren't recorded this run, newest first, and write the new
    manifest. If it failed, write the old entries plus the new ones and undo nothing, so the next run can still clean up.
 
-Features that have a manifest but aren't selected are reported as installed but not selected; `--uninstall` with
-their flag removes them, even if they have since been deleted from the repo.
+Features in the manifest that this run doesn't select:
+- With `--all`, once every selected feature has run, each feature in the manifest that the variant doesn't list in
+  `_features` is undone, in reverse manifest order. That covers features since dropped from the variant or deleted
+  from the repo, and those of a variant the machine used before. Optional features the variant lists stay installed,
+  since `--all` never selects them. Their entries are only undone by `--uninstall` with their flag.
+- Without `--all`, they are left alone: a run that names features changes only those.
+
+`--uninstall` with a feature's flag removes it even if the feature has since been deleted from the repo.
 
 ## Undo
 Each kind has one generic undo. An entry whose current state differs from `written` was changed by the user: it is kept
@@ -103,11 +109,23 @@ and reported, never overwritten or deleted (like pacman's `.pacsave`).
 | `file` | if its hash matches `written`, remove it and restore the backup (a `dir` is removed only if unchanged since it was cloned) |
 | `block` | `remove_block`; if `prior` is `-` and the file is now empty, remove the file |
 | `unit` | disable and remove it, or return it to `prior` |
-| `package` | report only; never removed automatically (see Open questions) |
+| `package` | if `prior` is `-`, ask before removing it (see Packages); if `prior` is `installed`, leave it |
 | `setting` | restore `prior`, or unset it |
 
-`--uninstall` undoes every entry of a feature, newest first, then removes its section and its backups.
+`--uninstall` undoes every entry of a feature, newest first, then removes its section and its backups. Entries it
+keeps (a declined package) stay in the section, and the section goes once they are gone.
 `uninstall_feature_<name>` still runs first for anything entries can't express, and becomes rare.
+
+### Packages
+A package is never removed without asking, whichever path undoes it: `--uninstall`, a package dropped from a
+feature's list, or a feature undone under `--all`.
+- Only packages whose `prior` is `-` are offered for removal. A package that was installed before dotfiles is left
+  alone and its entry dropped.
+- Each feature asks once, listing its packages for that package manager, and removes them through it (e.g.
+  `pacman -Rs`, `flatpak uninstall --user`). The package manager still refuses to remove a package that others
+  depend on.
+- A package the user declines, or any package when there is no terminal to ask on, is kept and reported. Its entry
+  stays in the manifest, so a later run asks again. `--dry-run` reports what it would ask.
 
 ## Versioning the format
 The manifest format has one integer version. Bump it on any change a reader must understand: removing or renaming a
@@ -145,7 +163,3 @@ contract: later versions must keep accepting it.
 - Conflict pre-check: plan every selected feature (a dry run that records entries) and check the keys against the
   disk and other features' manifests before changing anything.
 - Transaction-level hooks.
-
-## Open questions
-- Packages: should uninstall ever remove a package whose `prior` is `-`? The proposal records and reports them only.
-- Unselected features: report them (proposed), or uninstall them automatically on install?
