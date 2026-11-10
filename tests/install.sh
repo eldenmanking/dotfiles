@@ -579,9 +579,9 @@ arch_chroot_returns() {
   if [[ "$got" == "$expected" ]]; then pass "$* returns $expected"; else fail "$* returns $got, expected $expected"; fi
 }
 
-# Return 0 if arch_chroot_packages for CPU vendor $1 and swap $2 includes package $3.
+# Return 0 if arch_chroot_packages for CPU vendor $1 includes package $2.
 packages_include() {
-  list_contains "$(arch_chroot_packages "$1" "$2")" "$3"
+  list_contains "$(arch_chroot_packages "$1")" "$2"
 }
 
 # One-time installs: --oti is refused with anything else and can't be undone; arch-chroot's --dry-run prints every
@@ -599,7 +599,7 @@ test_oti() {
 
   before="$(snapshot "$_home")"
   if env -i HOME="$_home" PATH="$PATH" TERM=dumb DOTFILES_ARCH_DISK=/dev/nvme0n1 DOTFILES_ARCH_USER=tester \
-    DOTFILES_ARCH_SWAP=zram "$INSTALL_BASH" "$_home/dotfiles/install.sh" --oti arch-chroot --dry-run \
+    "$INSTALL_BASH" "$_home/dotfiles/install.sh" --oti arch-chroot --dry-run \
     </dev/null >"$LOG" 2>&1; then
     pass "install.sh --oti arch-chroot --dry-run"
   else
@@ -608,7 +608,7 @@ test_oti() {
   fi
   check "  ...partitions the disk" grep -q 'sfdisk --quiet /dev/nvme0n1 <<' "$LOG"
   check "  ...formats nvme0n1p2" grep -q 'mkfs.btrfs --force --quiet /dev/nvme0n1p2$' "$LOG"
-  check "  ...pacstraps with zram-generator" grep -q 'pacstrap -K /mnt --needed base .*zram-generator' "$LOG"
+  check "  ...pacstraps the packages" grep -q 'pacstrap -K /mnt --needed base ' "$LOG"
   check "  ...installs GRUB at the fallback path" grep -q 'grub-install .*--removable$' "$LOG"
   check "  ...clones dotfiles for the user" grep -q 'clone .* /mnt/home/tester/dotfiles$' "$LOG"
   check_unchanged "  ...home unchanged" "$before" "$(snapshot "$_home")"
@@ -616,18 +616,15 @@ test_oti() {
   arch_chroot_prints /dev/vda1 arch_chroot_partition /dev/vda 1
   arch_chroot_prints /dev/nvme0n1p2 arch_chroot_partition /dev/nvme0n1 2
   arch_chroot_prints /dev/mmcblk0p1 arch_chroot_partition /dev/mmcblk0 1
-  arch_chroot_returns 0 packages_include AuthenticAMD none amd-ucode
-  arch_chroot_returns 0 packages_include GenuineIntel zram intel-ucode
-  arch_chroot_returns 0 packages_include GenuineIntel zram zram-generator
-  arch_chroot_returns 1 packages_include "" none zram-generator
+  arch_chroot_returns 0 packages_include AuthenticAMD amd-ucode
+  arch_chroot_returns 0 packages_include GenuineIntel intel-ucode
+  arch_chroot_returns 1 packages_include "" amd-ucode
   arch_chroot_prints $'127.0.0.1 localhost\n::1 localhost\n127.0.1.1 box' arch_chroot_hosts box
   arch_chroot_returns 0 arch_chroot_valid_hostname my-box1
   arch_chroot_returns 1 arch_chroot_valid_hostname -box
   arch_chroot_returns 0 arch_chroot_valid_user tester
   arch_chroot_returns 1 arch_chroot_valid_user root
   arch_chroot_returns 1 arch_chroot_valid_user Tester
-  arch_chroot_returns 0 arch_chroot_valid_swap zram
-  arch_chroot_returns 1 arch_chroot_valid_swap file
 
   mkdir -p "$dir/zoneinfo/America" "$dir/keymaps/i386/qwerty"
   touch "$dir/zoneinfo/America/New_York" "$dir/keymaps/i386/qwerty/us.map.gz"

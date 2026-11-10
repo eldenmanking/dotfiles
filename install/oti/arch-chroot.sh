@@ -8,7 +8,6 @@
 #   DOTFILES_ARCH_DISK: the disk to install onto, e.g. /dev/vda (erased unless an earlier run laid it out)
 #   DOTFILES_ARCH_TIMEZONE (America/New_York), DOTFILES_ARCH_LOCALE (en_US.UTF-8), DOTFILES_ARCH_KEYMAP (us)
 #   DOTFILES_ARCH_HOSTNAME (arch), DOTFILES_ARCH_USER: the new system's hostname and user (in wheel, with sudo)
-#   DOTFILES_ARCH_SWAP (none): none, or zram for compressed swap in RAM
 # Passwords are always typed. Settings and passwords an earlier run left in /mnt aren't asked again.
 
 ARCH_CHROOT_ROOT=/mnt
@@ -16,15 +15,12 @@ ARCH_CHROOT_ROOT=/mnt
 ARCH_CHROOT_ESP_SIZE=2GiB
 ARCH_CHROOT_MOUNT_OPTIONS="compress=zstd"
 ARCH_CHROOT_SUBVOLUMES="@ @home"
-# The guide's packages, with neovim in place of vim; the CPU's microcode and swap's packages are added (see
-# arch_chroot_packages).
+# The guide's packages, with neovim in place of vim; the CPU's microcode is added (see arch_chroot_packages).
 ARCH_CHROOT_PACKAGES="base base-devel linux linux-firmware git btrfs-progs grub efibootmgr grub-btrfs inotify-tools
   timeshift neovim networkmanager pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber reflector zsh
   zsh-completions zsh-autosuggestions openssh man sudo"
 ARCH_CHROOT_SERVICES="NetworkManager.service systemd-timesyncd.service"
 ARCH_CHROOT_SUDOERS=/etc/sudoers.d/wheel
-ARCH_CHROOT_ZRAM_CONF=/etc/systemd/zram-generator.conf
-ARCH_CHROOT_SWAPS="none zram"
 # What the live ISO has, to check answers against.
 ARCH_CHROOT_ZONEINFO=/usr/share/zoneinfo
 ARCH_CHROOT_LOCALES=/usr/share/i18n/SUPPORTED
@@ -52,27 +48,20 @@ arch_chroot_sfdisk_script() {
   printf '%s\n' "label: gpt" "size=$ARCH_CHROOT_ESP_SIZE, type=uefi" "type=linux"
 }
 
-# Print the packages to install for CPU vendor $1 (vendor_id in /proc/cpuinfo) and swap $2: the guide's, the CPU's
-# microcode, and zram-generator for zram.
+# Print the packages to install for CPU vendor $1 (vendor_id in /proc/cpuinfo): the guide's and the CPU's microcode.
 arch_chroot_packages() {
-  local vendor="$1" swap="$2" packages
+  local vendor="$1" packages
   packages="$(printf '%s ' $ARCH_CHROOT_PACKAGES)"
   case "$vendor" in
     AuthenticAMD) packages+="amd-ucode " ;;
     GenuineIntel) packages+="intel-ucode " ;;
   esac
-  [[ "$swap" != zram ]] || packages+="zram-generator "
   printf '%s' "${packages% }"
 }
 
 # Print /etc/hosts for hostname $1.
 arch_chroot_hosts() {
   printf '%s\n' "127.0.0.1 localhost" "::1 localhost" "127.0.1.1 $1"
-}
-
-# Print zram-generator's config: one zram device of half the RAM, up to 8 GiB, compressed with zstd.
-arch_chroot_zram_conf() {
-  printf '%s\n' "[zram0]" "zram-size = min(ram / 2, 8192)" "compression-algorithm = zstd"
 }
 
 # Return 0 if the account $2 in shadow file $1 has a password set.
@@ -90,11 +79,6 @@ arch_chroot_valid_hostname() {
 # Return 0 if $1 is a valid new user name: lowercase, starting with a letter or _, at most 32 characters, not root.
 arch_chroot_valid_user() {
   [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ && "$1" != root ]]
-}
-
-# Return 0 if $1 is one of ARCH_CHROOT_SWAPS.
-arch_chroot_valid_swap() {
-  list_contains "$ARCH_CHROOT_SWAPS" "$1"
 }
 
 # Return 0 if $1 names a time zone file under zoneinfo directory $2 (e.g. America/New_York).
@@ -127,10 +111,10 @@ arch_chroot_laid_out() {
 }
 
 # Outputs what an earlier run left in $ARCH_CHROOT_ROOT, each empty when it isn't there: _disk (the disk mounted
-# there), _timezone, _locale, _keymap, _hostname, _user (uid 1000) and _swap (zram when its config is there); and
+# there), _timezone, _locale, _keymap, _hostname, _user (uid 1000); and
 # _root_password and _user_password, true when set.
 arch_chroot_installed() {
-  local root="$ARCH_CHROOT_ROOT" disk="" source="" tz="" user="" swap="" root_pw=false user_pw=false
+  local root="$ARCH_CHROOT_ROOT" disk="" source="" tz="" user="" root_pw=false user_pw=false
   if mountpoint -q "$root" 2>/dev/null; then
     source="$(findmnt -no SOURCE "$root" 2>/dev/null || true)"
     source="${source%%\[*}"
@@ -140,7 +124,6 @@ arch_chroot_installed() {
   tz="$(readlink "$root/etc/localtime" 2>/dev/null || true)"
   [[ "$tz" == /usr/share/zoneinfo/* ]] && tz="${tz#/usr/share/zoneinfo/}" || tz=""
   user="$(awk -F: '$3 == 1000 { print $1; exit }' "$root/etc/passwd" 2>/dev/null || true)"
-  [[ ! -f "$root$ARCH_CHROOT_ZRAM_CONF" ]] || swap=zram
   ! arch_chroot_has_password "$root/etc/shadow" root || root_pw=true
   [[ -z "$user" ]] || ! arch_chroot_has_password "$root/etc/shadow" "$user" || user_pw=true
   _disk="$disk"
@@ -149,7 +132,6 @@ arch_chroot_installed() {
   _keymap="$(sed -n 's/^KEYMAP=//p' "$root/etc/vconsole.conf" 2>/dev/null || true)"
   _hostname="$(cat "$root/etc/hostname" 2>/dev/null || true)"
   _user="$user"
-  _swap="$swap"
   _root_password="$root_pw"
   _user_password="$user_pw"
 }
@@ -219,7 +201,7 @@ arch_chroot_preflight() {
 }
 
 # Print what the install will do: disk $1 (erased when $2 is true), then the settings $3 to $8 (time zone, locale,
-# keymap, hostname, user, swap) and whether the passwords are set already ($9, ${10}).
+# keymap, hostname, user) and whether the passwords are set already ($8, $9).
 arch_chroot_summary() {
   local disk="$1" erase="$2" size model
   size="$(lsblk -dno SIZE "$disk" 2>/dev/null | tr -d ' ' || true)"
@@ -231,10 +213,9 @@ arch_chroot_summary() {
   else
     printf '  %-10s %s\n' "" "kept: it has the layout already, so an earlier install is resumed"
   fi
-  printf '  %-10s %s\n' "time zone" "$3" locale "$4" keymap "$5" hostname "$6" user "$7 (in wheel, with sudo)" \
-    swap "$8"
-  printf '  %-10s %s\n' passwords "root: $([[ "$9" == true ]] && echo already set || echo as typed)," \
-    "" "$7: $([[ "${10}" == true ]] && echo already set || echo as typed)"
+  printf '  %-10s %s\n' "time zone" "$3" locale "$4" keymap "$5" hostname "$6" user "$7 (in wheel, with sudo)"
+  printf '  %-10s %s\n' passwords "root: $([[ "$8" == true ]] && echo already set || echo as typed)," \
+    "" "$7: $([[ "$9" == true ]] && echo already set || echo as typed)"
   lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS "$disk" 2>/dev/null | sed 's/^/  /' || true
   echo
 }
@@ -276,12 +257,12 @@ arch_chroot_disk() {
   probe mountpoint -q "$root/efi" || run_shown mount "$esp" "$root/efi"
 }
 
-# Install the packages for swap $1 into $ARCH_CHROOT_ROOT with pacstrap, unless they all are, then write its fstab
+# Install the packages into $ARCH_CHROOT_ROOT with pacstrap, unless they all are, then write its fstab
 # from what is mounted there. The keyring is only set up (-K) the first time.
 arch_chroot_pacstrap() {
-  local swap="$1" root="$ARCH_CHROOT_ROOT" vendor packages keyring="" fstab
+  local root="$ARCH_CHROOT_ROOT" vendor packages keyring="" fstab
   vendor="$(awk -F': ' '/^vendor_id/ { print $2; exit }' /proc/cpuinfo 2>/dev/null || true)"
-  packages="$(arch_chroot_packages "$vendor" "$swap")"
+  packages="$(arch_chroot_packages "$vendor")"
   if ! $DRY_RUN && probe pacman --root "$root" -Q $packages >/dev/null; then
     info "All packages are installed in $root"
   else
@@ -309,12 +290,12 @@ arch_chroot_write() {
 }
 
 # Set up the system in $ARCH_CHROOT_ROOT from arch-chroot, as the guide does, with time zone $1, locale $2, keymap $3,
-# hostname $4, user $5 and swap $6, and the root and user passwords $7 and $8 (empty to leave them): the clock, the
-# locale and keymap, hostname and hosts, the root password, the user in wheel with sudo, zram, GRUB on the EFI system
+# hostname $4 and user $5, and the root and user passwords $6 and $7 (empty to leave them): the clock, the locale and
+# keymap, hostname and hosts, the root password, the user in wheel with sudo, GRUB on the EFI system
 # partition (also at the removable fallback path, for firmware that forgets its boot entries), and NetworkManager
 # and time sync enabled.
 arch_chroot_system() {
-  local timezone="$1" locale="$2" keymap="$3" hostname="$4" user="$5" swap="$6" root_pw="$7" user_pw="$8"
+  local timezone="$1" locale="$2" keymap="$3" hostname="$4" user="$5" root_pw="$6" user_pw="$7"
   local root="$ARCH_CHROOT_ROOT" service
   if [[ "$(readlink "$root/etc/localtime" 2>/dev/null)" == "/usr/share/zoneinfo/$timezone" ]]; then
     info "Time zone is already $timezone"
@@ -345,8 +326,6 @@ arch_chroot_system() {
   arch_chroot_write "$ARCH_CHROOT_SUDOERS" "%wheel ALL=(ALL:ALL) ALL"
   run_shown chmod 0440 "$root$ARCH_CHROOT_SUDOERS"
   run_shown arch-chroot "$root" visudo -c -q -f "$ARCH_CHROOT_SUDOERS"
-
-  [[ "$swap" != zram ]] || arch_chroot_write "$ARCH_CHROOT_ZRAM_CONF" "$(arch_chroot_zram_conf)"
 
   if [[ -f "$root/efi/EFI/GRUB/grubx64.efi" ]]; then
     info "GRUB is already on the EFI system partition"
@@ -396,13 +375,13 @@ arch_chroot_dotfiles() {
 # Asks every question up front, shows what it will do and asks once before changing anything, then runs unattended,
 # printing each command. A run that stopped partway resumes where it stopped.
 oti_arch_chroot() {
-  local disk timezone locale keymap hostname user swap root_has user_has root_pw user_pw erase=false
+  local disk timezone locale keymap hostname user root_has user_has root_pw user_pw erase=false
   arch_chroot_preflight || return 1
 
-  f_write_args arch_chroot_installed _disk _timezone _locale _keymap _hostname _user _swap _root_password \
+  f_write_args arch_chroot_installed _disk _timezone _locale _keymap _hostname _user _root_password \
     _user_password
   disk="$_disk" timezone="$_timezone" locale="$_locale" keymap="$_keymap" hostname="$_hostname" user="$_user"
-  swap="$_swap" root_has="$_root_password" user_has="$_user_password"
+  root_has="$_root_password" user_has="$_user_password"
 
   [[ -n "$disk" ]] || $DRY_RUN || lsblk -d -o NAME,SIZE,MODEL,SERIAL,TYPE
   disk="$(arch_chroot_ask DOTFILES_ARCH_DISK "$disk" "Disk to install onto (e.g. /dev/vda)" "" \
@@ -419,15 +398,13 @@ oti_arch_chroot() {
   user="$(arch_chroot_ask DOTFILES_ARCH_USER "$user" "User name" "" \
     "use lowercase letters, digits, _ and -, starting with a letter, up to 32; not root" arch_chroot_valid_user)" \
     || return 1
-  swap="$(arch_chroot_ask DOTFILES_ARCH_SWAP "$swap" "Swap: none, or zram for compressed swap in RAM" none \
-    "answer none or zram" arch_chroot_valid_swap)" || return 1
   root_pw="$(arch_chroot_ask_password root "$root_has")"
   user_pw="$(arch_chroot_ask_password "$user" "$user_has")"
 
   if ! probe mountpoint -q "$ARCH_CHROOT_ROOT" && ! arch_chroot_laid_out "$disk"; then
     erase=true
   fi
-  arch_chroot_summary "$disk" "$erase" "$timezone" "$locale" "$keymap" "$hostname" "$user" "$swap" "$root_has" \
+  arch_chroot_summary "$disk" "$erase" "$timezone" "$locale" "$keymap" "$hostname" "$user" "$root_has" \
     "$user_has"
   if $DRY_RUN; then
     info "[dry-run] would ask to go ahead"
@@ -441,8 +418,8 @@ oti_arch_chroot() {
 
   run_shown timedatectl set-ntp true
   arch_chroot_disk "$disk" "$erase"
-  arch_chroot_pacstrap "$swap"
-  arch_chroot_system "$timezone" "$locale" "$keymap" "$hostname" "$user" "$swap" "$root_pw" "$user_pw"
+  arch_chroot_pacstrap
+  arch_chroot_system "$timezone" "$locale" "$keymap" "$hostname" "$user" "$root_pw" "$user_pw"
   arch_chroot_dotfiles "$user"
   $DRY_RUN || info "Arch Linux is installed."
   info "Next: umount -R $ARCH_CHROOT_ROOT, reboot, remove the install medium, log in as $user and run:" \
