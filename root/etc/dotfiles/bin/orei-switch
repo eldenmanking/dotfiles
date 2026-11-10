@@ -58,14 +58,20 @@ ucsi_reset() {
 
 # Wait up to $1 seconds for a CEC logical address. SteamOS's cecd claims one about half a second after the adapter
 # appears on resume; claim a playback address only if it hasn't, rather than race it. Returns 1 without a CEC adapter.
+# An adapter that lost its address (a hotplug storm or a stalled claim leaves it unconfigured) still lists
+# "Logical Address : Not Allocated", so only an address number counts. If the claim fails, clear the adapter's
+# addresses and claim again.
 cec_ready() {
   local i
   for (( i = 0; i < $1 * 4; i++ )); do
-    cec-ctl -D "$CEC_DRIVER" 2>/dev/null | grep -Eq 'Logical Address +:' && return 0
+    cec-ctl -D "$CEC_DRIVER" 2>/dev/null | grep -Eq 'Logical Address +: [0-9]' && return 0
     sleep 0.25
   done
   cec-ctl -D "$CEC_DRIVER" >/dev/null 2>&1 || return 1
   log "no CEC logical address; claiming one"
+  cec-ctl -s -D "$CEC_DRIVER" --playback >/dev/null 2>&1 && return 0
+  log "CEC claim failed; clearing the adapter and claiming again"
+  cec-ctl -s -D "$CEC_DRIVER" --clear >/dev/null 2>&1
   cec-ctl -s -D "$CEC_DRIVER" --playback >/dev/null
 }
 
