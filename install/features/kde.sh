@@ -4,6 +4,7 @@
 # Partial KDE config files, home/-relative like the link paths. Nested groups ([A][B]) are supported.
 KDE_CONFIG_FILES=(
   home/.config/kcminputrc
+  home/.config/kxkbrc
 )
 
 # Resolve the kwriteconfig/kreadconfig pair for the installed Plasma (6, else 5), or empty when neither exists.
