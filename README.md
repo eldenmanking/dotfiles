@@ -326,7 +326,7 @@ It first checks that it runs as root on the live ISO, booted in UEFI mode, at a 
 
 | Question | Environment | Default | Checked |
 |---|---|---|---|
-| Disk to install onto, or `partitions` | `DOTFILES_ARCH_DISK` | | `partitions`, or a whole disk with nothing mounted (so not the live medium) |
+| Disk to install onto, or `partitions` | `DOTFILES_ARCH_DISK` | | `partitions`, or a whole disk with nothing mounted that isn't the live medium (found by the `archisosearchuuid` it booted with, since `copytoram` unmounts it) |
 | With `partitions`: the EFI system partition | `DOTFILES_ARCH_EFI` | | an EFI system partition, FAT32 or unformatted, with nothing mounted |
 | With `partitions`: the root partition | `DOTFILES_ARCH_ROOT` | | a partition with nothing mounted, not the EFI system partition |
 | With `partitions`: the swap partition | `DOTFILES_ARCH_SWAP_PART` | `none` | `none`, or another partition with nothing mounted |

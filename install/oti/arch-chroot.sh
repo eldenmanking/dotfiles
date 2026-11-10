@@ -119,19 +119,56 @@ arch_chroot_valid_keymap() {
   [[ "$1" != */* && -n "$(find "$2" \( -name "$1.map.gz" -o -name "$1.map" \) 2>/dev/null | head -1)" ]]
 }
 
-# --- Reading the live system ---
-
-# Return 0 if $1 is partitions, or a whole disk with nothing on it mounted (so not the live medium).
-arch_chroot_valid_disk() {
-  [[ "$1" == partitions ]] && return 0
-  [[ -b "$1" && "$(lsblk -dno TYPE "$1" 2>/dev/null)" == disk ]] && ! lsblk -nro MOUNTPOINTS "$1" | grep -q .
+# Print the blkid tag (UUID=... or LABEL=...) archiso found its medium by, from kernel command line $1; nothing when
+# there is neither archisosearchuuid nor archisolabel.
+arch_chroot_live_tag() {
+  local word uuid="" label=""
+  for word in $1; do
+    case "$word" in
+      archisosearchuuid=*) uuid="${word#*=}" ;;
+      archisolabel=*) label="${word#*=}" ;;
+    esac
+  done
+  if [[ -n "$uuid" ]]; then
+    echo "UUID=$uuid"
+  elif [[ -n "$label" ]]; then
+    echo "LABEL=$label"
+  fi
 }
 
-# Return 0 if $1 is a partition with nothing mounted, of GPT type $2 (any when empty), that isn't one of $3 (the
-# partitions chosen already). With $4 true, it must not be an EFI system partition.
+# --- Reading the live system ---
+
+# Print the disk the live ISO booted from (e.g. /dev/sda), or nothing when it can't be found (e.g. PXE). Checking for
+# mounts isn't enough: with copytoram, archiso copies the ISO into RAM and unmounts the medium.
+arch_chroot_live_disk() {
+  local tag dev parent
+  tag="$(arch_chroot_live_tag "$(cat /proc/cmdline 2>/dev/null || true)")"
+  [[ -n "$tag" ]] || return 0
+  dev="$(blkid -t "$tag" -o device 2>/dev/null | head -1 || true)"
+  [[ -n "$dev" ]] || return 0
+  parent="$(lsblk -dno PKNAME "$dev" 2>/dev/null || true)"
+  if [[ -n "$parent" ]]; then
+    echo "/dev/$parent"
+  else
+    echo "$dev"
+  fi
+}
+
+# Return 0 if $1 is partitions, or a whole disk that isn't the live medium $2 (none when empty) and has nothing on it
+# mounted.
+arch_chroot_valid_disk() {
+  [[ "$1" == partitions ]] && return 0
+  [[ -b "$1" && "$(lsblk -dno TYPE "$1" 2>/dev/null)" == disk && "$1" != "$2" ]] \
+    && ! lsblk -nro MOUNTPOINTS "$1" | grep -q .
+}
+
+# Return 0 if $1 is a partition with nothing mounted and not on the live medium $2 (none when empty), of GPT type $3
+# (any when empty), that isn't one of $4 (the partitions chosen already). With $5 true, it must not be an EFI system
+# partition.
 arch_chroot_valid_partition() {
-  local part="$1" type="$2" taken="$3" not_esp="${4:-false}" parttype
+  local part="$1" live="$2" type="$3" taken="$4" not_esp="${5:-false}" parttype
   [[ -b "$part" && "$(lsblk -dno TYPE "$part" 2>/dev/null)" == part ]] || return 1
+  [[ -z "$live" || "/dev/$(lsblk -dno PKNAME "$part" 2>/dev/null)" != "$live" ]] || return 1
   ! lsblk -nro MOUNTPOINTS "$part" | grep -q . || return 1
   ! list_contains "$taken" "$part" || return 1
   parttype="$(lsblk -dno PARTTYPE "$part" 2>/dev/null)"
@@ -139,22 +176,24 @@ arch_chroot_valid_partition() {
   [[ "$not_esp" != true || "$parttype" != "$ARCH_CHROOT_ESP_TYPE" ]]
 }
 
-# Return 0 if $1 is an EFI system partition to install GRUB on: nothing mounted, and FAT32 or not formatted yet.
+# Return 0 if $1 is an EFI system partition to install GRUB on: nothing mounted, not on the live medium $2, and FAT32
+# or not formatted yet.
 arch_chroot_valid_esp() {
   local fstype
-  arch_chroot_valid_partition "$1" "$ARCH_CHROOT_ESP_TYPE" "" || return 1
+  arch_chroot_valid_partition "$1" "$2" "$ARCH_CHROOT_ESP_TYPE" "" || return 1
   fstype="$(lsblk -dno FSTYPE "$1" 2>/dev/null)"
   [[ -z "$fstype" || "$fstype" == vfat ]]
 }
 
-# Return 0 if $1 is a partition for the root filesystem, apart from EFI system partition $2.
+# Return 0 if $1 is a partition for the root filesystem, not on the live medium $2, apart from EFI system partition $3.
 arch_chroot_valid_root() {
-  arch_chroot_valid_partition "$1" "" "$2" true
+  arch_chroot_valid_partition "$1" "$2" "" "$3" true
 }
 
-# Return 0 if $1 is none or a partition for swap, apart from the EFI system and root partitions $2 and $3.
+# Return 0 if $1 is none or a partition for swap, not on the live medium $2, apart from the EFI system and root
+# partitions $3 and $4.
 arch_chroot_valid_swap_part() {
-  [[ "$1" == none ]] || arch_chroot_valid_partition "$1" "" "$2 $3" true
+  [[ "$1" == none ]] || arch_chroot_valid_partition "$1" "$2" "" "$3 $4" true
 }
 
 # Return 0 if disk $1 has the guide's layout already: a FAT32 first partition and a btrfs second one.
@@ -519,8 +558,9 @@ arch_chroot_dotfiles() {
 # command. A run that stopped partway resumes where it stopped.
 oti_arch_chroot() {
   local disk="" esp root_part swap_part swap_size timezone locale keymap hostname user root_has user_has root_pw
-  local user_pw wipe=false format_esp=false format_root=false format_swap=false dual=false max_swap=0 fstype
+  local user_pw wipe=false format_esp=false format_root=false format_swap=false dual=false max_swap=0 fstype live
   arch_chroot_preflight || return 1
+  live="$(arch_chroot_live_disk)"
 
   f_write_args arch_chroot_installed _root_part _esp _swap_part _swap_size _timezone _locale _keymap _hostname _user \
     _root_password _user_password
@@ -539,15 +579,18 @@ oti_arch_chroot() {
     $DRY_RUN || lsblk -o NAME,SIZE,TYPE,FSTYPE,PARTTYPENAME,LABEL,MODEL
     disk="$(arch_chroot_ask DOTFILES_ARCH_DISK "" \
       "Disk to erase and install onto (e.g. /dev/vda), or partitions to pick partitions you prepared" "" \
-      "not partitions, or a whole disk with nothing on it mounted (the live medium?)" arch_chroot_valid_disk)" \
+      "not partitions, or a whole disk with nothing on it mounted that isn't the live medium${live:+ ($live)}" \
+      arch_chroot_valid_disk "$live")" \
       || return 1
     if [[ "$disk" == partitions ]]; then
       disk=""
       esp="$(arch_chroot_ask DOTFILES_ARCH_EFI "" "EFI system partition (shared with other OSes is fine)" "" \
-        "not an EFI system partition that is FAT32 or unformatted, with nothing mounted" arch_chroot_valid_esp)" \
+        "not an EFI system partition that is FAT32 or unformatted, with nothing mounted, off the live medium" \
+        arch_chroot_valid_esp "$live")" \
         || return 1
       root_part="$(arch_chroot_ask DOTFILES_ARCH_ROOT "" "Root partition (erased)" "" \
-        "not a partition with nothing mounted, apart from the EFI system partition" arch_chroot_valid_root "$esp")" \
+        "not a partition with nothing mounted, off the live medium, apart from the EFI system partition" \
+        arch_chroot_valid_root "$live" "$esp")" \
         || return 1
       # A dry run shows a first run: a shared EFI system partition kept, the root partition formatted.
       format_root=true
@@ -567,8 +610,8 @@ oti_arch_chroot() {
     dual=true
     swap_size=0
     swap_part="$(arch_chroot_ask DOTFILES_ARCH_SWAP_PART "$swap_part" "Swap partition (none for no swap)" none \
-      "not none, or a partition with nothing mounted, apart from the EFI system and root partitions" \
-      arch_chroot_valid_swap_part "$esp" "$root_part")" || return 1
+      "not none, or a partition with nothing mounted, off the live medium, apart from the EFI and root partitions" \
+      arch_chroot_valid_swap_part "$live" "$esp" "$root_part")" || return 1
     if [[ "$swap_part" != none ]]; then
       fstype=""
       $DRY_RUN || fstype="$(lsblk -dno FSTYPE "$swap_part")"

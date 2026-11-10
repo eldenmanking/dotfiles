@@ -642,6 +642,10 @@ test_oti() {
   arch_chroot_returns 0 packages_include "" true os-prober
   arch_chroot_returns 1 packages_include "" false os-prober
   arch_chroot_prints $'127.0.0.1 localhost\n::1 localhost\n127.0.1.1 box' arch_chroot_hosts box
+  arch_chroot_prints "UUID=2026-10-01-14-49-03-00" arch_chroot_live_tag \
+    "initrd=x archisobasedir=arch archisosearchuuid=2026-10-01-14-49-03-00 console=ttyS0"
+  arch_chroot_prints "LABEL=ARCH_202610" arch_chroot_live_tag "archisobasedir=arch archisolabel=ARCH_202610"
+  arch_chroot_prints "" arch_chroot_live_tag "root=/dev/vda2 rw"
   arch_chroot_returns 0 arch_chroot_valid_swap_size 0 10
   arch_chroot_returns 0 arch_chroot_valid_swap_size 8 10
   arch_chroot_returns 1 arch_chroot_valid_swap_size 11 10
