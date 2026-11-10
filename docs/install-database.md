@@ -13,11 +13,11 @@ undo what a feature no longer does and an uninstall can restore what was there b
 - Upgrade by diff: after a feature runs, undo what it did last time but not this time, as pacman does for files dropped
   from a package. This replaces most `docs/migrations.md` entries.
 - Uninstall features that are no longer in the variant, or no longer in the repo.
-- Never destroy a change the user made after install.
+- Never destroy a change the user made after install without asking.
 - A fallback for anything the current code can't undo: the commit that installed it.
 
 Not in scope for now: transaction-level hooks (one `daemon-reload` for the whole run), and a conflict pre-check
-before any feature runs (see Later).
+before any feature runs (see Follow-ups).
 
 ## Layout
 The database lives in the checkout, ignored by git, next to everything else `install.sh` owns:
@@ -100,8 +100,20 @@ Features in the manifest that this run doesn't select:
 `--uninstall` with a feature's flag removes it even if the feature has since been deleted from the repo.
 
 ## Undo
-Each kind has one generic undo. An entry whose current state differs from `written` was changed by the user: it is kept
-and reported, never overwritten or deleted (like pacman's `.pacsave`).
+Entries are undone in one of two modes:
+- Stale undo, the default: every install undoes the entries a feature no longer records, and under `--all` the
+  features the variant no longer lists (see Install and reinstall). It is conservative. It skips an entry whose
+  current state differs from `written`, since the user changed it (like pacman's `.pacsave`), and an entry the
+  generic undo can't remove (see Escape hatch in Follow-ups). Both are reported and stay in the manifest, so
+  `--uninstall` can still remove them.
+- `--uninstall`, as today: removes everything a feature recorded, so the machine returns to its state before the
+  feature. It also removes the entries stale undo skips: it asks before overwriting or deleting a change the user made,
+  and runs the feature's own code for entries the generic undo can't remove. `--reinstall` is `--uninstall` and
+  then an install, as today.
+
+Packages are asked about in both modes (see Packages).
+
+Each kind has one generic undo:
 
 | Kind | Undo |
 |---|---|
@@ -112,9 +124,10 @@ and reported, never overwritten or deleted (like pacman's `.pacsave`).
 | `package` | if `prior` is `-`, ask before removing it (see Packages); if `prior` is `installed`, leave it |
 | `setting` | restore `prior`, or unset it |
 
-`--uninstall` undoes every entry of a feature, newest first, then removes its section and its backups. Entries it
-keeps (a declined package) stay in the section, and the section goes once they are gone.
-`uninstall_feature_<name>` still runs first for anything entries can't express, and becomes rare.
+`--uninstall` undoes every entry of a feature, newest first, then removes its section and its backups. Entries the
+user declines to remove (a package, or a file they changed) stay in the section, and the section goes once they are
+gone. `uninstall_feature_<name>` still runs first for anything entries can't express, and becomes rare. For a feature
+deleted from the repo, that code is gone too, so its entries that need it take the commit fallback.
 
 ### Packages
 A package is never removed without asking, whichever path undoes it: `--uninstall`, a package dropped from a
@@ -170,8 +183,8 @@ From an audit of what the current features change that the kinds above don't yet
   result through the helpers, so every file is recorded.
 - Escape hatch: whatever the generic undo can't remove (e.g. the distrobox container, the webterm token that
   uninstall keeps) is still recorded as an entry, with its prior state, and undone by the feature's own code.
-  Normal undo may keep such an entry and report it, but a forced uninstall should almost always have a clean way to
-  remove it.
+  Stale undo keeps such an entry and reports it, but `--uninstall` should almost always have a clean way to remove
+  it.
 - Side effects: temporary ones (`udevadm` reloads, service restarts, `fc-cache`) aren't recorded. Permanent ones
   are, with their prior state where it can be read: e.g. the paths `systemd-tmpfiles --create` makes, and what
   installers like gng's write outside their own files.
