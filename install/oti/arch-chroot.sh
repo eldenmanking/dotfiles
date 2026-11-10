@@ -419,8 +419,8 @@ oti_arch_chroot() {
   user="$(arch_chroot_ask DOTFILES_ARCH_USER "$user" "User name" "" \
     "use lowercase letters, digits, _ and -, starting with a letter, up to 32; not root" arch_chroot_valid_user)" \
     || return 1
-  swap="$(arch_chroot_ask DOTFILES_ARCH_SWAP "$swap" "Swap ($ARCH_CHROOT_SWAPS)" none \
-    "one of: $ARCH_CHROOT_SWAPS" arch_chroot_valid_swap)" || return 1
+  swap="$(arch_chroot_ask DOTFILES_ARCH_SWAP "$swap" "Swap: none, or zram for compressed swap in RAM" none \
+    "answer none or zram" arch_chroot_valid_swap)" || return 1
   root_pw="$(arch_chroot_ask_password root "$root_has")"
   user_pw="$(arch_chroot_ask_password "$user" "$user_has")"
 
