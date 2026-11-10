@@ -32,6 +32,7 @@ new     ~/.config/nvim/core/options.vim l 777 user -> ~/dotfiles/home/.config/nv
 new     ~/.config/nvim/core/plugins.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugins.vim
 new     ~/.config/nvim/core/plugmaps.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugmaps.vim
 new     ~/.config/nvim/init.vim l 777 user -> ~/dotfiles/home/.config/nvim/init.vim
+new     ~/.config/powerdevilrc f 600 user 088affb019510e8f
 new     ~/.config/starship.toml l 777 user -> ~/dotfiles/home/.config/starship.toml
 new     ~/.config/webterm d 755 user
 new     ~/.config/webterm/env l 777 user -> ~/dotfiles/home/.config/webterm/env
