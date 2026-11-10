@@ -63,6 +63,12 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   goes away, so the `evtest`s are only stopped on wake. That uses `SIGKILL`: a `SIGTERM` sent just after forking one can
   be lost to the script's `EXIT` trap, and the sleep would then never end. Then it thaws `user.slice`, and the
   compositor turns the displays back on (in Desktop Mode, `kscreen-doctor --dpms on`, as KWin only answers once thawed).
+- **Lid:** closing it on external power must not suspend, or the light sleep's wake would be followed by a real suspend
+  that the eGPU doesn't survive. In Gaming Mode logind handles the lid, and the `logind` feature's `lid.conf` ignores
+  it on external power. In Desktop Mode PowerDevil takes the lid switch from logind (it holds a `handle-lid-switch`
+  inhibitor) and, with its default action, suspends about a second after a wake with the lid closed, while the
+  projector's output is still coming back, so the `kde` feature sets `LidAction=0` for its AC profile in `powerdevilrc`.
+  Closing the lid on battery still suspends.
 - logind, Steam and the units on `sleep.target` (such as `orei-switch.service`) see an ordinary suspend: logind still
   sends `PrepareForSleep`, and the sleep only ends when `systemd-suspend.service` does. The hooks in
   `/usr/lib/systemd/system-sleep` are skipped: SteamOS's only act on hibernate or with a flag file.
