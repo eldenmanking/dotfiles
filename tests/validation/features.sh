@@ -157,6 +157,7 @@ check_feature() {
 # Outputs: problems, one line per problem with OS $1 with profile $2.
 check_setup() {
   local os="$1" profile="$2" setup="$1/$2" problems="" earlier=" " feature k path found
+  # shellcheck disable=SC2034 # git_fsmonitor isn't read: asking for it checks every OS and profile returns it
   local features optional platforms gui os_machines link_paths git_fsmonitor
   f_call os_profile_config features optional platforms gui os_machines=machines link_paths git_fsmonitor -- \
     "$os" "$profile"

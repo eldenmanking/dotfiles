@@ -47,6 +47,16 @@ each_file() {
   return "$failed"
 }
 
+# Report the unused variables (shellcheck $1's SC2034) in the file that ends the remaining args, but UPPER_CASE
+# globals: other files read those, which shellcheck can't see since it checks one file at a time. .shellcheckrc turns
+# SC2034 off for that reason, so this pass ignores it (--norc); disable comments in the file still apply.
+unused_variables() {
+  local shellcheck="$1" found
+  shift
+  found="$("$shellcheck" --norc -i SC2034 -f gcc "$@" | grep -vE ': [A-Z][A-Z0-9_]* appears unused\.' || true)"
+  [[ -z "$found" ]] || { printf '%s\n' "$found"; return 1; }
+}
+
 python_syntax() {
   python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$1"
 }
@@ -79,6 +89,9 @@ main() {
   # Scripts with a shebang pick their dialect from it; sourced files have none.
   each_file "$sh$bash" "$shellcheck" || failed=1
   each_file "$sourced" "$shellcheck" -s bash || failed=1
+  info "shellcheck: unused variables (but UPPER_CASE globals)"
+  each_file "$sh$bash" unused_variables "$shellcheck" || failed=1
+  each_file "$sourced" unused_variables "$shellcheck" -s bash || failed=1
 
   if [[ -n "$(git ls-files .github/workflows)" ]]; then
     info "actionlint $ACTIONLINT_VERSION"

@@ -45,8 +45,8 @@ f_call() {
   done
 }
 
-# Return each name=value to the nearest f_call that asked for name; one that no caller asked for is dropped. Call it
-# again to replace a value. Each argument splits at its first =, which a name can't contain, so the value can hold
+# Return each name=value to the nearest f_call that asked for name; one that no caller asked for is dropped, so a
+# caller that needs none of fn's values calls fn directly. Call it again to replace a value. Each argument splits at its first =, which a name can't contain, so the value can hold
 # anything, = signs and newlines included, as long as it is quoted as one word. Values are strings: return a list as
 # space-separated words, as the OS configs do. A value of exactly F_NULL reads as not returned.
 # Usage: f_return name=value...

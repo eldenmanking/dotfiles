@@ -125,8 +125,7 @@ feature_webterm() {
 
 # Stop webterm and remove its units, their enable links, ttyd and the page it built. The URL token is kept.
 uninstall_feature_webterm() {
-  local removed
-  f_call uninstall_user_units removed -- --global "${WEBTERM_UNITS[@]}"
+  uninstall_user_units --global "${WEBTERM_UNITS[@]}"
   forget_across_steamos_updates webterm
   if [[ -e "$TTYD_BIN" ]]; then
     run rm -f "$TTYD_BIN"

@@ -39,7 +39,6 @@ feature_gamescope_screenshot() {
 
 # Stop the screenshot watch and remove its units and their enablement links. Screenshots already taken are kept.
 uninstall_feature_gamescope_screenshot() {
-  local removed
-  f_call uninstall_user_units removed -- --global "${GAMESCOPE_SCREENSHOT_UNITS[@]}"
+  uninstall_user_units --global "${GAMESCOPE_SCREENSHOT_UNITS[@]}"
   forget_across_steamos_updates gamescope_screenshot
 }

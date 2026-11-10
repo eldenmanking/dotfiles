@@ -53,7 +53,7 @@ install_framework_tool() {
 # @os steamos
 # @gui any
 feature_orei_switch() {
-  local entry mode src changed
+  local entry mode src
   # The default keep list covers the units, but not these files.
   keep_across_steamos_updates orei_switch $(orei_switch_paths) \
     $(unit_keep_paths "$SYSTEM_UNITS_DIR" "$DOTFILES_ROOT/$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS)
@@ -62,14 +62,13 @@ feature_orei_switch() {
     read -r mode src <<<"$entry"
     copy_system_file "$mode" "$src"
   done
-  f_call install_system_units changed -- --no-start "$DOTFILES_ROOT/$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS
+  install_system_units --no-start "$DOTFILES_ROOT/$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS
   info "Keep the charger on a right-side port: sleep cuts power to ports 2 and 3. Logs: journalctl -t orei-switch -b"
 }
 
 # Disable and remove the units, then the installed files.
 uninstall_feature_orei_switch() {
-  local removed
-  f_call uninstall_system_units removed -- $OREI_SWITCH_UNITS
+  uninstall_system_units $OREI_SWITCH_UNITS
   remove_system_files $(orei_switch_paths)
   forget_across_steamos_updates orei_switch
 }
