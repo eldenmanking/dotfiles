@@ -182,7 +182,8 @@ uninstall_feature_steamos_arch_vm() {
   if arch_vm_defined; then
     # A running VM must be stopped first; destroy fails harmlessly when it is already off.
     run arch_vm_boxes virsh destroy "$ARCH_VM_NAME" &>/dev/null || true
-    run arch_vm_boxes virsh undefine --nvram "$ARCH_VM_NAME"
+    # Boxes saves a VM's state when it closes; --managed-save drops that too, or undefine refuses.
+    run arch_vm_boxes virsh undefine --nvram --managed-save "$ARCH_VM_NAME"
   fi
   run rm -f "$ARCH_VM_TARGET" "$ARCH_VM_XML" "$ARCH_VM_NVRAM"
 }
