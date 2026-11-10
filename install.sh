@@ -65,7 +65,8 @@ clone_checkout_to_root() {
 load_install_deps() {
   local f
   for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
-    "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh; do
+    "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh \
+    "$INSTALL_DIR"/oti/*.sh; do
     # shellcheck source=/dev/null
     source "$f"
   done
@@ -84,6 +85,7 @@ usage() {
   local os="$1" profile="$2" machine="${3:-generic}" v features optional other="" uninstallable=""
   cat <<EOF
 Usage: $(basename "$0") [--variant NAME | --os NAME --profile NAME] [--machine NAME] [--infer] [OPTIONS]
+       $(basename "$0") --oti NAME [--dry-run]
 
 dotfiles installation and configuration script. All operations are idempotent.
 An install is for an OS, a profile (how the machine is used) and a machine
@@ -93,6 +95,9 @@ system. Run with them and --help to list their options. Without them,
 DOTFILES_VARIANT, DOTFILES_OS, DOTFILES_PROFILE and DOTFILES_MACHINE name
 them; without options, DOTFILES_FEATURES lists them (feature names, or all
 for --all). Set them in the environment or in $INSTALL_CONFIG.
+--oti runs a one-time install instead, which sets up a machine once (e.g.
+installing Arch from its live ISO): it asks its questions up front, prints
+each command it runs, resumes where an earlier run stopped, and can't be undone.
 See README.md for more information.
 
 Variants:
@@ -110,6 +115,11 @@ EOF
   for v in $(available_names profiles); do
     f_write_args profile_config _description -- "$v"
     printf '  %-10s %s\n' "$v" "$_description"
+  done
+  printf '\nOne-time installs (--oti NAME):\n'
+  for v in $(available_names oti); do
+    f_write_args oti_config _description -- "$v"
+    printf '  %-12s %s\n' "$v" "$_description"
   done
   os_supports_profile "$os" "$profile" || return 0
 
@@ -170,12 +180,14 @@ usage_error() {
 
 parse_args() {
   local variant="" os="" profile="" machine="" infer=false flags=" " mode=install all=false dry_run=false help=false
+  local oti=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --variant|--os|--profile|--machine)
+      --variant|--os|--profile|--machine|--oti)
         [[ $# -ge 2 ]] || usage_error "$1 requires a value"
         case "$1" in
+          --oti)     oti="$2" ;;
           --variant) variant="$2" ;;
           --os)      os="$2" ;;
           --profile) profile="$2" ;;
@@ -187,6 +199,7 @@ parse_args() {
       --os=*)      os="${1#--os=}"; shift ;;
       --profile=*) profile="${1#--profile=}"; shift ;;
       --machine=*) machine="${1#--machine=}"; shift ;;
+      --oti=*)     oti="${1#--oti=}"; shift ;;
       --infer)     infer=true; shift ;;
       --all)       all=true; shift ;;
       --dry-run)   dry_run=true; shift ;;
@@ -212,6 +225,7 @@ parse_args() {
   _all="$all"
   _dry_run="$dry_run"
   _help="$help"
+  _oti="$oti"
 }
 
 # Outputs: _default_variant, _default_os, _default_profile, _default_machine and _default_features, from
@@ -370,6 +384,21 @@ resolve_features() {
   _enabled="$enabled"
 }
 
+# Run one-time install $1 and exit, after checking that nothing else was asked for: --oti can't be combined with a
+# variant, OS, profile, machine, --infer ($2, a list of those given), features or --all ($3, $4), or --reinstall or
+# --uninstall ($5). --help ($6) prints the usage instead. Defaults from the environment and install.conf don't apply.
+run_oti_and_exit() {
+  local oti="$1" dimensions="$2" flags="$3" all="$4" mode="$5" help="$6"
+  ! $help || { usage; exit 0; }
+  oti_exists "$oti" || usage_error "Unknown one-time install '$oti'. Available: $(available_names oti)"
+  [[ -z "$dimensions" ]] || usage_error "--oti can't be combined with$dimensions"
+  [[ "$flags" == " " && "$all" == false ]] || usage_error "--oti can't be combined with features or --all"
+  [[ "$mode" == install ]] || usage_error "--oti can't be undone, so it takes no --$mode"
+  enter_dotfiles_root
+  run_oti "$oti"
+  exit 0
+}
+
 # Print why install.sh in $1 can't install from $2, or nothing if it can. Everything it links points into $2, so it
 # must run from that checkout ($2 may be a symlink to it), and the checkout must be named dotfiles, which the startup
 # files and lint (.shellcheckrc) rely on.
@@ -440,8 +469,12 @@ main() {
   load_install_deps
 
   local os profile machine default_os default_profile
-  f_write_args parse_args _variant _os _profile _machine _infer _flags _mode _all _dry_run _help -- "$@"
+  f_write_args parse_args _variant _os _profile _machine _infer _flags _mode _all _dry_run _help _oti -- "$@"
   readonly DRY_RUN="$_dry_run"
+  if [[ -n "$_oti" ]]; then
+    run_oti_and_exit "$_oti" "${_variant:+ --variant}${_os:+ --os}${_profile:+ --profile}${_machine:+ --machine}$(
+      $_infer && echo ' --infer')" "$_flags" "$_all" "$_mode" "$_help"
+  fi
   f_write_args variant_dimensions _os _profile -- "$_variant" "$_os" "$_profile"
   os="$_os"
   profile="$_profile"

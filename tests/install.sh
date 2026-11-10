@@ -77,7 +77,7 @@ with_install_loaded() {
     set +u
     INSTALL_DIR="$REPO_ROOT/install"
     for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
-      "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh; do
+      "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh "$INSTALL_DIR"/oti/*.sh; do
       # shellcheck source=/dev/null
       source "$f"
     done
@@ -132,12 +132,6 @@ repo_status() {
   git -C "$REPO_ROOT" status --porcelain --untracked-files=all --ignored
 }
 
-# Print the setup variant $1 stands for, as os/profile.
-print_variant_setup() {
-  variant_config "$1"
-  printf '%s/%s' "$_os" "$_profile"
-}
-
 # Print every OS and profile that go together, as os/profile.
 print_all_setups() {
   local os profile setups=""
@@ -155,9 +149,7 @@ test_usage() {
   new_home
   install_ok "$_home" || true
   for variant in $variants; do
-    setup_info "$(with_install_loaded print_variant_setup "$variant")"
-    install_ok "$_home" --variant "$variant" --help \
-      && check "  ...lists --${_features%% *}" grep -q -- "--${_features%% *} " "$LOG"
+    install_ok "$_home" --variant "$variant" --help && check "  ...lists --link" grep -q -- '--link' "$LOG"
   done
   install_refused "$_home" --variant nope
   install_refused "$_home" --variant coder --nope
@@ -486,10 +478,6 @@ check_shells_load() {
 test_install() {
   local setup="$1" flags=(--os "${1%/*}" --profile "${1#*/}" --link --gitconfig) managed=false repo_before first
   setup_info "$setup"
-  if ! list_contains "$_features" link; then
-    info "$setup: no real install (it has no --link)"
-    return
-  fi
   case " $_link_paths" in
     *" root/"*)
       info "$setup: no real install (its links include root/, which needs sudo)"
@@ -574,33 +562,90 @@ test_infer() {
      [[ "$_id:$_id_like" == steamos:arch ]]' sh "$REPO_ROOT" "$os_release"
 }
 
-# Check that a function of install/features/archiso.sh, run with the remaining args, prints $1.
-archiso_prints() {
+# Check that a function of install/oti/arch-chroot.sh, run with the remaining args, prints $1.
+arch_chroot_prints() {
   local expected="$1" got
   shift
-  # shellcheck source=../install/features/archiso.sh
-  got="$(source "$REPO_ROOT/install/features/archiso.sh" && "$@")"
+  # shellcheck source=../install/oti/arch-chroot.sh
+  got="$(source "$REPO_ROOT/install/lib/fn.sh" && source "$REPO_ROOT/install/oti/arch-chroot.sh" && "$@")"
   if [[ "$got" == "$expected" ]]; then pass "$* -> $expected"; else fail "$* -> '$got', expected '$expected'"; fi
 }
 
-# The pure helpers of the archiso features: partition names, the microcode package, /etc/hosts and shadow passwords.
-test_archiso() {
-  local shadow_file="$SCRATCH/shadow"
-  info "archiso: partition names, microcode, hosts and passwords"
-  archiso_prints /dev/vda1 archiso_partition /dev/vda 1
-  archiso_prints /dev/sdb2 archiso_partition /dev/sdb 2
-  archiso_prints /dev/nvme0n1p2 archiso_partition /dev/nvme0n1 2
-  archiso_prints /dev/mmcblk0p1 archiso_partition /dev/mmcblk0 1
-  archiso_prints amd-ucode archiso_ucode AuthenticAMD
-  archiso_prints intel-ucode archiso_ucode GenuineIntel
-  archiso_prints "" archiso_ucode ""
-  archiso_prints $'127.0.0.1 localhost\n::1 localhost\n127.0.1.1 box' archiso_hosts box
-  printf '%s\n' 'root:*:19000::::::' 'locked:!:19000::::::' 'me:$6$salt$hash:19000::::::' 'empty::19000::::::' > "$shadow_file"
-  check "archiso_has_password: a hash counts" bash -c \
-    'source "$1/install/features/archiso.sh" && archiso_has_password "$2" me' sh "$REPO_ROOT" "$shadow_file"
-  check "archiso_has_password: *, !, empty and missing don't" bash -c \
-    'source "$1/install/features/archiso.sh" && ! archiso_has_password "$2" root && ! archiso_has_password "$2" locked &&
-     ! archiso_has_password "$2" empty && ! archiso_has_password "$2" nobody' sh "$REPO_ROOT" "$shadow_file"
+# Check that a function of install/oti/arch-chroot.sh, run with the remaining args, returns $1 (0 or 1).
+arch_chroot_returns() {
+  local expected="$1" got=0
+  shift
+  (source "$REPO_ROOT/install/lib/fn.sh" && source "$REPO_ROOT/install/oti/arch-chroot.sh" && "$@") || got=1
+  if [[ "$got" == "$expected" ]]; then pass "$* returns $expected"; else fail "$* returns $got, expected $expected"; fi
+}
+
+# Return 0 if arch_chroot_packages for CPU vendor $1 and swap $2 includes package $3.
+packages_include() {
+  list_contains "$(arch_chroot_packages "$1" "$2")" "$3"
+}
+
+# One-time installs: --oti is refused with anything else and can't be undone; arch-chroot's --dry-run prints every
+# command without touching the home; and its pure helpers.
+test_oti() {
+  local dir="$SCRATCH/oti" before
+  info "one-time installs"
+  new_home
+  install_ok "$_home" --help && check "  ...lists --oti arch-chroot" grep -q '^  arch-chroot ' "$LOG"
+  install_refused "$_home" --oti nope
+  install_refused "$_home" --oti arch-chroot --variant arch
+  install_refused "$_home" --oti arch-chroot --infer
+  install_refused "$_home" --oti arch-chroot --all
+  install_refused "$_home" --oti arch-chroot --uninstall
+
+  before="$(snapshot "$_home")"
+  if env -i HOME="$_home" PATH="$PATH" TERM=dumb DOTFILES_ARCH_DISK=/dev/nvme0n1 DOTFILES_ARCH_USER=tester \
+    DOTFILES_ARCH_SWAP=zram "$INSTALL_BASH" "$_home/dotfiles/install.sh" --oti arch-chroot --dry-run \
+    </dev/null >"$LOG" 2>&1; then
+    pass "install.sh --oti arch-chroot --dry-run"
+  else
+    fail "install.sh --oti arch-chroot --dry-run"
+    sed 's/^/       | /' "$LOG" >&2
+  fi
+  check "  ...partitions the disk" grep -q 'sfdisk --quiet /dev/nvme0n1 <<' "$LOG"
+  check "  ...formats nvme0n1p2" grep -q 'mkfs.btrfs --force --quiet /dev/nvme0n1p2$' "$LOG"
+  check "  ...pacstraps with zram-generator" grep -q 'pacstrap -K /mnt --needed base .*zram-generator' "$LOG"
+  check "  ...installs GRUB at the fallback path" grep -q 'grub-install .*--removable$' "$LOG"
+  check "  ...clones dotfiles for the user" grep -q 'clone .* /mnt/home/tester/dotfiles$' "$LOG"
+  check_unchanged "  ...home unchanged" "$before" "$(snapshot "$_home")"
+
+  arch_chroot_prints /dev/vda1 arch_chroot_partition /dev/vda 1
+  arch_chroot_prints /dev/nvme0n1p2 arch_chroot_partition /dev/nvme0n1 2
+  arch_chroot_prints /dev/mmcblk0p1 arch_chroot_partition /dev/mmcblk0 1
+  arch_chroot_returns 0 packages_include AuthenticAMD none amd-ucode
+  arch_chroot_returns 0 packages_include GenuineIntel zram intel-ucode
+  arch_chroot_returns 0 packages_include GenuineIntel zram zram-generator
+  arch_chroot_returns 1 packages_include "" none zram-generator
+  arch_chroot_prints $'127.0.0.1 localhost\n::1 localhost\n127.0.1.1 box' arch_chroot_hosts box
+  arch_chroot_returns 0 arch_chroot_valid_hostname my-box1
+  arch_chroot_returns 1 arch_chroot_valid_hostname -box
+  arch_chroot_returns 0 arch_chroot_valid_user tester
+  arch_chroot_returns 1 arch_chroot_valid_user root
+  arch_chroot_returns 1 arch_chroot_valid_user Tester
+  arch_chroot_returns 0 arch_chroot_valid_swap zram
+  arch_chroot_returns 1 arch_chroot_valid_swap file
+
+  mkdir -p "$dir/zoneinfo/America" "$dir/keymaps/i386/qwerty"
+  touch "$dir/zoneinfo/America/New_York" "$dir/keymaps/i386/qwerty/us.map.gz"
+  printf '%s\n' 'en_US.UTF-8 UTF-8' 'en_US ISO-8859-1' > "$dir/SUPPORTED"
+  printf '%s\n' 'root:*:19000::::::' 'locked:!:19000::::::' 'me:$6$salt$hash:19000::::::' 'empty::19000::::::' \
+    > "$dir/shadow"
+  arch_chroot_returns 0 arch_chroot_valid_timezone America/New_York "$dir/zoneinfo"
+  arch_chroot_returns 1 arch_chroot_valid_timezone America/Nowhere "$dir/zoneinfo"
+  arch_chroot_returns 1 arch_chroot_valid_timezone ../shadow "$dir/zoneinfo"
+  arch_chroot_returns 0 arch_chroot_valid_locale en_US.UTF-8 "$dir/SUPPORTED"
+  arch_chroot_returns 1 arch_chroot_valid_locale en_GB.UTF-8 "$dir/SUPPORTED"
+  arch_chroot_returns 0 arch_chroot_valid_keymap us "$dir/keymaps"
+  arch_chroot_returns 1 arch_chroot_valid_keymap xx "$dir/keymaps"
+  arch_chroot_returns 0 arch_chroot_has_password "$dir/shadow" me
+  arch_chroot_returns 1 arch_chroot_has_password "$dir/shadow" root
+  arch_chroot_returns 1 arch_chroot_has_password "$dir/shadow" locked
+  arch_chroot_returns 1 arch_chroot_has_password "$dir/shadow" empty
+  arch_chroot_returns 1 arch_chroot_has_password "$dir/shadow" nobody
 }
 
 # --machine picks the hardware, which decides whether --all includes features for specific hardware; --infer fills in
@@ -730,7 +775,7 @@ main() {
     test_install "$setup"
   done
   test_infer
-  test_archiso
+  test_oti
   test_machine
   test_steam
   test_download_cache
