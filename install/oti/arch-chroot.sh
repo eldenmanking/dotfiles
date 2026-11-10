@@ -6,7 +6,7 @@
 #
 # Every setting is asked for up front, and checked against the live ISO, unless set in the environment:
 #   DOTFILES_ARCH_DISK: the disk to install onto, e.g. /dev/vda (erased unless an earlier run laid it out)
-#   DOTFILES_ARCH_TIMEZONE (UTC), DOTFILES_ARCH_LOCALE (en_US.UTF-8), DOTFILES_ARCH_KEYMAP (us)
+#   DOTFILES_ARCH_TIMEZONE (America/New_York), DOTFILES_ARCH_LOCALE (en_US.UTF-8), DOTFILES_ARCH_KEYMAP (us)
 #   DOTFILES_ARCH_HOSTNAME (arch), DOTFILES_ARCH_USER: the new system's hostname and user (in wheel, with sudo)
 #   DOTFILES_ARCH_SWAP (none): none, or zram for compressed swap in RAM
 # Passwords are always typed. Settings and passwords an earlier run left in /mnt aren't asked again.
@@ -407,7 +407,7 @@ oti_arch_chroot() {
   [[ -n "$disk" ]] || $DRY_RUN || lsblk -d -o NAME,SIZE,MODEL,SERIAL,TYPE
   disk="$(arch_chroot_ask DOTFILES_ARCH_DISK "$disk" "Disk to install onto (e.g. /dev/vda)" "" \
     "not a whole disk, or something on it is mounted (the live medium?)" arch_chroot_valid_disk)" || return 1
-  timezone="$(arch_chroot_ask DOTFILES_ARCH_TIMEZONE "$timezone" "Time zone (e.g. America/New_York)" UTC \
+  timezone="$(arch_chroot_ask DOTFILES_ARCH_TIMEZONE "$timezone" "Time zone (e.g. Europe/London)" America/New_York \
     "no such time zone under $ARCH_CHROOT_ZONEINFO" arch_chroot_valid_timezone "$ARCH_CHROOT_ZONEINFO")" || return 1
   locale="$(arch_chroot_ask DOTFILES_ARCH_LOCALE "$locale" "Locale" en_US.UTF-8 \
     "not a locale in $ARCH_CHROOT_LOCALES" arch_chroot_valid_locale "$ARCH_CHROOT_LOCALES")" || return 1

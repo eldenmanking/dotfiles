@@ -327,7 +327,7 @@ It first checks that it runs as root on the live ISO, booted in UEFI mode, at a 
 | Question | Environment | Default | Checked |
 |---|---|---|---|
 | Disk to install onto | `DOTFILES_ARCH_DISK` | | a whole disk with nothing mounted (so not the live medium) |
-| Time zone | `DOTFILES_ARCH_TIMEZONE` | `UTC` | under `/usr/share/zoneinfo` |
+| Time zone | `DOTFILES_ARCH_TIMEZONE` | `America/New_York` | under `/usr/share/zoneinfo` |
 | Locale | `DOTFILES_ARCH_LOCALE` | `en_US.UTF-8` | in `/usr/share/i18n/SUPPORTED` |
 | Console keymap | `DOTFILES_ARCH_KEYMAP` | `us` | under `/usr/share/kbd/keymaps` |
 | Hostname | `DOTFILES_ARCH_HOSTNAME` | `arch` | a valid host name |
