@@ -51,7 +51,9 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   suspend (gamescope and KWin both do), so light-sleep freezes `user.slice`, as `systemd-sleep` does, and waits. In
   Desktop Mode it first runs `kscreen-doctor --dpms off` as `deck`: when `orei-switch` cuts PD 1, the projector's
   output vanishes and KWin lights the laptop panel, which would then stay lit all sleep. This runs after the PD cut, as
-  `orei-switch` is ordered before `systemd-suspend.service`. Switching VT is not just unneeded but harmful: with KWin it
+  `orei-switch` is ordered before `systemd-suspend.service`. KWin applies the request about a second after
+  `kscreen-doctor` returns, so it waits (up to 3 s) for the connectors to report off before freezing, which stops KWin;
+  frozen straight after the call, the panel stayed lit. Switching VT is not just unneeded but harmful: with KWin it
   lights the display up again.
 - **Wake:** on a key press on a keyboard, or the power button. Each has an `evtest --grab`, so the press reaches
   nothing else; without the grab, the frozen session's input queues would deliver it on thaw, and Steam would suspend
