@@ -6,13 +6,13 @@ detect_os_arch() {
   os="$(uname -s)"
   arch="$(uname -m)"
   case "$os" in
-    Linux)  _os=linux ;;
-    Darwin) _os=macos ;;
+    Linux)  f_return os=linux ;;
+    Darwin) f_return os=macos ;;
     *)      error "Unsupported OS: $os" ;;
   esac
   case "$arch" in
-    x86_64)        _arch=x86_64 ;;
-    aarch64|arm64) _arch=arm64 ;;
+    x86_64)        f_return arch=x86_64 ;;
+    aarch64|arm64) f_return arch=arm64 ;;
     *)             error "Unsupported architecture: $arch" ;;
   esac
 }

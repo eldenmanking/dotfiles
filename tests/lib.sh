@@ -22,29 +22,30 @@ sha256_of() {
   fi
 }
 
-# Outputs: _url and _sha256 of the release archive of pinned tool $1 (shellcheck or actionlint) for os $2, arch $3.
+# Outputs: url and sha256 of the release archive of pinned tool $1 (shellcheck or actionlint) for os $2, arch $3.
 tool_release() {
-  local tool="$1" os="$2" arch="$3" version sha_var sc_os sc_arch al_arch
+  local tool="$1" os="$2" arch="$3" version sha_var sc_os sc_arch al_arch url sha256
   case "$os" in linux) sc_os=linux ;; macos) sc_os=darwin ;; esac
   case "$arch" in x86_64) sc_arch=x86_64 al_arch=amd64 ;; arm64) sc_arch=aarch64 al_arch=arm64 ;; esac
   case "$tool" in
     shellcheck)
       version="$SHELLCHECK_VERSION"
       sha_var="SHELLCHECK_SHA256_${os}_${arch}"
-      _url="https://github.com/koalaman/shellcheck/releases/download/v$version/shellcheck-v$version.$sc_os.$sc_arch.tar.xz"
+      url="https://github.com/koalaman/shellcheck/releases/download/v$version/shellcheck-v$version.$sc_os.$sc_arch.tar.xz"
       ;;
     actionlint)
       version="$ACTIONLINT_VERSION"
       sha_var="ACTIONLINT_SHA256_${os}_${arch}"
-      _url="https://github.com/rhysd/actionlint/releases/download/v$version/actionlint_${version}_${sc_os}_$al_arch.tar.gz"
+      url="https://github.com/rhysd/actionlint/releases/download/v$version/actionlint_${version}_${sc_os}_$al_arch.tar.gz"
       ;;
     *) error "tool_release: unknown tool '$tool'" ;;
   esac
-  _sha256="${!sha_var:-}"
-  [[ -n "$_sha256" ]] || error "tool_release: no checksum for $tool on $os-$arch in tests/versions.env"
+  sha256="${!sha_var:-}"
+  [[ -n "$sha256" ]] || error "tool_release: no checksum for $tool on $os-$arch in tests/versions.env"
+  f_return url="$url" sha256="$sha256"
 }
 
-# Outputs: _path, the pinned tool $1, downloaded and checksummed into TOOLS_CACHE on first use.
+# Outputs: path, the pinned tool $1, downloaded and checksummed into TOOLS_CACHE on first use.
 pinned_tool() {
   local tool="$1" version_var dir bin tmp os arch url sha256
   version_var="$(printf '%s' "$tool" | tr '[:lower:]' '[:upper:]')_VERSION"
@@ -62,7 +63,7 @@ pinned_tool() {
     mv "$(find "$tmp" -type f -name "$tool" | head -1)" "$bin"
     rm -rf "$tmp"
   fi
-  _path="$bin"
+  f_return path="$bin"
 }
 
 # Return 0 if command $1 exists. Otherwise warn that check $2 is skipped and return 1, or fail under CI, where every

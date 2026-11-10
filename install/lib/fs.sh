@@ -65,7 +65,7 @@ remove_system_files() {
 
 # Copy each file in $src_dir matching $glob into $dst_dir with sudo, replacing
 # any old symlink. For system files read at boot, before an encrypted home is
-# mounted, where a symlink into ~ would dangle. Outputs: _changed, the
+# mounted, where a symlink into ~ would dangle. Outputs: changed, the
 # space-separated targets that were copied (empty if all were up to date).
 # Usage: f_call copy_system_files changed -- <src_dir> <dst_dir> <glob>
 copy_system_files() {
@@ -82,7 +82,7 @@ copy_system_files() {
     run sudo install -Dvm 644 "$file" "$target"
     changed+="${changed:+ }$target"
   done
-  _changed="$changed"
+  f_return changed="$changed"
 }
 
 # Print the paths that copy_system_files would copy each file in $1 matching $2 to in $3, one per line.

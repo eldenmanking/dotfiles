@@ -11,12 +11,10 @@ KDE_CONFIG_FILES=(
 # Resolve the kwriteconfig/kreadconfig pair for the installed Plasma (6, else 5), or empty when neither exists.
 kde_config_tools() {
   local v
-  _write=""
-  _read=""
+  f_return write="" read=""
   for v in 6 5; do
     if command -v "kwriteconfig$v" >/dev/null && command -v "kreadconfig$v" >/dev/null; then
-      _write="kwriteconfig$v"
-      _read="kreadconfig$v"
+      f_return write="kwriteconfig$v" read="kreadconfig$v"
       return
     fi
   done
@@ -42,7 +40,7 @@ kde_parse_ini() {
         ;;
     esac
   done < "$file"
-  _entries="$entries"
+  f_return entries="$entries"
 }
 
 # Merge each partial KDE config file in KDE_CONFIG_FILES into its ~/.config counterpart with kwriteconfig.
@@ -52,7 +50,7 @@ kde_parse_ini() {
 # @gui kde
 feature_kde() {
   local writer reader rel file entries group key value rest group_args
-  f_call kde_config_tools writer=_write reader=_read
+  f_call kde_config_tools writer=write reader=read
   if [[ -z "$writer" ]]; then
     warn "kwriteconfig not found, skipping KDE settings."
     return

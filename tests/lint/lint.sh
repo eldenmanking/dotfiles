@@ -12,7 +12,7 @@ tracked_files() {
   git ls-files -s -- "$@" | awk -F '\t' '$1 !~ /^120000 / { print $2 }'
 }
 
-# Outputs: _sh, _bash, _sourced, _zsh and _python, newline-separated tracked files of each language. Files under
+# Outputs: sh, bash, sourced, zsh and python, newline-separated tracked files of each language. Files under
 # install/ without a shebang are sourced by install.sh, and fixtures' case.sh by tests/fixtures.sh, so they are bash.
 classify_files() {
   local sh="" bash="" sourced="" zsh="" python="" file first
@@ -33,11 +33,7 @@ classify_files() {
         ;;
     esac
   done < <(cd "$REPO_ROOT" && tracked_files)
-  _sh="$sh"
-  _bash="$bash"
-  _sourced="$sourced"
-  _zsh="$zsh"
-  _python="$python"
+  f_return sh="$sh" bash="$bash" sourced="$sourced" zsh="$zsh" python="$python"
 }
 
 # Run "$@" <file> for each file in newline-separated list $1, reporting each failure. Returns 1 if any failed.
@@ -79,14 +75,14 @@ main() {
   fi
 
   info "shellcheck $SHELLCHECK_VERSION"
-  f_call pinned_tool shellcheck=_path -- shellcheck
+  f_call pinned_tool shellcheck=path -- shellcheck
   # Scripts with a shebang pick their dialect from it; sourced files have none.
   each_file "$sh$bash" "$shellcheck" || failed=1
   each_file "$sourced" "$shellcheck" -s bash || failed=1
 
   if [[ -n "$(git ls-files .github/workflows)" ]]; then
     info "actionlint $ACTIONLINT_VERSION"
-    f_call pinned_tool actionlint=_path -- actionlint
+    f_call pinned_tool actionlint=path -- actionlint
     "$actionlint" -shellcheck "$shellcheck" || failed=1
   fi
 

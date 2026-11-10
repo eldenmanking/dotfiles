@@ -19,8 +19,8 @@ TTYD_BIN="$LOCAL_BIN/ttyd"
 # Pinned static ttyd release asset and its SHA-256 for this machine.
 ttyd_asset() {
   case "$(uname -m)" in
-    x86_64)  _asset=ttyd.x86_64  _sha256=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55 ;;
-    aarch64) _asset=ttyd.aarch64 _sha256=b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165 ;;
+    x86_64)  f_return asset=ttyd.x86_64  sha256=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55 ;;
+    aarch64) f_return asset=ttyd.aarch64 sha256=b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165 ;;
     *)       error "no ttyd build pinned for $(uname -m)" ;;
   esac
 }

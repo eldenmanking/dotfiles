@@ -48,7 +48,7 @@ FEATURE_MACHINES="any laptop framework16"
 FEATURE_OSES="any linux macos arch steamos"
 FEATURE_GUIS="any desktop gnome kde"
 
-# Outputs: _doc, the comment block directly above feature $1's feature_<name> function in install/features, with
+# Outputs: doc, the comment block directly above feature $1's feature_<name> function in install/features, with
 # each line's leading '#' and one space removed. A feature's doc is a description, a bare '#' line, then its tags:
 #   # Install the thing for x.
 #   #
@@ -69,19 +69,19 @@ feature_doc() {
     index($0, fn "()") == 1 { printf "%s", block; exit }
     { block = "" }
   ' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
-  _doc="$doc"
+  f_return doc="$doc"
 }
 
 # Where feature $1 works and which features it needs, read from the tags in its doc (see feature_doc). Outputs
 # (space-separated lists, empty when the tag is missing):
-#  _machine: @machine, hardware it is for: any, laptop, framework16. Features for specific hardware live in
+#  machine: @machine, hardware it is for: any, laptop, framework16. Features for specific hardware live in
 #             install/features/<os>_<machine>/ and are left out of --all on other machines (see machine_supported)
-#  _os: @os, any, linux, macos, arch, steamos (linux covers arch and steamos)
-#  _gui: @gui, any (also headless), desktop (any graphical session), gnome, kde
-#  _requires: @requires (optional), features that must run before it in the same OS and profile
-# Each OS sets the _platforms (@os values) and each OS and profile the _gui it targets; tests/validation/features.sh
+#  os: @os, any, linux, macos, arch, steamos (linux covers arch and steamos)
+#  gui: @gui, any (also headless), desktop (any graphical session), gnome, kde
+#  requires: @requires (optional), features that must run before it in the same OS and profile
+# Each OS returns the platforms (@os values) and each OS and profile the gui it targets; tests/validation/features.sh
 # requires the description and tags on every feature, checks the features of every OS and profile against them and
-# that each feature's _requires come earlier in its _features.
+# that each feature's requires come earlier in its features.
 feature_requirements() {
   local line machine="" os="" gui="" requires="" doc
   f_call feature_doc doc -- "$1"
@@ -93,13 +93,10 @@ feature_requirements() {
       "@requires "*) requires="${line#@requires }" ;;
     esac
   done <<< "$doc"
-  _machine="$machine"
-  _os="$os"
-  _gui="$gui"
-  _requires="$requires"
+  f_return machine="$machine" os="$os" gui="$gui" requires="$requires"
 }
 
-# Return 0 if a feature for OSes $1 works on platform $2 (one of an OS's _platforms).
+# Return 0 if a feature for OSes $1 works on platform $2 (one of an OS's platforms).
 os_supported() {
   list_contains "$1" any || list_contains "$1" "$2" \
     || { list_contains "$1" linux && list_contains "arch steamos" "$2"; }
@@ -174,28 +171,28 @@ os_profiles() {
   printf '%s' "$profiles"
 }
 
-# Call variant_<name>, which sets _os and _profile, the OS and profile it stands for.
+# Call variant_<name>, which returns os and profile, the OS and profile it stands for.
 variant_config() {
   variant_exists "$1" || error "Unknown variant '$1'"
   "variant_$1"
 }
 
-# Call os_<name>, which sets _description, _platforms (the @os values its features must suit) and _machines (the
+# Call os_<name>, which returns description, platforms (the @os values its features must suit) and machines (the
 # machines it supports, from MACHINES).
 os_config() {
   os_exists "$1" || error "Unknown OS '$1'"
   "os_$1"
 }
 
-# Call profile_<name>, which sets _description and _git_fsmonitor.
+# Call profile_<name>, which returns description and git_fsmonitor.
 profile_config() {
   profile_exists "$1" || error "Unknown profile '$1'"
   "profile_$1"
 }
 
-# Outputs the config of OS $1 with profile $2: os_config's and profile_config's outputs (_description is the OS's),
-# then os_<os>_<profile>'s: _features (in the order they run), _optional (the ones --all skips), _gui (the GUI they
-# target, none for headless) and _link_paths (what the link feature links).
+# Outputs the config of OS $1 with profile $2: os_config's and profile_config's outputs (description is the OS's),
+# then os_<os>_<profile>'s: features (in the order they run), optional (the ones --all skips), gui (the GUI they
+# target, none for headless) and link_paths (what the link feature links).
 os_profile_config() {
   os_supports_profile "$1" "$2" || error "OS '$1' has no profile '$2'"
   "profile_$2"

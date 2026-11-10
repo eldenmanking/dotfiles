@@ -25,7 +25,7 @@ steam_vdf_replace() {
   '
 }
 
-# Outputs: _content, localconfig.vdf $1 with every STEAM_SETTINGS value replaced, and _missing, the space-separated
+# Outputs: content, localconfig.vdf $1 with every STEAM_SETTINGS value replaced, and missing, the space-separated
 # keys it lacks.
 # Usage: f_call steam_apply_settings content missing -- <file>
 steam_apply_settings() {
@@ -35,8 +35,7 @@ steam_apply_settings() {
     IFS='|' read -r key value <<< "$entry"
     content="$(steam_vdf_replace "$key" "$value" <<< "$content")" || missing+="${missing:+ }$key"
   done
-  _content="$content"
-  _missing="$missing"
+  f_return content="$content" missing="$missing"
 }
 
 # Replace the STEAM_SETTINGS values in each Steam user's localconfig.vdf. Only keys Steam already wrote are replaced,

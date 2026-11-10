@@ -68,7 +68,7 @@ link_dotfile() {
   esac
 }
 
-# Symlink the OS and profile's _link_paths: home/ into $HOME and root/ into / (with sudo).
+# Symlink the OS and profile's link_paths: home/ into $HOME and root/ into / (with sudo).
 #
 # @machine any
 # @os any

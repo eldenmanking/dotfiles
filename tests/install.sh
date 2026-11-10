@@ -35,12 +35,12 @@ check() {
   if "$@"; then pass "$description"; else fail "$description"; fi
 }
 
-# Outputs: _home, a new scratch home holding a dotfiles symlink to this checkout, as install.sh requires.
+# Outputs: home, a new scratch home holding a dotfiles symlink to this checkout, as install.sh requires.
 new_home() {
   local home
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
   ln -s "$REPO_ROOT" "$home/dotfiles"
-  _home="$home"
+  f_return home="$home"
 }
 
 # Run install.sh with home $1 and the remaining args, in a clean environment with no terminal. Its output goes to
@@ -92,15 +92,14 @@ print_setup_info() {
   printf '%s\n%s\n%s\n' "$features" "$link_paths" "$DRY_RUN_FEATURES"
 }
 
-# Outputs: _features and _link_paths of setup $1 (os/profile), read from its definition the same way install.sh does,
-# and _dry_run_features, the features that honor --dry-run (install.sh only announces the others).
+# Outputs: features and link_paths of setup $1 (os/profile), read from its definition the same way install.sh does,
+# and dry_run_features, the features that honor --dry-run (install.sh only announces the others).
 setup_info() {
   local out
   out="$(with_install_loaded print_setup_info "${1%/*}" "${1#*/}")"
-  _features="${out%%$'\n'*}"
+  f_return features="${out%%$'\n'*}"
   out="${out#*$'\n'}"
-  _link_paths="${out%%$'\n'*}"
-  _dry_run_features="${out#*$'\n'}"
+  f_return link_paths="${out%%$'\n'*}" dry_run_features="${out#*$'\n'}"
 }
 
 # Print one line per entry under home $1 (outside dotfiles): its type, path, and symlink target or checksum.
@@ -415,7 +414,7 @@ test_checkout_location() {
 # --dry-run must succeed and leave the home untouched, for install, reinstall and uninstall.
 test_dry_run() {
   local setup="$1" flags=() feature mode before skipped="" announced="" features honor_dry_run
-  f_call setup_info features honor_dry_run=_dry_run_features -- "$setup"
+  f_call setup_info features honor_dry_run=dry_run_features -- "$setup"
   for feature in $features; do
     if list_contains "$DRY_RUN_SKIP" "$feature"; then
       skipped+=" $feature"
@@ -648,30 +647,38 @@ test_steam() {
 }
 
 # Run bash snippet $1 under INSTALL_BASH with install/lib/output.sh and fn.sh loaded and these test functions defined:
-# pair sets _a and _b, nested sets _a itself after an f_call of pair, and half sets only _a. Its output goes to LOG.
+# pair returns a and b, nested returns a after an f_call of pair, half returns only a, and tricky returns a value
+# with = signs, spaces, quotes and a newline. Its output goes to LOG.
 f_call_snippet() {
   "$INSTALL_BASH" -c 'set -euo pipefail; source "$0/output.sh"; source "$0/fn.sh"
-    pair() { _a="a:$1"; _b="b:$1"; }
-    nested() { local inner; f_call pair inner=_a -- in; _a="outer($inner)"; }
-    half() { _a=1; }
+    pair() { f_return a="a:$1" b="b:$1"; }
+    nested() { local inner; f_call pair inner=a -- in; f_return a="outer($inner)"; }
+    half() { f_return a=1; }
+    tricky() { f_return a="x=1 y==2 \"q\"
+z" b=""; }
     '"$1" "$REPO_ROOT/install/lib" >"$LOG" 2>&1
 }
 
-# f_call sets its caller's variables from a function's outputs, the way read does, and checks them.
+# f_call sets its caller's variables from the values a function returns with f_return, the way read does, and checks
+# them.
 test_f_call() {
-  info "f_call: setting variables from output variables"
+  info "f_call and f_return: returning named values"
   check "sets the named variables" f_call_snippet \
     'f() { local a b; f_call pair a b -- x; [[ "$a $b" == "a:x b:x" ]]; }; f'
-  check "sets a renamed one from the output it names" f_call_snippet \
-    'f() { local first; f_call pair first=_a -- x; [[ "$first" == a:x ]]; }; f'
-  check "a nested call doesn't clobber the outer one's outputs" f_call_snippet \
+  check "sets a renamed one from the value it names" f_call_snippet \
+    'f() { local first; f_call pair first=a -- x; [[ "$first" == a:x ]]; }; f'
+  check "keeps = signs, spaces, quotes, newlines and empty values" f_call_snippet \
+    'f() { local a b; f_call tricky a b; [[ "$a" == "x=1 y==2 \"q\""$'"'"'\n'"'"'z && -z "$b" ]]; }; f'
+  check "a nested call doesn't clobber the outer one's values" f_call_snippet \
     'f() { local a; f_call nested a; [[ "$a" == "outer(a:in)" ]]; }; f'
-  check "leaves no output variables behind" f_call_snippet \
-    'f() { local a b; f_call pair a b -- x; [[ -z "${_a+x}${_b+x}" ]]; }; f'
-  check "fails if the function leaves an output unset" f_call_snippet \
-    '! out="$( (f_call half a b) 2>&1)" && [[ "$out" == *"_b"?" was not initialized"* ]]'
+  check "leaves no variables behind, even for values nobody asked for" f_call_snippet \
+    'f() { local a; f_call pair a -- x; [[ -z "${_a+x}${_b+x}" ]]; }; f; pair x; [[ -z "${_a+x}${_b+x}" ]]'
+  check "fails if the function doesn't return a value asked for" f_call_snippet \
+    '! out="$( (f_call half a b) 2>&1)" && [[ "$out" == *"did not return '"'"'b'"'"'"* ]]'
   check "rejects a variable that starts with an underscore" f_call_snippet \
-    '! (f_call pair _a)'
+    '! (f_call pair _a) && ! (f_call pair a=_a)'
+  check "rejects a return without a name" f_call_snippet \
+    'f() { f_return "=1"; }; ! (f_call f a) && ! (f_call f_return a -- a)'
 }
 
 # Run download_verified with DOWNLOAD_CACHE $1 and the remaining args (url, sha256, out) in a fresh bash, its output

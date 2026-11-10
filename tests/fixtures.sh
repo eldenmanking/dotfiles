@@ -33,9 +33,9 @@ CONTAINER_DOWNLOADS_DIR=/var/cache/dotfiles-downloads
 # shellcheck disable=SC2088 # manifest paths, not ones to expand
 UNPINNED_FILES="~/.claude/settings.json ~/git/.claude/CLAUDE.md"
 
-# Outputs: _image, _args, _files, _root_files, _after_install and _run_with of fixture $1, read from its case.sh.
+# Outputs: image, args, files, root_files, after_install and run_with of fixture $1, read from its case.sh.
 case_config() {
-  local out
+  local out image args files root_files after_install run_with
   out="$(
     IMAGE="" ARGS="" FILES="$DEFAULT_FILES" ROOT_FILES="" AFTER_INSTALL="" RUN_WITH=""
     # shellcheck source=/dev/null
@@ -45,15 +45,17 @@ case_config() {
       "$RUN_WITH" .
   )"
   {
-    IFS= read -r _image
-    IFS= read -r _args
-    IFS= read -r _files
-    IFS= read -r _root_files
-    IFS= read -r _after_install
-    IFS= read -r _run_with
+    IFS= read -r image
+    IFS= read -r args
+    IFS= read -r files
+    IFS= read -r root_files
+    IFS= read -r after_install
+    IFS= read -r run_with
   } <<< "$out"
-  [[ -n "$_image" && -d "$IMAGES_DIR/$_image" ]] || error "$1/case.sh: IMAGE must name a directory in tests/images"
-  [[ -n "$_args" ]] || error "$1/case.sh: ARGS is empty"
+  [[ -n "$image" && -d "$IMAGES_DIR/$image" ]] || error "$1/case.sh: IMAGE must name a directory in tests/images"
+  [[ -n "$args" ]] || error "$1/case.sh: ARGS is empty"
+  f_return image="$image" args="$args" files="$files" root_files="$root_files" after_install="$after_install" \
+    run_with="$run_with"
 }
 
 # Print the name of every fixture.
