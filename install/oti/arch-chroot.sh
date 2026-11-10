@@ -1,6 +1,6 @@
 # One-time install: Arch Linux from the live ISO onto a blank disk, following mjkstra's "Modern Arch linux installation
 # guide" (https://gist.github.com/mjkstra/96ce7a5689d753e7a6bdd92cdc169bae) up to, not including, its automatic
-# snapshot boot entries: a GPT disk with a 512M EFI system partition at /efi and a btrfs root with @ and @home
+# snapshot boot entries: a GPT disk with an EFI system partition at /efi and a btrfs root with @ and @home
 # subvolumes (zstd), the guide's packages, then the system set up from arch-chroot with GRUB. See Installing Arch from
 # the live ISO in README.md.
 #
@@ -12,7 +12,8 @@
 # Passwords are always typed. Settings and passwords an earlier run left in /mnt aren't asked again.
 
 ARCH_CHROOT_ROOT=/mnt
-ARCH_CHROOT_ESP_SIZE=512MiB
+# Bigger than the guide's 512M, to leave room for another OS's boot loader and kernels when dual booting later.
+ARCH_CHROOT_ESP_SIZE=2GiB
 ARCH_CHROOT_MOUNT_OPTIONS="compress=zstd"
 ARCH_CHROOT_SUBVOLUMES="@ @home"
 # The guide's packages, with neovim in place of vim; the CPU's microcode and swap's packages are added (see
