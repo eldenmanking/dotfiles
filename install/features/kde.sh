@@ -5,6 +5,7 @@
 KDE_CONFIG_FILES=(
   home/.config/kcminputrc
   home/.config/kxkbrc
+  home/.config/powerdevilrc
 )
 
 # Resolve the kwriteconfig/kreadconfig pair for the installed Plasma (6, else 5), or empty when neither exists.
