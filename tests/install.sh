@@ -579,9 +579,9 @@ arch_chroot_returns() {
   if [[ "$got" == "$expected" ]]; then pass "$* returns $expected"; else fail "$* returns $got, expected $expected"; fi
 }
 
-# Return 0 if arch_chroot_packages for CPU vendor $1 includes package $2.
+# Return 0 if arch_chroot_packages for CPU vendor $1, dual booting when $2 is true, includes package $3.
 packages_include() {
-  list_contains "$(arch_chroot_packages "$1")" "$2"
+  list_contains "$(arch_chroot_packages "$1" "$2")" "$3"
 }
 
 # One-time installs: --oti is refused with anything else and can't be undone; arch-chroot's --dry-run prints every
@@ -599,7 +599,7 @@ test_oti() {
 
   before="$(snapshot "$_home")"
   if env -i HOME="$_home" PATH="$PATH" TERM=dumb DOTFILES_ARCH_DISK=/dev/nvme0n1 DOTFILES_ARCH_USER=tester \
-    "$INSTALL_BASH" "$_home/dotfiles/install.sh" --oti arch-chroot --dry-run \
+    DOTFILES_ARCH_SWAP_SIZE=8 "$INSTALL_BASH" "$_home/dotfiles/install.sh" --oti arch-chroot --dry-run \
     </dev/null >"$LOG" 2>&1; then
     pass "install.sh --oti arch-chroot --dry-run"
   else
@@ -609,17 +609,44 @@ test_oti() {
   check "  ...partitions the disk" grep -q 'sfdisk --quiet /dev/nvme0n1 <<' "$LOG"
   check "  ...formats nvme0n1p2" grep -q 'mkfs.btrfs --force --quiet /dev/nvme0n1p2$' "$LOG"
   check "  ...pacstraps the packages" grep -q 'pacstrap -K /mnt --needed base ' "$LOG"
+  check "  ...creates @swap" grep -q 'btrfs subvolume create /run/dotfiles-btrfs/@swap$' "$LOG"
+  check "  ...makes an 8G swap file" grep -q 'btrfs filesystem mkswapfile --size 8g /mnt/swap/swapfile$' "$LOG"
+  check "  ...adds it to fstab" grep -q '^/swap/swapfile none swap defaults 0 0$' "$LOG"
   check "  ...installs GRUB at the fallback path" grep -q 'grub-install .*--removable$' "$LOG"
   check "  ...clones dotfiles for the user" grep -q 'clone .* /mnt/home/tester/dotfiles$' "$LOG"
   check_unchanged "  ...home unchanged" "$before" "$(snapshot "$_home")"
 
+  if env -i HOME="$_home" PATH="$PATH" TERM=dumb DOTFILES_ARCH_DISK=partitions DOTFILES_ARCH_EFI=/dev/sda1 \
+    DOTFILES_ARCH_ROOT=/dev/sda5 DOTFILES_ARCH_SWAP_PART=/dev/sda6 DOTFILES_ARCH_USER=tester "$INSTALL_BASH" \
+    "$_home/dotfiles/install.sh" --oti arch-chroot --dry-run </dev/null >"$LOG" 2>&1; then
+    pass "install.sh --oti arch-chroot --dry-run, onto partitions"
+  else
+    fail "install.sh --oti arch-chroot --dry-run, onto partitions"
+    sed 's/^/       | /' "$LOG" >&2
+  fi
+  check "  ...doesn't repartition" bash -c '! grep -q "wipefs\|sfdisk" "$1"' sh "$LOG"
+  check "  ...keeps the EFI system partition" bash -c '! grep -q "mkfs.fat" "$1"' sh "$LOG"
+  check "  ...formats the root and swap partitions" bash -c \
+    'grep -q "mkfs.btrfs --force --quiet /dev/sda5$" "$1" && grep -q "mkswap /dev/sda6$" "$1"' sh "$LOG"
+  check "  ...adds the swap partition to fstab" grep -q '^UUID=.* none swap defaults 0 0$' "$LOG"
+  check "  ...installs and enables os-prober" bash -c \
+    'grep -q "pacstrap .* os-prober" "$1" && grep -q "GRUB_DISABLE_OS_PROBER=false" "$1"' sh "$LOG"
+  check "  ...leaves the fallback path alone" bash -c '! grep -q -- "--removable" "$1"' sh "$LOG"
+
   arch_chroot_prints /dev/vda1 arch_chroot_partition /dev/vda 1
   arch_chroot_prints /dev/nvme0n1p2 arch_chroot_partition /dev/nvme0n1 2
   arch_chroot_prints /dev/mmcblk0p1 arch_chroot_partition /dev/mmcblk0 1
-  arch_chroot_returns 0 packages_include AuthenticAMD amd-ucode
-  arch_chroot_returns 0 packages_include GenuineIntel intel-ucode
-  arch_chroot_returns 1 packages_include "" amd-ucode
+  arch_chroot_returns 0 packages_include AuthenticAMD false amd-ucode
+  arch_chroot_returns 0 packages_include GenuineIntel false intel-ucode
+  arch_chroot_returns 1 packages_include "" false amd-ucode
+  arch_chroot_returns 0 packages_include "" true os-prober
+  arch_chroot_returns 1 packages_include "" false os-prober
   arch_chroot_prints $'127.0.0.1 localhost\n::1 localhost\n127.0.1.1 box' arch_chroot_hosts box
+  arch_chroot_returns 0 arch_chroot_valid_swap_size 0 10
+  arch_chroot_returns 0 arch_chroot_valid_swap_size 8 10
+  arch_chroot_returns 1 arch_chroot_valid_swap_size 11 10
+  arch_chroot_returns 1 arch_chroot_valid_swap_size 08 10
+  arch_chroot_returns 1 arch_chroot_valid_swap_size 4G 10
   arch_chroot_returns 0 arch_chroot_valid_hostname my-box1
   arch_chroot_returns 1 arch_chroot_valid_hostname -box
   arch_chroot_returns 0 arch_chroot_valid_user tester

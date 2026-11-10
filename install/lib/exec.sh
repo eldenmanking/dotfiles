@@ -133,6 +133,13 @@ write_shown() {
   $DRY_RUN || printf '%s\n' "$content" > "$file"
 }
 
+# Append $2 (and a newline) to file $1, shown as the cat that does it.
+append_shown() {
+  local file="$1" content="$2"
+  show_command "cat >> $(shell_words "$file") <<'EOF'"$'\n'"$content"$'\n'"EOF"
+  $DRY_RUN || printf '%s\n' "$content" >> "$file"
+}
+
 # Print read-only command $@ as [check] on stderr, so callers can capture its output, then run it, under --dry-run
 # too. Its own errors are dropped: a failing check is an answer, not a problem.
 probe() {
