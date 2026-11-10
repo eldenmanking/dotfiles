@@ -75,8 +75,7 @@ link_dotfile() {
 # @gui any
 feature_link() {
   local os="$1" profile="$2" link_paths entry file
-  f_write_args os_profile_config _link_paths -- "$os" "$profile"
-  link_paths="$_link_paths"
+  f_call os_profile_config link_paths -- "$os" "$profile"
   for entry in $link_paths; do
     if [[ ! -e "$DOTFILES_ROOT/$entry" ]]; then
       warn "Source does not exist, skipping: $DOTFILES_ROOT/$entry"

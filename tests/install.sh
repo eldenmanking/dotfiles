@@ -87,8 +87,9 @@ with_install_loaded() {
 
 # Print the features, link paths and DRY_RUN_FEATURES of OS $1 with profile $2, one per line.
 print_setup_info() {
-  os_profile_config "$1" "$2"
-  printf '%s\n%s\n%s\n' "$_features" "$_link_paths" "$DRY_RUN_FEATURES"
+  local features link_paths
+  f_call os_profile_config features link_paths -- "$1" "$2"
+  printf '%s\n%s\n%s\n' "$features" "$link_paths" "$DRY_RUN_FEATURES"
 }
 
 # Outputs: _features and _link_paths of setup $1 (os/profile), read from its definition the same way install.sh does,
@@ -146,32 +147,34 @@ print_all_setups() {
 test_usage() {
   local variants="$1" variant
   info "usage"
-  new_home
-  install_ok "$_home" || true
+  local home
+  f_call new_home home
+  install_ok "$home" || true
   for variant in $variants; do
-    install_ok "$_home" --variant "$variant" --help && check "  ...lists --link" grep -q -- '--link' "$LOG"
+    install_ok "$home" --variant "$variant" --help && check "  ...lists --link" grep -q -- '--link' "$LOG"
   done
-  install_refused "$_home" --variant nope
-  install_refused "$_home" --variant coder --nope
+  install_refused "$home" --variant nope
+  install_refused "$home" --variant coder --nope
 }
 
 # --variant names an OS and profile, which --os and --profile override; only the OS, profile and machine combinations
 # install/os defines run.
 test_dimensions() {
   info "dimensions: --os, --profile and their combinations"
-  new_home
-  install_ok "$_home" --variant steamos --profile minimal --help \
+  local home
+  f_call new_home home
+  install_ok "$home" --variant steamos --profile minimal --help \
     && check "  ...--profile overrides the variant's" grep -q "Options for OS 'steamos' with profile 'minimal'" "$LOG"
-  install_ok "$_home" --os portable --profile workspace --help \
+  install_ok "$home" --os portable --profile workspace --help \
     && check "  ...--os and --profile stand in for a variant" grep -q -- "--gng" "$LOG"
-  install_refused "$_home" --os arch --profile workspace
-  install_refused "$_home" --os portable --profile desktop
-  install_refused "$_home" --variant coder --machine framework16
-  install_refused "$_home" --os arch --gitconfig
-  install_refused "$_home" --profile minimal --gitconfig
-  install_refused "$_home" --os nope --profile minimal
-  write_install_conf "$_home" "DOTFILES_VARIANT=steamos" "DOTFILES_PROFILE=minimal"
-  install_ok "$_home" && check "  ...DOTFILES_PROFILE overrides DOTFILES_VARIANT's" \
+  install_refused "$home" --os arch --profile workspace
+  install_refused "$home" --os portable --profile desktop
+  install_refused "$home" --variant coder --machine framework16
+  install_refused "$home" --os arch --gitconfig
+  install_refused "$home" --profile minimal --gitconfig
+  install_refused "$home" --os nope --profile minimal
+  write_install_conf "$home" "DOTFILES_VARIANT=steamos" "DOTFILES_PROFILE=minimal"
+  install_ok "$home" && check "  ...DOTFILES_PROFILE overrides DOTFILES_VARIANT's" \
     grep -q "Options for OS 'steamos' with profile 'minimal'" "$LOG"
 }
 
@@ -188,36 +191,37 @@ write_install_conf() {
 test_defaults() {
   local out
   info "defaults: DOTFILES_VARIANT and DOTFILES_FEATURES from install.conf or the environment"
-  new_home
-  write_install_conf "$_home" "DOTFILES_VARIANT=coder"
-  install_ok "$_home" && check "  ...lists the default variant's options" \
+  local home
+  f_call new_home home
+  write_install_conf "$home" "DOTFILES_VARIANT=coder"
+  install_ok "$home" && check "  ...lists the default variant's options" \
     grep -q "Options for OS 'portable' with profile 'workspace'" "$LOG"
 
-  write_install_conf "$_home" "DOTFILES_VARIANT=coder" "DOTFILES_FEATURES=all"
-  install_ok "$_home" --dry-run && check "  ...runs --all" grep -q "would run feature: binaries" "$LOG"
-  install_ok "$_home" --variant arch && check "  ...ignores the features for another variant" \
+  write_install_conf "$home" "DOTFILES_VARIANT=coder" "DOTFILES_FEATURES=all"
+  install_ok "$home" --dry-run && check "  ...runs --all" grep -q "would run feature: binaries" "$LOG"
+  install_ok "$home" --variant arch && check "  ...ignores the features for another variant" \
     grep -q "Options for OS 'arch' with profile 'desktop'" "$LOG"
-  install_ok "$_home" --profile minimal && check "  ...and for another profile" \
+  install_ok "$home" --profile minimal && check "  ...and for another profile" \
     grep -q "Options for OS 'portable' with profile 'minimal'" "$LOG"
-  install_ok "$_home" --dry-run --uninstall && check "  ...ignores the features under --uninstall" \
+  install_ok "$home" --dry-run --uninstall && check "  ...ignores the features under --uninstall" \
     grep -q "Options for OS 'portable' with profile 'workspace'" "$LOG"
-  install_ok "$_home" --dry-run --gitconfig && check "  ...lets options override the features" \
+  install_ok "$home" --dry-run --gitconfig && check "  ...lets options override the features" \
     sh -c '! grep -q "would run feature: binaries" "$1"' sh "$LOG"
-  if out="$(env -i HOME="$_home" PATH="$PATH" TERM=dumb DOTFILES_VARIANT=portable DOTFILES_FEATURES=gitconfig \
-    "$INSTALL_BASH" "$_home/dotfiles/install.sh" --dry-run </dev/null 2>&1)" \
+  if out="$(env -i HOME="$home" PATH="$PATH" TERM=dumb DOTFILES_VARIANT=portable DOTFILES_FEATURES=gitconfig \
+    "$INSTALL_BASH" "$home/dotfiles/install.sh" --dry-run </dev/null 2>&1)" \
     && grep -q "os: portable, profile: minimal" <<< "$out" && grep -q "git config --global" <<< "$out"; then
     pass "the environment overrides install.conf"
   else
     fail "the environment overrides install.conf: $out"
   fi
 
-  write_install_conf "$_home" "DOTFILES_VARIANT=coder" "DOTFILES_FEATURES=gitconfig"
-  install_ok "$_home" && check "  ...installs with no arguments" grep -q "excludesFile" "$_home/.gitconfig"
+  write_install_conf "$home" "DOTFILES_VARIANT=coder" "DOTFILES_FEATURES=gitconfig"
+  install_ok "$home" && check "  ...installs with no arguments" grep -q "excludesFile" "$home/.gitconfig"
 
-  write_install_conf "$_home" 'DOTFILES_VARIANT="$UNSET_VARIABLE"'
-  install_refused "$_home" --dry-run
-  write_install_conf "$_home" "DOTFILES_VARIANT=nope"
-  install_refused "$_home"
+  write_install_conf "$home" 'DOTFILES_VARIANT="$UNSET_VARIABLE"'
+  install_refused "$home" --dry-run
+  write_install_conf "$home" "DOTFILES_VARIANT=nope"
+  install_refused "$home"
 }
 
 # Run install.sh at $1 with home $2 and expect it to refuse, with a message matching $3. $4 describes the case.
@@ -324,8 +328,8 @@ test_bootstrap() {
   fi
   git -C "$src" checkout --quiet main
 
-  new_home
-  if script_ok "bootstrap with ~/dotfiles already there" "$_home" "$script" --variant coder --gitconfig; then
+  f_call new_home home
+  if script_ok "bootstrap with ~/dotfiles already there" "$home" "$script" --variant coder --gitconfig; then
     check "  ...ran it as it is" grep -q "already exists" "$LOG"
   fi
 
@@ -410,31 +414,32 @@ test_checkout_location() {
 
 # --dry-run must succeed and leave the home untouched, for install, reinstall and uninstall.
 test_dry_run() {
-  local setup="$1" flags=() feature mode before skipped="" announced=""
-  setup_info "$setup"
-  for feature in $_features; do
+  local setup="$1" flags=() feature mode before skipped="" announced="" features honor_dry_run
+  f_call setup_info features honor_dry_run=_dry_run_features -- "$setup"
+  for feature in $features; do
     if list_contains "$DRY_RUN_SKIP" "$feature"; then
       skipped+=" $feature"
       continue
     fi
     flags+=("--$feature")
-    list_contains "$_dry_run_features" "$feature" || announced+=" $feature"
+    list_contains "$honor_dry_run" "$feature" || announced+=" $feature"
   done
   info "$setup: dry run of every feature${skipped:+ except$skipped (needs a live systemd user session)}"
   [[ -z "$announced" ]] || info "  (without --dry-run support, so only announced:$announced)"
-  new_home
-  before="$(snapshot "$_home")"
+  local home
+  f_call new_home home
+  before="$(snapshot "$home")"
   for mode in "" --reinstall --uninstall; do
-    install_ok "$_home" --os "${setup%/*}" --profile "${setup#*/}" --dry-run ${mode:+"$mode"} "${flags[@]}" || true
+    install_ok "$home" --os "${setup%/*}" --profile "${setup#*/}" --dry-run ${mode:+"$mode"} "${flags[@]}" || true
   done
-  check_unchanged "home unchanged" "$before" "$(snapshot "$_home")"
+  check_unchanged "home unchanged" "$before" "$(snapshot "$home")"
 }
 
 # Check that every file under the link paths of setup $1 (os/profile) is linked into home $2.
 check_links() {
-  local setup="$1" home="$2" file target count=0 bad=0 paths
-  setup_info "$setup"
-  read -r -a paths <<< "$_link_paths"
+  local setup="$1" home="$2" file target count=0 bad=0 paths link_paths
+  f_call setup_info link_paths -- "$setup"
+  read -r -a paths <<< "$link_paths"
   while IFS= read -r file; do
     target="$home/${file#home/}"
     count=$((count + 1))
@@ -477,36 +482,38 @@ check_shells_load() {
 # nothing. Setups that link anything under root/ need sudo, so only their --dry-run is tested.
 test_install() {
   local setup="$1" flags=(--os "${1%/*}" --profile "${1#*/}" --link --gitconfig) managed=false repo_before first
-  setup_info "$setup"
-  case " $_link_paths" in
+  local features link_paths
+  f_call setup_info features link_paths -- "$setup"
+  case " $link_paths" in
     *" root/"*)
       info "$setup: no real install (its links include root/, which needs sudo)"
       return
       ;;
   esac
   # Setups with the shell feature write managed blocks into the startup files instead of linking them.
-  list_contains "$_features" shell && managed=true
+  list_contains "$features" shell && managed=true
   $managed && flags+=(--shell)
   info "$setup: real install of ${flags[*]:4} (the other features download, build or need root)"
-  new_home
+  local home
+  f_call new_home home
   if $managed; then
     # The shell feature must keep what is already there. (Linked setups would back it up into the checkout.)
-    printf '# user line\n' > "$_home/.bashrc"
+    printf '# user line\n' > "$home/.bashrc"
   fi
   repo_before="$(repo_status)"
 
-  install_ok "$_home" "${flags[@]}" || return
-  check_links "$setup" "$_home"
+  install_ok "$home" "${flags[@]}" || return
+  check_links "$setup" "$home"
   if $managed; then
-    check_managed_blocks "$setup" "$_home"
+    check_managed_blocks "$setup" "$home"
   fi
-  check_shells_load "$setup" "$_home"
+  check_shells_load "$setup" "$home"
   check "core.excludesFile set in ~/.gitconfig" \
-    [ "$(git config --file "$_home/.gitconfig" core.excludesFile)" = "$_home/dotfiles/home/.config/git/ignore" ]
+    [ "$(git config --file "$home/.gitconfig" core.excludesFile)" = "$home/dotfiles/home/.config/git/ignore" ]
 
-  first="$(snapshot "$_home")"
-  install_ok "$_home" "${flags[@]}" || true
-  check_unchanged "  ...the second install changed nothing" "$first" "$(snapshot "$_home")"
+  first="$(snapshot "$home")"
+  install_ok "$home" "${flags[@]}" || true
+  check_unchanged "  ...the second install changed nothing" "$first" "$(snapshot "$home")"
   check_unchanged "nothing was written into the checkout" "$repo_before" "$(repo_status)"
 }
 
@@ -558,8 +565,8 @@ test_infer() {
 
   printf '%s\n' 'NAME="SteamOS"' 'ID=steamos' "ID_LIKE='arch'" > "$os_release"
   check "read_os_release unquotes ID and ID_LIKE" bash -c \
-    'source "$1/install/lib/fn.sh" && source "$1/install/lib/infer.sh" && read_os_release "$2" &&
-     [[ "$_id:$_id_like" == steamos:arch ]]' sh "$REPO_ROOT" "$os_release"
+    'source "$1/install/lib/output.sh" && source "$1/install/lib/fn.sh" && source "$1/install/lib/infer.sh" &&
+     f_call read_os_release id id_like -- "$2" && [[ "$id:$id_like" == steamos:arch ]]' sh "$REPO_ROOT" "$os_release"
 }
 
 # --machine picks the hardware, which decides whether --all includes features for specific hardware; --infer fills in
@@ -567,39 +574,40 @@ test_infer() {
 test_machine() {
   local out
   info "machine: --machine, DOTFILES_MACHINE and --infer"
-  new_home
-  install_ok "$_home" --variant steamos --help \
+  local home
+  f_call new_home home
+  install_ok "$home" --variant steamos --help \
     && check "  ...lists machine-specific options apart on machine generic" grep -q "For other machines" "$LOG"
-  install_ok "$_home" --variant steamos --machine framework16 --help \
+  install_ok "$home" --variant steamos --machine framework16 --help \
     && check "  ...lists them with the rest on framework16" sh -c '! grep -q "For other machines" "$1"' sh "$LOG"
   # --all goes on to webterm, which needs a live systemd user session (see DRY_RUN_SKIP), so ignore the status: udev
   # runs before it. It names its rule whether it copies it or finds it already up to date, as on a configured machine.
-  run_install "$_home" --variant steamos --machine generic --all --dry-run || true
+  run_install "$home" --variant steamos --machine generic --all --dry-run || true
   check "--all leaves them out on generic" sh -c '! grep -q 90-touchpad-nowake.rules "$1"' sh "$LOG"
-  run_install "$_home" --variant steamos --machine framework16 --all --dry-run || true
+  run_install "$home" --variant steamos --machine framework16 --all --dry-run || true
   check "--all includes them on framework16" grep -q /etc/udev/rules.d/90-touchpad-nowake.rules "$LOG"
-  install_ok "$_home" --variant steamos --udev --dry-run \
+  install_ok "$home" --variant steamos --udev --dry-run \
     && check "  ...naming one runs it on generic, with a warning" grep -q "udev is for machine framework16" "$LOG"
-  install_refused "$_home" --variant steamos --machine nope
-  install_refused "$_home" --machine framework16 --gitconfig
+  install_refused "$home" --variant steamos --machine nope
+  install_refused "$home" --machine framework16 --gitconfig
 
-  write_install_conf "$_home" "DOTFILES_VARIANT=steamos" "DOTFILES_MACHINE=framework16"
-  install_ok "$_home" && check "  ...DOTFILES_MACHINE names the default machine" \
+  write_install_conf "$home" "DOTFILES_VARIANT=steamos" "DOTFILES_MACHINE=framework16"
+  install_ok "$home" && check "  ...DOTFILES_MACHINE names the default machine" \
     grep -q "Options for OS 'steamos' with profile 'desktop' on machine 'framework16'" "$LOG"
-  rm "$_home/.config/dotfiles/install.conf"
+  rm "$home/.config/dotfiles/install.conf"
 
-  if out="$(env -i HOME="$_home" PATH="$PATH" TERM=dumb CODER=true \
-    "$INSTALL_BASH" "$_home/dotfiles/install.sh" --infer --help </dev/null 2>&1)" \
+  if out="$(env -i HOME="$home" PATH="$PATH" TERM=dumb CODER=true \
+    "$INSTALL_BASH" "$home/dotfiles/install.sh" --infer --help </dev/null 2>&1)" \
     && grep -q "Options for OS 'portable' with profile 'workspace'" <<< "$out"; then
     pass "--infer picks coder in a Coder workspace"
   else
     fail "--infer picks coder in a Coder workspace: $out"
   fi
-  install_ok "$_home" --variant arch --machine generic --infer --help \
+  install_ok "$home" --variant arch --machine generic --infer --help \
     && check "  ...and infers nothing given" sh -c '! grep -q Inferred "$1"' sh "$LOG"
-  install_ok "$_home" --variant arch --infer --help \
+  install_ok "$home" --variant arch --infer --help \
     && check "  ...and only the machine with --variant" grep -q "Inferred machine '[a-z0-9]*' from" "$LOG"
-  install_ok "$_home" --profile workspace --infer --help \
+  install_ok "$home" --profile workspace --infer --help \
     && check "  ...and an OS with the given profile" grep -q "Options for OS 'portable' with profile 'workspace'" "$LOG"
 }
 
@@ -612,8 +620,9 @@ test_steam() {
     warn "Steam is running; skipping the steam feature test"
     return
   fi
-  new_home
-  userdata="$_home/.local/share/Steam/userdata"
+  local home
+  f_call new_home home
+  userdata="$home/.local/share/Steam/userdata"
   vdf_a="$userdata/1/config/localconfig.vdf"
   vdf_b="$userdata/2/config/localconfig.vdf"
   mkdir -p "${vdf_a%/*}" "${vdf_b%/*}"
@@ -623,19 +632,46 @@ test_steam() {
   printf '"UserLocalConfigStore"\n{\n\t"friends"\t\t"1"\n}\n' > "$vdf_b"
   b_before="$(cat "$vdf_b")"
 
-  install_ok "$_home" --variant steamos --steam || return
+  install_ok "$home" --variant steamos --steam || return
   check "main menu hotkey replaced" grep -qx $'\t\t"GuideKeyboardHotkey"\t\t"Win\tKEY_TAB"' "$vdf_a"
   check "quick access hotkey replaced" grep -qx $'\t\t"QAMKeyboardHotkey"\t\t"Shift\tWin\tKEY_TAB"' "$vdf_a"
   check "other settings kept" grep -q '"GameResolutionGlobal"' "$vdf_a"
   check "missing keys not added" [ "$(cat "$vdf_b")" = "$b_before" ]
   check "  ...but warned about" grep -q "$vdf_b has no GuideKeyboardHotkey QAMKeyboardHotkey" "$LOG"
   check "original backed up" grep -q '"Ctrl' "$REPO_ROOT/.backup$vdf_a"
-  first="$(snapshot "$_home")"
-  install_ok "$_home" --variant steamos --steam || true
-  check_unchanged "  ...the second install changed nothing" "$first" "$(snapshot "$_home")"
+  first="$(snapshot "$home")"
+  install_ok "$home" --variant steamos --steam || true
+  check_unchanged "  ...the second install changed nothing" "$first" "$(snapshot "$home")"
   # Backups land in the checkout (the scratch home links to it).
   rm -rf "$REPO_ROOT/.backup$SCRATCH"
   rmdir -p "$(dirname "$REPO_ROOT/.backup$SCRATCH")" 2>/dev/null || true
+}
+
+# Run bash snippet $1 under INSTALL_BASH with install/lib/output.sh and fn.sh loaded and these test functions defined:
+# pair sets _a and _b, nested sets _a itself after an f_call of pair, and half sets only _a. Its output goes to LOG.
+f_call_snippet() {
+  "$INSTALL_BASH" -c 'set -euo pipefail; source "$0/output.sh"; source "$0/fn.sh"
+    pair() { _a="a:$1"; _b="b:$1"; }
+    nested() { local inner; f_call pair inner=_a -- in; _a="outer($inner)"; }
+    half() { _a=1; }
+    '"$1" "$REPO_ROOT/install/lib" >"$LOG" 2>&1
+}
+
+# f_call sets its caller's variables from a function's outputs, the way read does, and checks them.
+test_f_call() {
+  info "f_call: setting variables from output variables"
+  check "sets the named variables" f_call_snippet \
+    'f() { local a b; f_call pair a b -- x; [[ "$a $b" == "a:x b:x" ]]; }; f'
+  check "sets a renamed one from the output it names" f_call_snippet \
+    'f() { local first; f_call pair first=_a -- x; [[ "$first" == a:x ]]; }; f'
+  check "a nested call doesn't clobber the outer one's outputs" f_call_snippet \
+    'f() { local a; f_call nested a; [[ "$a" == "outer(a:in)" ]]; }; f'
+  check "leaves no output variables behind" f_call_snippet \
+    'f() { local a b; f_call pair a b -- x; [[ -z "${_a+x}${_b+x}" ]]; }; f'
+  check "fails if the function leaves an output unset" f_call_snippet \
+    '! out="$( (f_call half a b) 2>&1)" && [[ "$out" == *"_b"?" was not initialized"* ]]'
+  check "rejects a variable that starts with an underscore" f_call_snippet \
+    '! (f_call pair _a)'
 }
 
 # Run download_verified with DOWNLOAD_CACHE $1 and the remaining args (url, sha256, out) in a fresh bash, its output
@@ -692,6 +728,7 @@ main() {
   test_machine
   test_steam
   test_download_cache
+  test_f_call
   test_env_sh
 
   [[ "$FAILURES" == 0 ]] || error "$FAILURES check(s) failed"

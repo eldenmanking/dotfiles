@@ -46,17 +46,17 @@ tool_release() {
 
 # Outputs: _path, the pinned tool $1, downloaded and checksummed into TOOLS_CACHE on first use.
 pinned_tool() {
-  local tool="$1" version_var dir bin tmp
+  local tool="$1" version_var dir bin tmp os arch url sha256
   version_var="$(printf '%s' "$tool" | tr '[:lower:]' '[:upper:]')_VERSION"
   dir="$TOOLS_CACHE/$tool-${!version_var}"
   bin="$dir/$tool"
   if [[ ! -x "$bin" ]]; then
-    f_write_args detect_os_arch _os _arch
-    f_write_args tool_release _url _sha256 -- "$tool" "$_os" "$_arch"
+    f_call detect_os_arch os arch
+    f_call tool_release url sha256 -- "$tool" "$os" "$arch"
     info "Downloading $tool ${!version_var}..."
     tmp="$(mktemp -d)"
-    curl -fsSL -o "$tmp/archive" "$_url" || error "could not download $_url"
-    [[ "$(sha256_of "$tmp/archive")" == "$_sha256" ]] || error "$tool checksum mismatch for $_url"
+    curl -fsSL -o "$tmp/archive" "$url" || error "could not download $url"
+    [[ "$(sha256_of "$tmp/archive")" == "$sha256" ]] || error "$tool checksum mismatch for $url"
     tar -xf "$tmp/archive" -C "$tmp"
     mkdir -p "$dir"
     mv "$(find "$tmp" -type f -name "$tool" | head -1)" "$bin"

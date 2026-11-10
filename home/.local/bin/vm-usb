@@ -108,20 +108,16 @@ detach_on_exit() {
 }
 
 main() {
-  local pattern vm ids attached id
-  f_write_args parse_args _pattern _vm -- "$@"
-  pattern="$_pattern"
-  vm="$_vm"
+  local pattern vm ids attached pending id
+  f_call parse_args pattern vm -- "$@"
 
   require_vm_running "$vm"
   ids="$(find_devices "$pattern")" || exit 1
-  f_write_args partition_devices _attached _pending -- "$vm" "$ids"
-
-  attached="$_attached"
+  f_call partition_devices attached pending -- "$vm" "$ids"
   detach_on_exit "$vm" "$attached"
   trap 'exit 130' INT TERM
 
-  if [[ -z "$_pending" ]]; then
+  if [[ -z "$pending" ]]; then
     echo "All matching devices are already attached to '$vm':"
     describe "$ids"
     exit 0
@@ -129,10 +125,10 @@ main() {
 
   [[ -n "$attached" ]] && echo "Already attached (will be detached at the end): $(wc -w <<<"$attached") device(s)"
   echo "To attach:"
-  describe "$_pending"
+  describe "$pending"
   confirm "Attach these to '$vm'?" || exit 0
 
-  for id in $_pending; do
+  for id in $pending; do
     if attach_device "$vm" "$id"; then
       attached+="${attached:+ }$id"
       detach_on_exit "$vm" "$attached"

@@ -83,8 +83,8 @@ feature_doc() {
 # requires the description and tags on every feature, checks the features of every OS and profile against them and
 # that each feature's _requires come earlier in its _features.
 feature_requirements() {
-  local line machine="" os="" gui="" requires=""
-  f_write_args feature_doc _doc -- "$1"
+  local line machine="" os="" gui="" requires="" doc
+  f_call feature_doc doc -- "$1"
   while IFS= read -r line; do
     case "$line" in
       "@machine "*)  machine="${line#@machine }" ;;
@@ -92,7 +92,7 @@ feature_requirements() {
       "@gui "*)      gui="${line#@gui }" ;;
       "@requires "*) requires="${line#@requires }" ;;
     esac
-  done <<< "$_doc"
+  done <<< "$doc"
   _machine="$machine"
   _os="$os"
   _gui="$gui"

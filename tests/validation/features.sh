@@ -91,25 +91,24 @@ check_doc_layout() {
 
 # Outputs: _problems, one line per problem with the documentation of feature $1. $2 is every known feature.
 check_feature_docs() {
-  local feature="$1" known="$2" problems="" dep
+  local feature="$1" known="$2" problems="" dep doc found machine os gui requires
   [[ -n "$(feature_description "$feature")" ]] \
     || problems+="--$feature: no feature_description entry"$'\n'
 
-  f_write_args feature_doc _doc -- "$feature"
-  f_write_args check_doc_layout _problems -- "$feature" "$_doc"
-  problems+="$_problems"
+  f_call feature_doc doc -- "$feature"
+  f_call check_doc_layout found=_problems -- "$feature" "$doc"
+  problems+="$found"
 
-  f_write_args feature_requirements _machine _os _gui _requires -- "$feature"
-  local machine="$_machine" os="$_os" gui="$_gui" requires="$_requires"
-  f_write_args check_tag _problems -- "$feature" machine "$machine" "$FEATURE_MACHINES"
-  problems+="$_problems"
-  f_write_args check_tag _problems -- "$feature" os "$os" "$FEATURE_OSES"
-  problems+="$_problems"
-  f_write_args check_tag _problems -- "$feature" gui "$gui" "$FEATURE_GUIS"
-  problems+="$_problems"
+  f_call feature_requirements machine os gui requires -- "$feature"
+  f_call check_tag found=_problems -- "$feature" machine "$machine" "$FEATURE_MACHINES"
+  problems+="$found"
+  f_call check_tag found=_problems -- "$feature" os "$os" "$FEATURE_OSES"
+  problems+="$found"
+  f_call check_tag found=_problems -- "$feature" gui "$gui" "$FEATURE_GUIS"
+  problems+="$found"
   if [[ -n "$machine" && -n "$os" ]]; then
-    f_write_args check_feature_dir _problems -- "$feature" "$machine" "$os"
-    problems+="$_problems"
+    f_call check_feature_dir found=_problems -- "$feature" "$machine" "$os"
+    problems+="$found"
   fi
   for dep in $requires; do
     list_contains "$known" "$dep" || problems+="--$feature: @requires '$dep' is not a feature"$'\n'
@@ -122,6 +121,7 @@ check_feature_docs() {
 # platforms $3, GUI $4 and machines $5. $6 is the features that run before this one.
 check_feature() {
   local setup="$1" feature="$2" platforms="$3" gui="$4" os_machines="$5" earlier="$6" nl=$'\n' problems="" v dep suited
+  local machine os feature_gui requires
 
   if ! declare -F "$(feature_function "$feature")" >/dev/null; then
     _problems="$setup: --$feature has no $(feature_function "$feature") function$nl"
@@ -129,23 +129,23 @@ check_feature() {
   fi
 
   # Missing tags are reported once by check_feature_docs.
-  f_write_args feature_requirements _machine _os _gui _requires -- "$feature"
-  [[ -n "$_os" ]] || platforms=""
-  [[ -n "$_gui" ]] || gui=""
+  f_call feature_requirements machine os feature_gui=_gui requires -- "$feature"
+  [[ -n "$os" ]] || platforms=""
+  [[ -n "$feature_gui" ]] || gui=""
   for v in $platforms; do
-    os_supported "$_os" "$v" || problems+="$setup: --$feature supports os '$_os', not '$v'$nl"
+    os_supported "$os" "$v" || problems+="$setup: --$feature supports os '$os', not '$v'$nl"
   done
   for v in $gui; do
-    gui_supported "$_gui" "$v" || problems+="$setup: --$feature supports gui '$_gui', not '$v'$nl"
+    gui_supported "$feature_gui" "$v" || problems+="$setup: --$feature supports gui '$feature_gui', not '$v'$nl"
   done
-  if [[ -n "$_machine" ]]; then
+  if [[ -n "$machine" ]]; then
     suited=false
     for v in $os_machines; do
-      machine_supported "$_machine" "$v" && suited=true
+      machine_supported "$machine" "$v" && suited=true
     done
-    $suited || problems+="$setup: --$feature is for machine '$_machine', which the OS doesn't support ($os_machines)$nl"
+    $suited || problems+="$setup: --$feature is for machine '$machine', which the OS doesn't support ($os_machines)$nl"
   fi
-  for dep in $_requires; do
+  for dep in $requires; do
     list_contains "$earlier" "$dep" || problems+="$setup: --$feature requires --$dep earlier in _features$nl"
   done
 
@@ -154,15 +154,14 @@ check_feature() {
 
 # Outputs: _problems, one line per problem with OS $1 with profile $2.
 check_setup() {
-  local os="$1" profile="$2" setup="$1/$2" problems="" earlier=" " feature k path
-  f_write_args os_profile_config _features _optional _platforms _gui _machines _link_paths _git_fsmonitor -- \
+  local os="$1" profile="$2" setup="$1/$2" problems="" earlier=" " feature k path found
+  local features optional platforms gui os_machines link_paths git_fsmonitor
+  f_call os_profile_config features optional platforms gui os_machines=_machines link_paths git_fsmonitor -- \
     "$os" "$profile"
-  local features="$_features" optional="$_optional" platforms="$_platforms" gui="$_gui" os_machines="$_machines"
-  local link_paths="$_link_paths"
 
   for feature in $features; do
-    f_write_args check_feature _problems -- "$setup" "$feature" "$platforms" "$gui" "$os_machines" "$earlier"
-    problems+="$_problems"
+    f_call check_feature found=_problems -- "$setup" "$feature" "$platforms" "$gui" "$os_machines" "$earlier"
+    problems+="$found"
     earlier+="$feature "
   done
   for k in $optional; do
@@ -183,14 +182,14 @@ check_setup() {
 # Outputs: _problems, one line per problem with OS $1: its platforms and machines must be known values, and it must
 # support some profile.
 check_os() {
-  local os="$1" problems="" v
-  f_write_args os_config _platforms _machines -- "$os"
-  [[ -n "$_platforms" ]] || problems+="os $os: no _platforms"$'\n'
-  for v in $_platforms; do
+  local os="$1" problems="" v platforms os_machines
+  f_call os_config platforms os_machines=_machines -- "$os"
+  [[ -n "$platforms" ]] || problems+="os $os: no _platforms"$'\n'
+  for v in $platforms; do
     list_contains "$FEATURE_OSES" "$v" || problems+="os $os: platform '$v' is not one of: $FEATURE_OSES"$'\n'
   done
-  [[ -n "$_machines" ]] || problems+="os $os: no _machines"$'\n'
-  for v in $_machines; do
+  [[ -n "$os_machines" ]] || problems+="os $os: no _machines"$'\n'
+  for v in $os_machines; do
     list_contains "$MACHINES" "$v" || problems+="os $os: machine '$v' is not one of: $MACHINES"$'\n'
   done
   [[ -n "$(os_profiles "$os")" ]] || problems+="os $os: defines no os_${os}_<profile> function"$'\n'
@@ -199,32 +198,32 @@ check_os() {
 
 # Outputs: _problems, a line if variant $1 doesn't name an OS and profile that go together.
 check_variant() {
-  f_write_args variant_config _os _profile -- "$1"
+  local os profile
+  f_call variant_config os profile -- "$1"
   _problems=""
-  os_supports_profile "$_os" "$_profile" \
-    || _problems="variant $1: OS '$_os' with profile '$_profile' isn't defined (no os_${_os}_$_profile)"$'\n'
+  os_supports_profile "$os" "$profile" \
+    || _problems="variant $1: OS '$os' with profile '$profile' isn't defined (no os_${os}_$profile)"$'\n'
 }
 
 main() {
-  local variant os profile problems="" known feature k
-  f_write_args scan_features _features
-  known="$_features"
+  local variant os profile problems="" known feature k found
+  f_call scan_features known=_features
 
   for feature in $known; do
-    f_write_args check_feature_docs _problems -- "$feature" "$known"
-    problems+="$_problems"
+    f_call check_feature_docs found=_problems -- "$feature" "$known"
+    problems+="$found"
   done
   for os in $(available_names os); do
-    f_write_args check_os _problems -- "$os"
-    problems+="$_problems"
+    f_call check_os found=_problems -- "$os"
+    problems+="$found"
     for profile in $(os_profiles "$os"); do
-      f_write_args check_setup _problems -- "$os" "$profile"
-      problems+="$_problems"
+      f_call check_setup found=_problems -- "$os" "$profile"
+      problems+="$found"
     done
   done
   for variant in $(available_names variants); do
-    f_write_args check_variant _problems -- "$variant"
-    problems+="$_problems"
+    f_call check_variant found=_problems -- "$variant"
+    problems+="$found"
   done
   for k in $DRY_RUN_FEATURES; do
     list_contains "$known" "$k" || problems+="DRY_RUN_FEATURES names unknown feature '$k'"$'\n'

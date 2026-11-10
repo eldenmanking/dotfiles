@@ -73,21 +73,21 @@ read_os_release() {
 # workspace (for profile_for_system), and _reason, what they were inferred from, for messages. Reads uname,
 # OS_RELEASE_FILE, DMI_ID_DIR and the CODER variable that Coder sets in its workspaces.
 infer_system() {
-  local kernel vendor="" product="" coder=false
+  local kernel vendor="" product="" coder=false id id_like
   kernel="$(uname -s)"
   [[ "${CODER:-}" != true ]] || coder=true
-  f_write_args read_os_release _id _id_like -- "$OS_RELEASE_FILE"
+  f_call read_os_release id id_like -- "$OS_RELEASE_FILE"
   if [[ -r "$DMI_ID_DIR/sys_vendor" ]]; then
     vendor="$(cat "$DMI_ID_DIR/sys_vendor")"
     product="$(cat "$DMI_ID_DIR/product_name" 2>/dev/null || true)"
   fi
-  _os="$(os_for_system "$kernel" "$_id" "$_id_like" "$coder")"
+  _os="$(os_for_system "$kernel" "$id" "$id_like" "$coder")"
   _machine="$(machine_for_dmi "$vendor" "$product")"
   _coder="$coder"
   if $coder; then
     _reason="Coder workspace"
   else
-    _reason="$kernel${_id:+ $_id}"
+    _reason="$kernel${id:+ $id}"
   fi
   _reason+="${vendor:+, $vendor${product:+ $product}}"
 }

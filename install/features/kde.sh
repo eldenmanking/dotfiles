@@ -52,9 +52,7 @@ kde_parse_ini() {
 # @gui kde
 feature_kde() {
   local writer reader rel file entries group key value rest group_args
-  f_write_args kde_config_tools _write _read --
-  writer="$_write"
-  reader="$_read"
+  f_call kde_config_tools writer=_write reader=_read
   if [[ -z "$writer" ]]; then
     warn "kwriteconfig not found, skipping KDE settings."
     return
@@ -62,8 +60,7 @@ feature_kde() {
 
   for rel in "${KDE_CONFIG_FILES[@]}"; do
     file="$HOME/${rel#home/}"
-    f_write_args kde_parse_ini _entries -- "$DOTFILES_ROOT/$rel"
-    entries="$_entries"
+    f_call kde_parse_ini entries -- "$DOTFILES_ROOT/$rel"
     while IFS=$'\t' read -r group key value; do
       [[ -n "$key" ]] || continue
       # "A][B" becomes --group A --group B.

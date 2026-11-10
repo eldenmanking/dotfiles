@@ -60,35 +60,33 @@ toml_syntax() {
 }
 
 main() {
-  local failed=0 shellcheck actionlint
+  local failed=0 shellcheck actionlint sh bash sourced zsh python
   cd "$REPO_ROOT"
   # .shellcheckrc finds the startup files' "$HOME/dotfiles/..." sources through the checkout's parent (make validate
   # checks this too, but shellcheck's errors would not say why).
   [[ "$(basename "$(pwd -P)")" == dotfiles ]] || error "the checkout must be a directory named dotfiles, as install.sh requires"
-  f_write_args classify_files _sh _bash _sourced _zsh _python
+  f_call classify_files sh bash sourced zsh python
 
   info "Syntax (sh -n, bash -n, zsh -n)"
-  each_file "$_sh" sh -n || failed=1
-  each_file "$_bash$_sourced" bash -n || failed=1
+  each_file "$sh" sh -n || failed=1
+  each_file "$bash$sourced" bash -n || failed=1
   if have_or_skip zsh "zsh syntax checks"; then
-    each_file "$_zsh" zsh -n || failed=1
+    each_file "$zsh" zsh -n || failed=1
   fi
   if have_or_skip python3 "Python and TOML syntax checks"; then
-    each_file "$_python" python_syntax || failed=1
+    each_file "$python" python_syntax || failed=1
     each_file "$(tracked_files '*.toml')" toml_syntax || failed=1
   fi
 
   info "shellcheck $SHELLCHECK_VERSION"
-  f_write_args pinned_tool _path -- shellcheck
-  shellcheck="$_path"
+  f_call pinned_tool shellcheck=_path -- shellcheck
   # Scripts with a shebang pick their dialect from it; sourced files have none.
-  each_file "$_sh$_bash" "$shellcheck" || failed=1
-  each_file "$_sourced" "$shellcheck" -s bash || failed=1
+  each_file "$sh$bash" "$shellcheck" || failed=1
+  each_file "$sourced" "$shellcheck" -s bash || failed=1
 
   if [[ -n "$(git ls-files .github/workflows)" ]]; then
     info "actionlint $ACTIONLINT_VERSION"
-    f_write_args pinned_tool _path -- actionlint
-    actionlint="$_path"
+    f_call pinned_tool actionlint=_path -- actionlint
     "$actionlint" -shellcheck "$shellcheck" || failed=1
   fi
 

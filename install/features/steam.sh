@@ -27,7 +27,7 @@ steam_vdf_replace() {
 
 # Outputs: _content, localconfig.vdf $1 with every STEAM_SETTINGS value replaced, and _missing, the space-separated
 # keys it lacks.
-# Usage: f_write_args steam_apply_settings _content _missing -- <file>
+# Usage: f_call steam_apply_settings content missing -- <file>
 steam_apply_settings() {
   local file="$1" content entry key value missing=""
   content="$(cat "$file")"
@@ -47,14 +47,14 @@ steam_apply_settings() {
 # @os steamos
 # @gui any
 feature_steam() {
-  local file tmp found=false changed=false
+  local file tmp found=false changed=false content missing
   for file in "$STEAM_USERDATA"/*/config/localconfig.vdf; do
     [[ -f "$file" ]] || continue
     found=true
-    f_write_args steam_apply_settings _content _missing -- "$file"
-    [[ -z "$_missing" ]] || warn "$file has no $_missing; set it once in Steam (Settings > In Game), then rerun with --steam."
+    f_call steam_apply_settings content missing -- "$file"
+    [[ -z "$missing" ]] || warn "$file has no $missing; set it once in Steam (Settings > In Game), then rerun with --steam."
     tmp="$(mktemp)"
-    printf '%s\n' "$_content" > "$tmp"
+    printf '%s\n' "$content" > "$tmp"
     if cmp -s "$file" "$tmp"; then
       info "$file already up to date"
     elif pgrep -x steam >/dev/null 2>&1; then

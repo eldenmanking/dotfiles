@@ -17,7 +17,7 @@ This repo is public and edited from work machines. Never commit company, team or
 
 ## Shell conventions
 Write functions in a functional style:
-- Pass inputs as arguments. Return values through `_`-prefixed output variables via `f_write_args fn _out1 _out2 -- args...`, not by setting globals or parsing stdout. A function with a single result may print it instead, for the caller to capture with `$(...)` (e.g. `feature_function`, `explain_checkout_problem`).
+- Pass inputs as arguments. Return values through `_`-prefixed output variables, not by setting globals or parsing stdout: the function assigns `_out1`, and callers read it like `read` with `f_call fn out1 [name=_out2] -- args...`, which sets their `local out1` (and `name`) and errors if `fn` left an output unset. Callers never read `_`-prefixed variables themselves. A function with a single result may print it instead, for the caller to capture with `$(...)` (e.g. `feature_function`, `explain_checkout_problem`).
 - Globals are UPPER_CASE constants set at file load time; never mutate them from functions. Declare everything else `local`.
 - Keep pure logic (parsing, resolving config) separate from side effects, and route side effects through `run`/`run_tty` so `--dry-run` works.
 - A feature that writes into `/etc` must keep working on SteamOS, whose updates drop every `/etc` change no keep list names: name its files with `keep_across_steamos_updates` (`install/lib/fs.sh`). The default list keeps only users, network and system units (`.service`, `.socket`, `.mount`, their drop-ins and links; not timers); see `tests/images/steamos/atomic-update-keep.conf`. The `steamos-update` fixture checks this.
