@@ -4,7 +4,8 @@
 # and @gui tags), every feature for specific hardware sits in install/features/<os>_<machine>/, every OS names known
 # platforms and machines, the features of every OS and profile exist, suit its platforms, GUI and machines, and come
 # after the features they require, its link paths exist, naming single files under root/, and every variant names an
-# OS and profile that go together. Run via `make validate`.
+# OS and profile that go together, and every one-time install in install/oti defines its function and description and
+# no uninstall. Run via `make validate`.
 
 set -euo pipefail
 
@@ -20,7 +21,7 @@ LOCAL_BIN="$LOCAL_PREFIX/bin"
 DRY_RUN=true
 
 for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
-  "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh; do
+  "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh "$INSTALL_DIR"/oti/*.sh; do
   # shellcheck source=/dev/null
   source "$f"
 done
@@ -208,8 +209,24 @@ check_variant() {
   f_return problems="$problems"
 }
 
+# Outputs: problems, what is wrong with one-time install $1 (install/oti/$1.sh): it must define oti_<name> and
+# oti_config_<name> (which returns a description), and no uninstall functions, since one-time installs can't be undone.
+check_oti() {
+  local oti="$1" fn file="$INSTALL_DIR/oti/$1.sh" problems="" description
+  fn="$(oti_function "$oti")"
+  grep -q "^$fn() *{" "$file" || problems+="oti $oti: $file defines no $fn"$'\n'
+  if grep -q "^oti_config_${fn#oti_}() *{" "$file"; then
+    f_call oti_config description -- "$oti"
+    [[ -n "$description" ]] || problems+="oti $oti: oti_config_${fn#oti_} returns no description"$'\n'
+  else
+    problems+="oti $oti: $file defines no oti_config_${fn#oti_}"$'\n'
+  fi
+  ! grep -q '^uninstall_' "$file" || problems+="oti $oti: can't be undone, so it defines no uninstall_ functions"$'\n'
+  f_return problems="$problems"
+}
+
 main() {
-  local variant os profile problems="" known feature k found
+  local variant os profile problems="" known feature k found oti
   f_call scan_features known=features
 
   for feature in $known; do
@@ -228,6 +245,10 @@ main() {
     f_call check_variant found=problems -- "$variant"
     problems+="$found"
   done
+  for oti in $(available_names oti); do
+    f_call check_oti found=problems -- "$oti"
+    problems+="$found"
+  done
   for k in $DRY_RUN_FEATURES; do
     list_contains "$known" "$k" || problems+="DRY_RUN_FEATURES names unknown feature '$k'"$'\n'
   done
@@ -236,7 +257,7 @@ main() {
     printf '%s' "$problems" | while IFS= read -r line; do warn "$line"; done
     error "validation failed"
   fi
-  info "All OSes, profiles, variants and features are valid."
+  info "All OSes, profiles, variants, features and one-time installs are valid."
 }
 
 main "$@"
