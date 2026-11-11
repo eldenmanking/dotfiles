@@ -108,7 +108,9 @@ download_arch_iso() {
   mkdir -p "$dir"
   info "Downloading $ARCH_VM_ISO_URL/$ARCH_VM_ISO_NAME..."
   sums="$(curl -fsSL "$ARCH_VM_ISO_URL/sha256sums.txt")" || { warn "Could not fetch the ISO checksums."; return 1; }
-  curl -fSL -o "$ARCH_VM_ISO.part" "$ARCH_VM_ISO_URL/$ARCH_VM_ISO_NAME" || { rm -f "$ARCH_VM_ISO.part"; return 1; }
+  # -C - resumes a partial download left by an earlier run.
+  curl -fSL --retry 3 -C - -o "$ARCH_VM_ISO.part" "$ARCH_VM_ISO_URL/$ARCH_VM_ISO_NAME" \
+    || { warn "Could not download the ISO; rerun to resume."; return 1; }
   if ! (cd "$dir" && mv "$ARCH_VM_ISO_NAME.part" "$ARCH_VM_ISO_NAME.checking" \
       && grep " $ARCH_VM_ISO_NAME\$" <<< "$sums" | sed "s/ $ARCH_VM_ISO_NAME\$/ $ARCH_VM_ISO_NAME.checking/" \
       | sha256sum -c --status); then
@@ -156,7 +158,7 @@ feature_steamos_arch_vm() {
     info "[dry-run] $ARCH_VM_BOXES_APP is not installed; the commands below would fail without it."
   fi
 
-  download_arch_iso || { warn "Could not download the Arch ISO."; return; }
+  download_arch_iso || { warn "Could not download the Arch ISO."; return 1; }
   create_arch_vm_target
   define_arch_vm
   info "Start '$ARCH_VM_NAME' from GNOME Boxes: the installer boots from the medium, and /dev/vda is the target."

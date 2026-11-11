@@ -15,7 +15,10 @@ font_up_to_date() {
 
 # True when the family comes from somewhere else (e.g. a system package), which we leave alone.
 font_installed_elsewhere() {
-  [[ ! -d "$FONT_DEST" ]] && command -v fc-list >/dev/null && fc-list : family | grep -qF "$FONT_FAMILY"
+  local families
+  [[ ! -d "$FONT_DEST" ]] && command -v fc-list >/dev/null || return 1
+  families="$(fc-list : family)"
+  [[ "$families" == *"$FONT_FAMILY"* ]]
 }
 
 # Install the pinned JetBrainsMono Nerd Font to ~/.local/share/fonts, unless it is already installed elsewhere.
@@ -41,10 +44,13 @@ feature_font() {
     "https://github.com/ryanoasis/nerd-fonts/releases/download/$FONT_NF_VERSION/JetBrainsMono.tar.xz" \
     "$FONT_SHA256" "$tmp/font.tar.xz" font \
     || { rm -rf "$tmp"; error "could not download the font"; }
-  # Start clean so files dropped by a newer release don't linger.
+  # Extract aside and swap in, so a failed extract keeps the old fonts and files dropped by a newer release don't linger.
+  run mkdir -p "$tmp/new"
+  run tar -xJf "$tmp/font.tar.xz" -C "$tmp/new" --wildcards '*.ttf' OFL.txt \
+    || { rm -rf "$tmp"; error "could not extract the font"; }
   run rm -rf "$FONT_DEST"
-  run mkdir -p "$FONT_DEST"
-  run tar -xJf "$tmp/font.tar.xz" -C "$FONT_DEST" --wildcards '*.ttf' OFL.txt
+  run mkdir -p "$(dirname "$FONT_DEST")"
+  run mv "$tmp/new" "$FONT_DEST"
   if command -v fc-cache >/dev/null; then run fc-cache -f "$FONT_DEST"; fi
   $DRY_RUN || printf '%s\n' "$FONT_NF_VERSION $FONT_SHA256" > "$FONT_STAMP"
   rm -rf "$tmp"
@@ -58,7 +64,9 @@ feature_font() {
 # @os arch
 # @gui any
 feature_logiops() {
-  if ! systemctl list-unit-files | grep -q "logid.service"; then
+  local unit_files
+  unit_files="$(systemctl list-unit-files)"
+  if [[ "$unit_files" != *logid.service* ]]; then
     info "Installing PixlOne/logiops..."
     run sudo pacman --needed -S cmake libevdev libconfig pkgconf
     if $DRY_RUN; then
