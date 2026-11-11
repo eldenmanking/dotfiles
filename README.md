@@ -24,6 +24,7 @@ This repository contains configuration files for my linux workspace. The followi
 ├── docs                             ---
 │   ├── bootloader.md                ---
 │   ├── framework16-sleep.md         --- Framework 16 sleep battery drain diagnosis and fix
+│   ├── install-database.md          --- design proposal: record what features install, to undo it and restore what it replaced
 │   ├── light-sleep.md               --- light sleep instead of suspend while an eGPU is on the Framework 16 expansion bay
 │   ├── mac-os-setup.md              ---
 │   ├── migrations.md                --- manual steps after pulling changes that leave stale files behind
