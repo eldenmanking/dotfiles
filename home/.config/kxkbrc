@@ -1,4 +1,2 @@
-# Merged into ~/.config/kxkbrc key by key by the kde feature (not linked, since KDE rewrites the file).
-# No XKB options: the Keychron's firmware swaps Caps Lock and Escape, so Plasma mustn't remap them too.
 [Layout]
 Options=

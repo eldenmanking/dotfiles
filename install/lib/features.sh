@@ -133,6 +133,17 @@ feature_uninstallable() {
   declare -F "$(uninstall_function "$1")" >/dev/null
 }
 
+# Features can define capture_feature_<name>, run by --capture to copy settings changed on this system (e.g. in a settings app)
+# back into the repo's files. It must honor --dry-run.
+capture_function() {
+  printf 'capture_feature_%s' "${1//-/_}"
+}
+
+# Return 0 if feature $1 defines a capture function.
+feature_capturable() {
+  declare -F "$(capture_function "$1")" >/dev/null
+}
+
 # Print the names of the definitions in install/$1 (variants, os or profiles), from their file names.
 available_names() {
   local f names=""

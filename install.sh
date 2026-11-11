@@ -83,7 +83,7 @@ usage_feature() {
 
 # Print the variants, OSes and profiles, then the options of OS $1 with profile $2 on machine $3 if they can run.
 usage() {
-  local os="$1" profile="$2" machine="${3:-generic}" v features optional other="" uninstallable=""
+  local os="$1" profile="$2" machine="${3:-generic}" v features optional other="" uninstallable="" capturable=""
   local variant_os variant_profile description os_machines feature_machine
   cat <<EOF
 Usage: $(basename "$0") [--variant NAME | --os NAME --profile NAME] [--machine NAME] [--infer] [OPTIONS]
@@ -138,6 +138,7 @@ Options for OS '$os' with profile '$profile' on machine '$machine':
 EOF
   for v in $features; do
     feature_uninstallable "$v" && uninstallable+="${uninstallable:+ }$v"
+    feature_capturable "$v" && capturable+="${capturable:+ }$v"
     f_call feature_requirements feature_machine=machine -- "$v"
     if list_contains "$optional" "$v"; then
       continue
@@ -163,6 +164,9 @@ EOF
   if [[ -n "$uninstallable" ]]; then
     printf '  --%-14s %s (%s)\n' reinstall "uninstall the selected options, then install them" "$uninstallable"
     printf '  --%-14s %s (%s)\n' uninstall "uninstall the selected options" "$uninstallable"
+  fi
+  if [[ -n "$capturable" ]]; then
+    printf '  --%-14s %s (%s)\n' capture "capture the selected options' settings from this system into the repo" "$capturable"
   fi
   cat <<EOF
   --dry-run        print what would happen without making changes
@@ -203,9 +207,9 @@ parse_args() {
       --infer)     infer=true; shift ;;
       --all)       all=true; shift ;;
       --dry-run)   dry_run=true; shift ;;
-      --reinstall|--uninstall)
+      --reinstall|--uninstall|--capture)
         [[ "$mode" == install || "$mode" == "${1#--}" ]] \
-          || usage_error "--reinstall and --uninstall are mutually exclusive"
+          || usage_error "--reinstall, --uninstall and --capture are mutually exclusive"
         mode="${1#--}"
         shift
         ;;
@@ -333,7 +337,8 @@ exit_with_usage_unless_runnable() {
 
 # Outputs: enabled, the selected features of OS $1 with profile $2 on machine $6. --all leaves out optional features
 # and those whose @machine doesn't suit $6; named features run either way (with a warning for the latter). Under
-# --uninstall, features without an uninstall function are dropped (with a warning if named).
+# --uninstall, features without an uninstall function are dropped (with a warning if named), and under --capture those
+# without a capture function.
 resolve_features() {
   local os="$1" profile="$2" flags="$3" all="$4" mode="$5" machine="$6" features optional enabled=" " k default
   local feature_machine
@@ -353,7 +358,12 @@ resolve_features() {
       warn "--$k is for machine $feature_machine, not $machine; running it since it was named"
     fi
     if list_contains "$flags" "$k" || { $all && $default; }; then
-      if [[ "$mode" != install ]] && ! feature_uninstallable "$k"; then
+      if [[ "$mode" == capture ]]; then
+        if ! feature_capturable "$k"; then
+          list_contains "$flags" "$k" && warn "--$k has no capture step; skipping it"
+          continue
+        fi
+      elif [[ "$mode" != install ]] && ! feature_uninstallable "$k"; then
         if list_contains "$flags" "$k"; then
           if [[ "$mode" == uninstall ]]; then
             warn "--$k has no uninstall step; skipping it"
@@ -423,7 +433,7 @@ reverse_words() {
 
 # Run the enabled features in the order of OS $1 with profile $2: install runs feature_<name>, reinstall runs
 # uninstall_feature_<name> (if defined) then feature_<name>, and uninstall runs uninstall_feature_<name> in reverse
-# order. Each gets the OS, the profile and the enabled features.
+# order. capture runs capture_feature_<name> instead. Each gets the OS, the profile and the enabled features.
 run_features() {
   local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" features feature
 
@@ -435,6 +445,11 @@ run_features() {
   info "Beginning dotfiles $mode (os: $os, profile: $profile, machine: $machine)..."
   for feature in $features; do
     list_contains "$enabled" "$feature" || continue
+    if [[ "$mode" == capture ]]; then
+      info "Capturing feature: $feature"
+      "$(capture_function "$feature")" "$os" "$profile" "$enabled"
+      continue
+    fi
     if [[ "$mode" != install ]] && feature_uninstallable "$feature"; then
       info "Uninstalling feature: $feature"
       "$(uninstall_function "$feature")" "$os" "$profile" "$enabled"
