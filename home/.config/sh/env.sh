@@ -2,8 +2,12 @@
 # Environment variables. Sourced from login profiles and rc files, so it must be POSIX sh and safe to source more
 # than once.
 
-# Add a directory to the front or back of PATH unless it is already there.
+# Add directory <dir> to the front of PATH unless it is already there.
+# Usage: path_prepend <dir>
 path_prepend() { case ":$PATH:" in *":$1:"*) ;; *) PATH="$1${PATH:+:$PATH}" ;; esac; }
+
+# Add directory <dir> to the back of PATH unless it is already there.
+# Usage: path_append <dir>
 path_append() { case ":$PATH:" in *":$1:"*) ;; *) PATH="${PATH:+$PATH:}$1" ;; esac; }
 
 path_prepend "$HOME/.local/bin"                                 # User executables

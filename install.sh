@@ -25,6 +25,7 @@ DOWNLOAD_CACHE="${DOTFILES_DOWNLOAD_CACHE:-}"
 # install.sh only runs from a dotfiles checkout, beside its install/ directory; to install from scratch, use the
 # bootstrap on the repo's install branch (see README.md). From a git checkout elsewhere, clone_checkout_to_root moves
 # the install to $DOTFILES_ROOT. Runs before install/lib is loaded, so it prints its own messages.
+# Usage: bootstrap [<arg>...]
 bootstrap() {
   if [[ ! -f "$INSTALL_DIR/lib/fn.sh" ]]; then
     printf '[error] install.sh must run from a dotfiles checkout. To install from scratch, use the install.sh on\n' >&2
@@ -37,6 +38,7 @@ bootstrap() {
 # When run from a git checkout elsewhere (e.g. Coder's ~/.config/coderv2/dotfiles) and $DOTFILES_ROOT doesn't exist,
 # clone that checkout's current commit to $DOTFILES_ROOT, point its origin at the checkout's origin, then re-run its
 # install.sh with the same arguments. Uncommitted changes aren't copied. Anything else is left to enter_dotfiles_root.
+# Usage: clone_checkout_to_root [<arg>...]
 clone_checkout_to_root() {
   local top head branch origin
   [[ ! -e "$DOTFILES_ROOT" && ! -L "$DOTFILES_ROOT" ]] || return 0
@@ -62,6 +64,7 @@ clone_checkout_to_root() {
 
 # Source install/lib, features, OSes, profiles and variants. They only define functions and constants, so their
 # globals stay global.
+# Usage: load_install_deps
 load_install_deps() {
   local f
   for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
@@ -73,6 +76,7 @@ load_install_deps() {
 }
 
 # Print feature $1's --help line, with the machines it is for and the features it requires.
+# Usage: usage_feature <feature>
 usage_feature() {
   local machine requires
   f_call feature_requirements machine requires -- "$1"
@@ -82,6 +86,7 @@ usage_feature() {
 }
 
 # Print the variants, OSes and profiles, then the options of OS $1 with profile $2 on machine $3 if they can run.
+# Usage: usage <os> <profile> [<machine>]
 usage() {
   local os="$1" profile="$2" machine="${3:-generic}" v features optional other="" uninstallable=""
   local variant_os variant_profile description os_machines feature_machine
@@ -171,6 +176,7 @@ EOF
 }
 
 # Warn with message $1, print usage (of OS $2 with profile $3 on machine $4, if given) and exit.
+# Usage: usage_error <message> [<os>] [<profile>] [<machine>]
 usage_error() {
   local message="$1" os="${2:-}" profile="${3:-}" machine="${4:-}"
   warn "$message"
@@ -323,6 +329,7 @@ resolve_dimensions() {
 # Print usage and exit unless OS $5 with profile $6 can run on machine $7: with no OS and profile, or with no
 # features selected ($1 flags, $2 --all) or --help ($3). Without an OS and profile this is an error unless --help was
 # given or there were no arguments ($4), as is an OS, profile or machine that doesn't exist or doesn't go together.
+# Usage: exit_with_usage_unless_runnable <flags> <all> <help> <no_args> <os> <profile> <machine>
 exit_with_usage_unless_runnable() {
   local flags="$1" all="$2" help="$3" no_args="$4" os="$5" profile="$6" machine="$7" os_machines
   list_contains "$MACHINES" "$machine" || usage_error "Unknown machine '$machine'. Available machines: $MACHINES"
@@ -393,6 +400,7 @@ resolve_features() {
 # Run one-time install $1 and exit, after checking that nothing else was asked for: --oti can't be combined with a
 # variant, OS, profile, machine, --infer ($2, a list of those given), features or --all ($3, $4), or --reinstall or
 # --uninstall ($5). --help ($6) prints the usage instead. Defaults from the environment and install.conf don't apply.
+# Usage: run_oti_and_exit <oti> <dimensions> <flags> <all> <mode> <help>
 run_oti_and_exit() {
   local oti="$1" dimensions="$2" flags="$3" all="$4" mode="$5" help="$6"
   ! $help || { usage; exit 0; }
@@ -408,6 +416,7 @@ run_oti_and_exit() {
 # Print why install.sh in $1 can't install from $2, or nothing if it can. Everything it links points into $2, so it
 # must run from that checkout ($2 may be a symlink to it), and the checkout must be named dotfiles, which the startup
 # files and lint (.shellcheckrc) rely on.
+# Usage: explain_checkout_problem <script_dir> <root>
 explain_checkout_problem() {
   local script_dir="$1" root="$2" script_real root_real
   script_real="$(cd "$script_dir" && pwd -P)"
@@ -424,6 +433,8 @@ explain_checkout_problem() {
   fi
 }
 
+# cd into $DOTFILES_ROOT, or exit with why install.sh can't install from it.
+# Usage: enter_dotfiles_root
 enter_dotfiles_root() {
   local problem
   problem="$(explain_checkout_problem "$SCRIPT_DIR" "$DOTFILES_ROOT")"
@@ -433,6 +444,7 @@ enter_dotfiles_root() {
 }
 
 # Print the words of $1 in reverse order.
+# Usage: reverse_words <words>
 reverse_words() {
   local word reversed=""
   for word in $1; do
@@ -444,6 +456,7 @@ reverse_words() {
 # Run the enabled features in the order of OS $1 with profile $2: install runs feature_<name>, reinstall runs
 # uninstall_feature_<name> (if defined) then feature_<name>, and uninstall runs uninstall_feature_<name> in reverse
 # order. Each gets the OS, the profile and the enabled features.
+# Usage: run_features <os> <profile> <enabled> <mode> <machine>
 run_features() {
   local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" features feature
 
@@ -469,6 +482,8 @@ run_features() {
   info "dotfiles $mode complete."
 }
 
+# Install, reinstall or uninstall what the command line asks for (see usage), or run a one-time install.
+# Usage: main [<arg>...]
 main() {
   bootstrap "$@"
   load_install_deps

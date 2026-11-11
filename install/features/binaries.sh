@@ -1,6 +1,9 @@
 # Features: install binaries into ~/.local without a package manager.
 
 # --- Install neovim ---
+
+# Install the latest neovim release into ~/.local, unless nvim is already available.
+# Usage: install_neovim
 install_neovim() {
   if command -v nvim &>/dev/null; then
     info "neovim already available: $(command -v nvim)"
@@ -56,6 +59,9 @@ install_neovim() {
 }
 
 # --- Install tmux ---
+
+# Build tmux from its source release into ~/.local, unless it is already available.
+# Usage: install_tmux_binary
 install_tmux_binary() {
   if command -v tmux &>/dev/null; then
     info "tmux already available: $(command -v tmux)"

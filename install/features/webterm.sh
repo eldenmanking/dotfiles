@@ -29,6 +29,7 @@ ttyd_asset() {
 }
 
 # Download the pinned ttyd to ~/.local/bin/ttyd, next to the linked webterm scripts, unless it is already there.
+# Usage: install_ttyd
 install_ttyd() {
   local asset sha256
   f_call ttyd_asset asset sha256
@@ -51,6 +52,7 @@ install_ttyd() {
 }
 
 # Print the URL the socket serves the terminal on, under the secret token $1 if there is one.
+# Usage: webterm_url <token>
 webterm_url() {
   local token="$1" listen
   listen="$(sed -n 's/^ListenStream=//p' "$WEBTERM_SOCKET")"
@@ -59,6 +61,7 @@ webterm_url() {
 
 # Print the saved token (the secret URL path), or a new random one if none is saved yet. The token keeps other sites
 # (incl. DNS rebinding) from finding the shell. It is kept in its own file, not env, so env can be linked from the repo.
+# Usage: webterm_token
 webterm_token() {
   if [[ -f "$WEBTERM_TOKEN_FILE" ]]; then
     sed -n 's/^WEBTERM_TOKEN=//p' "$WEBTERM_TOKEN_FILE"
@@ -68,6 +71,7 @@ webterm_token() {
 }
 
 # Save token $1 to the token file, unless one is saved already.
+# Usage: save_token <token>
 save_token() {
   local token="$1"
   [[ ! -f "$WEBTERM_TOKEN_FILE" ]] || return 0
@@ -76,6 +80,7 @@ save_token() {
 }
 
 # Poke the socket once to prove activation works (it exits again when idle)
+# Usage: check_socket_activation <url>
 check_socket_activation() {
   local url="$1"
   if $DRY_RUN; then

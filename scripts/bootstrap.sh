@@ -19,6 +19,7 @@ PIN_END="# END GENERATED PIN"
 source "$REPO_ROOT/install/lib/output.sh"
 
 # Print git URL $1 as https://<host>/<path>.git; local paths are printed as they are.
+# Usage: normalize_repo_url <url>
 normalize_repo_url() {
   local url="${1%/}"
   url="${url%.git}"
@@ -31,6 +32,7 @@ normalize_repo_url() {
 }
 
 # Print template $1 with its pin block naming repo $2 and commit $3.
+# Usage: render_bootstrap <template> <repo> <commit>
 render_bootstrap() {
   local template="$1" repo="$2" commit="$3"
   [[ "$(grep -cxF "$PIN_BEGIN" "$template")" == 1 && "$(grep -cxF "$PIN_END" "$template")" == 1 ]] \
@@ -43,12 +45,14 @@ render_bootstrap() {
 }
 
 # Print the commit that bootstrap text $1 pins, or nothing.
+# Usage: pinned_commit <bootstrap>
 pinned_commit() {
   sed -n 's/^PINNED_COMMIT="\(.*\)"$/\1/p' <<< "$1"
 }
 
 # Commit bootstrap text $3, pinning commit $2, as the only file (install.sh) of branch $1 on top of origin's, and push
 # it to origin. Does nothing if origin's branch already pins $2 or a later commit.
+# Usage: publish <branch> <commit> <bootstrap>
 publish() {
   local branch="$1" commit="$2" bootstrap="$3" parent="" current blob tree new
   if git -C "$REPO_ROOT" ls-remote --exit-code --heads origin "$branch" >/dev/null; then
@@ -72,6 +76,9 @@ publish() {
   info "$branch now pins $commit ($new)"
 }
 
+# Print the bootstrap pinning commit <rev> (default HEAD) of repo <repo> (default origin), or with
+# --publish, commit it as the only file of branch <branch> and push it.
+# Usage: main [--publish <branch>] [--repo <repo>] [--commit <rev>]
 main() {
   local branch="" repo="" rev=HEAD commit bootstrap
   while [[ $# -gt 0 ]]; do

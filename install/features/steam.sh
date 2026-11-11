@@ -11,6 +11,7 @@ STEAM_SETTINGS=(
 
 # Read a localconfig.vdf on stdin and print it with the value on each "key" line replaced by $2. Fails if no line has
 # the key, after printing the file unchanged. Steam writes each "key"<tab><tab>"value" pair on its own line.
+# Usage: steam_vdf_replace <key> <value>
 steam_vdf_replace() {
   KEY="$1" VALUE="$2" awk '
     {

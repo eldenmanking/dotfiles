@@ -38,6 +38,7 @@ scan_features() {
 
 # Print the directory under install/features holding feature $1's function: empty for the top level, else its
 # subdirectory's name.
+# Usage: feature_dir <feature>
 feature_dir() {
   local file
   file="$(grep -l "^$(feature_function "$1")()" "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | head -1)"
@@ -254,6 +255,8 @@ check_oti() {
   f_return problems
 }
 
+# Run every check, then fail with all the problems found, if any.
+# Usage: main
 main() {
   local variant os profile problems="" known feature k found oti
   f_call scan_features known=features

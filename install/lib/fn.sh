@@ -68,6 +68,7 @@ f_return() {
 }
 
 # Return 0 if space-separated list $1 contains word $2.
+# Usage: list_contains <list> <word>
 list_contains() {
   case " $1 " in
     *" $2 "*) return 0 ;;

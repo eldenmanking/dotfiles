@@ -5,11 +5,13 @@
 # can't be undone, so they have no uninstall. See One-time installs in README.md.
 
 # Print the function that runs one-time install $1.
+# Usage: oti_function <oti>
 oti_function() {
   printf 'oti_%s' "${1//-/_}"
 }
 
 # Return 0 if one-time install $1 exists.
+# Usage: oti_exists <oti>
 oti_exists() {
   [[ -n "$1" ]] && declare -F "$(oti_function "$1")" >/dev/null
 }
@@ -24,6 +26,7 @@ oti_config() {
 
 # Run one-time install $1. It runs as a plain command, not in a condition, so set -e stops it at the first command that
 # fails (bash ignores set -e in everything a condition calls); the EXIT trap then says how to go on.
+# Usage: run_oti <oti>
 run_oti() {
   trap '[[ $? -eq 0 ]] || warn "One-time install stopped before finishing; run it again to resume."' EXIT
   info "Beginning one-time install: $1..."

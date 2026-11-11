@@ -9,11 +9,13 @@ FONT_DEST="$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
 FONT_STAMP="$FONT_DEST/.version"
 
 # True when FONT_DEST holds exactly the pinned release.
+# Usage: font_up_to_date
 font_up_to_date() {
   [[ -f "$FONT_STAMP" && "$(cat "$FONT_STAMP")" == "$FONT_NF_VERSION $FONT_SHA256" ]]
 }
 
 # True when the family comes from somewhere else (e.g. a system package), which we leave alone.
+# Usage: font_installed_elsewhere
 font_installed_elsewhere() {
   [[ ! -d "$FONT_DEST" ]] && command -v fc-list >/dev/null && fc-list : family | grep -qF "$FONT_FAMILY"
 }

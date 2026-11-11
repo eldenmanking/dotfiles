@@ -18,24 +18,32 @@
 # X's current state instead: X probed at startup and probes again on hotplug.
 APPLY_WAIT=10
 
+# Log a message to the journal, tagged orei-switch like the rest of the display handling.
+# Usage: log <message>...
 log() { logger -t orei-switch "login screen: $*"; }
 
 # Print output $1's current mode (WxH) from xrandr output $2.
+# Usage: current_mode <output> <xrandr>
 current_mode() {
   awk -v o="$1" '$1 == o { for (i = 2; i <= NF; i++) if ($i ~ /^[0-9]+x[0-9]+\+/) { sub(/\+.*/, "", $i); print $i; exit } }' \
     <<<"$2"
 }
 
 # Return 0 if the ACPI lid switch reports closed; a missing switch counts as open.
+# Usage: lid_closed
 lid_closed() {
   grep -qs closed /proc/acpi/button/lid/*/state
 }
 
 # Print what the layout depends on: the lid and each DRM connector's status. Cheap to read, unlike an xrandr probe.
+# Usage: layout_inputs
 layout_inputs() {
   cat /proc/acpi/button/lid/*/state /sys/class/drm/card*-*/status 2>/dev/null | tr -s ' \n' ' '
 }
 
+# Lay out the displays for the login screen: the internal one alone, or the external one alone when
+# one is connected.
+# Usage: apply_layout
 apply_layout() {
   local outputs internal external mode mode_args size
   outputs="$(xrandr --current)" || return 1
@@ -70,6 +78,7 @@ apply_layout() {
 }
 
 # Re-apply the layout when its inputs change, until the X server goes away (on login).
+# Usage: watch_layout
 watch_layout() {
   local last now
   last="$(layout_inputs)"
@@ -85,6 +94,7 @@ watch_layout() {
 
 # Lay the displays out, tell the waiting script by removing $1 (which names the step running until then), then keep
 # them laid out until the X server goes away.
+# Usage: start <step_file>
 start() {
   # SteamOS's own DisplayCommand, which this replaces.
   echo holo-rotate-x11-screen >"$1"

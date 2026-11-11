@@ -22,7 +22,8 @@ ARCH_VM_DEFINITION="$ARCH_VM_BOXES_DIR/config/libvirt/qemu/$ARCH_VM_NAME.xml"
 ARCH_VM_TIMEOUT=60
 
 # Run a command from the Boxes Flatpak (virsh or qemu-img) with its arguments, giving up after ARCH_VM_TIMEOUT.
-#   $1: command
+# Usage: arch_vm_boxes <cmd> [<arg>...]
+#   <cmd>: command
 arch_vm_boxes() {
   local cmd="$1"
   shift
@@ -31,6 +32,7 @@ arch_vm_boxes() {
 
 # Return 0 if the VM is defined in Boxes' libvirt session. Reads libvirt's saved definition instead of asking virsh,
 # since running the Flatpak writes state into the home even under --dry-run.
+# Usage: arch_vm_defined
 arch_vm_defined() {
   [[ -f "$ARCH_VM_DEFINITION" ]]
 }
@@ -38,7 +40,8 @@ arch_vm_defined() {
 # Print the libvirt domain XML: UEFI without Secure Boot (the Arch ISO isn't signed), the ISO as a read-only removable
 # USB disk that boots first (it is a hybrid image, made to be written to a stick as is), and the target as a virtio
 # disk. Serials tell the disks apart inside the guest.
-#   $1: ISO, $2: target image, $3: NVRAM file
+# Usage: arch_vm_domain_xml <medium> <target> <nvram>
+#   <medium>: ISO, $2: target image, $3: NVRAM file
 arch_vm_domain_xml() {
   local medium="$1" target="$2" nvram="$3"
   cat <<EOF
@@ -94,6 +97,7 @@ EOF
 # Download the latest Arch ISO to $ARCH_VM_ISO unless it is there, checking it against the mirror's sha256sums.txt.
 # Delete it to get a newer one on the next run.
 # That file comes from the same mirror, so it catches corruption, not tampering; verify the signature by hand for that.
+# Usage: download_arch_iso
 download_arch_iso() {
   local dir sums
   if [[ -f "$ARCH_VM_ISO" ]]; then
@@ -120,6 +124,7 @@ download_arch_iso() {
 }
 
 # Create the blank target disk, a thin qcow2 of ARCH_VM_TARGET_SIZE.
+# Usage: create_arch_vm_target
 create_arch_vm_target() {
   if [[ -e "$ARCH_VM_TARGET" ]]; then
     info "$ARCH_VM_TARGET already exists (use --reinstall to recreate it)"
@@ -132,6 +137,7 @@ create_arch_vm_target() {
 
 # Define the VM in Boxes' libvirt session. The XML goes under the Flatpak's cache directory, as the sandbox can't see
 # /tmp.
+# Usage: define_arch_vm
 define_arch_vm() {
   if arch_vm_defined; then
     info "VM '$ARCH_VM_NAME' already defined (use --reinstall to recreate it)"

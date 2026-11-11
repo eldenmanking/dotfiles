@@ -24,6 +24,7 @@ feature_shell() {
 }
 
 # Install starship if missing, optionally into bin_dir.
+# Usage: install_starship_binary [<bin_dir>]
 install_starship_binary() {
   local bin_dir="${1:-}"
   if command -v starship &>/dev/null; then

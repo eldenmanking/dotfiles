@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Check the doc comment of every function that returns values with f_return (install/lib/fn.sh).
+"""Check the doc comment of every top-level function (`name() {` or `name () {` at the start of a line): a
+description, then a Usage line showing how to call it, optionally followed by one line per argument:
 
-Such a comment ends with a Usage line and a Returns line, each optionally followed by one line per argument or
-returned name:
+    # Print the paths that copy_system_files would copy each file in <src_dir> matching <glob> to in <dst_dir>.
+    # Usage: system_file_targets <src_dir> <glob> <dst_dir>
+    #   <glob>: a shell pattern, matched against file names only
+
+A function that returns values with f_return (install/lib/fn.sh) is called with f_call, so its Usage line is the
+f_call, and a Returns line follows, optionally followed by one line per returned name:
 
     # Copy each file in <src_dir> matching <glob> into <dst_dir> with sudo, replacing any old symlink.
     # Usage: f_call copy_system_files changed -- <src_dir> <dst_dir> <glob>
@@ -13,20 +18,25 @@ returned name:
 
 A Usage or Returns line too long for one line continues onto the next after a backslash, as in shell.
 
-It fails unless the comment has a description before its Usage line, the Usage line is f_call <function>, the names
-it returns, then (if it takes any) -- and its arguments, the Returns line lists the same names in the same order, and
-those are exactly the names the function's f_return calls return. Each entry names an argument from the Usage line or
-a name from the Returns line. Only top-level functions (`name() {` at the start of a line) are checked.
+It fails unless the comment has a description before its Usage line, and the Usage line starts with the function's
+name, or for one that calls f_return, is f_call <function>, the names it returns, then (if it takes any) -- and its
+arguments, with a Returns line listing the same names in the same order, exactly the names its f_return calls return.
+(A function that passes on what another returns, without calling f_return itself, may have an f_call Usage line and a
+Returns line too.) Each entry names an argument from the Usage line or a name from the Returns line, and the entries
+come last. feature_<name> and uninstall_feature_<name> in install/features are left out: install.sh calls them all the
+same way (<os> <profile> <enabled>), and tests/validation/features.sh checks their docs, which end with tags.
 
-Shell is only tokenized here, not parsed: quotes (across lines too), comments and backslash continuations are
-understood, which is enough for the f_return calls in this repo. Run by `make lint` with the shell files to check.
+Shell is only tokenized here, not parsed: quotes (across lines too), comments, here-documents and backslash
+continuations are understood, which is enough for the functions in this repo. Run by `make lint` with the shell files
+to check.
 """
 
 import re
 import sys
 
 NAME = r"[A-Za-z][A-Za-z0-9_]*"
-FUNCTION = re.compile(rf"^({NAME})\(\) *\{{")
+FUNCTION = re.compile(rf"^({NAME}) ?\(\) *\{{")
+FEATURE = re.compile(r"^(uninstall_)?feature_[a-z0-9_]+$")
 COMMAND_SEP = re.compile(r";|&&|\|\||[|&(){}]")
 
 
@@ -102,7 +112,7 @@ def returned_names(body):
 
 
 def functions(lines, code):
-    """Yield (line number, name, doc comment lines, returned names) for each top-level function that calls f_return."""
+    """Yield (line number, name, doc comment lines, returned names) for each top-level function."""
     for start, line in enumerate(code):
         match = FUNCTION.match(line)
         if not match:
@@ -115,8 +125,6 @@ def functions(lines, code):
                 break
             end += 1
         names = returned_names(code[start:end + 1])
-        if not names:
-            continue
         doc_start = start
         while doc_start > 0 and lines[doc_start - 1].startswith("#") and not lines[doc_start - 1].startswith("#!"):
             doc_start -= 1
@@ -152,11 +160,37 @@ def joined(doc, i):
     return line, i
 
 
+def arg_keys(args):
+    """Return the keys an entry may name for Usage arguments args: each word, with any [ ] or ... around it dropped."""
+    return [part for arg in args for part in re.sub(r"[\[\]]|\.\.\.", " ", arg).replace("|", " ").split()]
+
+
+def check_plain_doc(name, doc, where):
+    """Return the problems with doc comment doc of function name, which doesn't call f_return."""
+    usage = [i for i, line in enumerate(doc) if line.startswith("Usage:")]
+    if len(usage) != 1:
+        return [f"{where}: {name} needs a doc comment ending with one '# Usage: {name} [<args>...]' line"]
+    u = usage[0]
+    usage_line, u_end = joined(doc, u)
+    words = usage_line[len("Usage:"):].split()
+    if words[:2] == ["f_call", name]:
+        # A function passing on what another returns.
+        return check_doc(name, doc, None, where)
+    problems = []
+    if not any(line.strip() for line in doc[:u]):
+        problems.append(f"{where}: {name} needs a description before its Usage line")
+    if words[:1] != [name]:
+        problems.append(f"{where}: {name}'s Usage line must start with '{name}', not '{' '.join(words)}'")
+    problems += check_entries(doc[u_end:], arg_keys(words[1:]), "the Usage line", where)
+    return problems
+
+
 def check_doc(name, doc, names, where):
-    """Return the problems with doc comment doc of function name, which returns names."""
+    """Return the problems with doc comment doc of function name, which returns names with f_return (None for one that
+    passes on what another returns, whose Usage and Returns lines must only agree)."""
     usage = [i for i, line in enumerate(doc) if line.startswith("Usage:")]
     returns = [i for i, line in enumerate(doc) if line.startswith("Returns:")]
-    expected = " ".join(names)
+    expected = " ".join(names or ["<names>..."])
     if len(usage) != 1 or len(returns) != 1 or usage[0] > returns[0]:
         return [f"{where}: {name} returns values with f_return, so its doc comment must end with"
                 f" '# Usage: f_call {name} {expected} [-- <args>...]' then '# Returns: {expected}'"]
@@ -172,6 +206,8 @@ def check_doc(name, doc, names, where):
     if "--" in outs:
         args = outs[outs.index("--") + 1:]
         outs = outs[:outs.index("--")]
+    if names is None:
+        names = outs
     if words[:2] != ["f_call", name] or outs != names:
         problems.append(f"{where}: {name}'s Usage line must start 'f_call {name} {expected}', the names it returns"
                         f" with f_return, not '{' '.join(words)}'")
@@ -180,9 +216,7 @@ def check_doc(name, doc, names, where):
         problems.append(f"{where}: {name}'s Returns line must be 'Returns: {expected}', the names it returns with"
                         f" f_return, not 'Returns: {' '.join(returned)}'")
 
-    # An argument entry's key is a word of the Usage arguments, with any [ ] or ... around it dropped.
-    arg_keys = [part for arg in args for part in re.sub(r"[\[\]]|\.\.\.", " ", arg).replace("|", " ").split()]
-    problems += check_entries(doc[u_end:r], arg_keys, "the Usage line", where)
+    problems += check_entries(doc[u_end:r], arg_keys(args), "the Usage line", where)
     problems += check_entries(doc[r_end:], names, "the Returns line", where)
     return problems
 
@@ -194,7 +228,10 @@ def main(paths):
             text = f.read()
         lines = text.split("\n")
         for number, name, doc, names in functions(lines, code_lines(text)):
-            problems += check_doc(name, doc, names, f"{path}:{number}")
+            where = f"{path}:{number}"
+            if path.startswith("install/features/") and FEATURE.match(name):
+                continue
+            problems += check_doc(name, doc, names, where) if names else check_plain_doc(name, doc, where)
     for problem in problems:
         print(problem, file=sys.stderr)
     return 1 if problems else 0

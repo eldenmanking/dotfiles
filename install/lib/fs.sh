@@ -2,6 +2,7 @@
 
 # Create a symlink at $target pointing to $src, backing up any existing file
 # or stale symlink. Third arg is an optional sudo-style prefix.
+# Usage: make_symlink <src> <target> [<sudo_cmd>]
 make_symlink() {
   local src="$1" target="$2" sudo_cmd="${3:-}"
 
@@ -335,6 +336,7 @@ forget_across_steamos_updates() {
 # --- File writing and downloads (honor DRY_RUN) ---
 
 # Write stdin to $dest, or just announce it under --dry-run.
+# Usage: write_file <dest>
 write_file() {
   local dest="$1"
   if $DRY_RUN; then
@@ -346,6 +348,7 @@ write_file() {
 }
 
 # Return 0 if $file exists and has SHA-256 $sha256.
+# Usage: sha256_matches <file> <sha256>
 sha256_matches() {
   local file="$1" sha256="$2"
   [[ -f "$file" ]] && echo "$sha256  $file" | sha256sum -c --status
@@ -353,6 +356,7 @@ sha256_matches() {
 
 # Download $url to $out and check it against $sha256 ($name is for messages). With DOWNLOAD_CACHE set, a file there
 # named $sha256 that matches it is copied instead, and a download is stored there for next time.
+# Usage: download_verified <url> <sha256> <out> <name>
 download_verified() {
   local url="$1" sha256="$2" out="$3" name="$4"
   local cached="$DOWNLOAD_CACHE/$sha256"

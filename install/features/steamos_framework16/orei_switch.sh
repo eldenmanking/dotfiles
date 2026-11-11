@@ -19,6 +19,7 @@ OREI_SWITCH_FILES=(
 )
 
 # Print the path of each file the feature installs besides the units, framework_tool last, one per line.
+# Usage: orei_switch_paths
 orei_switch_paths() {
   local entry mode src
   for entry in "${OREI_SWITCH_FILES[@]}"; do
@@ -29,6 +30,7 @@ orei_switch_paths() {
 }
 
 # Download the pinned framework_tool into SYSTEM_BIN_DIR unless it is already there.
+# Usage: install_framework_tool
 install_framework_tool() {
   local dest="$FRAMEWORK_TOOL" tmp
   if sha256_matches "$dest" "$FRAMEWORK_TOOL_SHA256"; then

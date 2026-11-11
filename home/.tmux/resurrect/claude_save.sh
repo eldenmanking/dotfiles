@@ -7,6 +7,8 @@
 resurrect_file="$1"
 [ -f "$resurrect_file" ] || exit 0
 
+# Print Claude arguments <arg>... without the ones that continue or resume a session.
+# Usage: strip_resume_args [<arg>...]
 strip_resume_args() {
   local -a out=()
   while [ $# -gt 0 ]; do
@@ -21,6 +23,8 @@ strip_resume_args() {
   echo "${out[*]}"
 }
 
+# Return 0 if Claude saved a transcript for session <id>.
+# Usage: session_exists <id>
 session_exists() {
   compgen -G "$HOME/.claude/projects/*/$1.jsonl" >/dev/null
 }

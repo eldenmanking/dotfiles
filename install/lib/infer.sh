@@ -10,6 +10,7 @@ DMI_ID_DIR=/sys/class/dmi/id
 # Print the OS for kernel name $1 (uname -s), os-release ID $2 and ID_LIKE $3 (a list), with $4 true inside a
 # Coder workspace, or nothing if no OS fits. A Coder workspace is portable whatever its image, since the workspace
 # profile only runs there; other Linux systems (Ubuntu, WSL, ...) and macOS are portable too.
+# Usage: os_for_system <kernel> <id> <id_like> <coder>
 os_for_system() {
   local kernel="$1" id="$2" id_like="$3" coder="$4"
   if [[ "$coder" == true ]]; then
@@ -33,6 +34,7 @@ os_for_system() {
 
 # Print the profile for OS $1, with $2 true inside a Coder workspace: workspace there, desktop on arch and steamos
 # (installs there set up the desktop too, so an Arch install without one yet still gets it), minimal elsewhere.
+# Usage: profile_for_system <os> <coder>
 profile_for_system() {
   local os="$1" coder="$2"
   case "$os" in
@@ -42,6 +44,7 @@ profile_for_system() {
 }
 
 # Print the machine for DMI system vendor $1 and product name $2 (empty when unknown, e.g. on macOS).
+# Usage: machine_for_dmi <vendor> <product>
 machine_for_dmi() {
   case "$1:$2" in
     "Framework:Laptop 16"*) echo framework16 ;;

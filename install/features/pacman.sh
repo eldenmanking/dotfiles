@@ -87,6 +87,7 @@ GNOME_YAY=(
 )
 
 # Install yay if it's not already on the system.
+# Usage: ensure_yay
 ensure_yay() {
   if command -v yay &>/dev/null; then
     return

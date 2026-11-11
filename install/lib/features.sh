@@ -1,5 +1,7 @@
 # Feature, OS, profile and variant registry helpers.
 
+# Print the --help text of feature <feature> (or all, for --all), or an empty line for an unknown one.
+# Usage: feature_description <feature>
 feature_description() {
   case "$1" in
     all)         echo "install all options" ;;
@@ -103,18 +105,21 @@ feature_requirements() {
 }
 
 # Return 0 if a feature for OSes $1 works on platform $2 (one of an OS's platforms).
+# Usage: os_supported <oses> <platform>
 os_supported() {
   list_contains "$1" any || list_contains "$1" "$2" \
     || { list_contains "$1" linux && list_contains "arch steamos" "$2"; }
 }
 
 # Return 0 if a feature for machines $1 suits machine $2 (one of MACHINES, in install/lib/infer.sh).
+# Usage: machine_supported <machines> <machine>
 machine_supported() {
   list_contains "$1" any || list_contains "$1" "$2" \
     || { list_contains "$1" laptop && [[ "$2" == framework16 ]]; }
 }
 
 # Return 0 if a feature for GUIs $1 works with GUI $2 (none for headless).
+# Usage: gui_supported <guis> <gui>
 gui_supported() {
   list_contains "$1" any || list_contains "$1" "$2" \
     || { list_contains "$1" desktop && [[ "$2" != none ]]; }
@@ -123,22 +128,27 @@ gui_supported() {
 # Features that honor --dry-run; others are only announced.
 DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link desktop manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
 
+# Print the name of feature <feature>'s function, feature_<name> with any - as _.
+# Usage: feature_function <feature>
 feature_function() {
   printf 'feature_%s' "${1//-/_}"
 }
 
 # Features can define uninstall_feature_<name>, run by --uninstall and before
 # feature_<name> by --reinstall. It must be idempotent and honor --dry-run.
+# Usage: uninstall_function <feature>
 uninstall_function() {
   printf 'uninstall_feature_%s' "${1//-/_}"
 }
 
 # Return 0 if feature $1 defines an uninstall function.
+# Usage: feature_uninstallable <feature>
 feature_uninstallable() {
   declare -F "$(uninstall_function "$1")" >/dev/null
 }
 
 # Print the names of the definitions in install/$1 (variants, os or profiles), from their file names.
+# Usage: available_names <dir>
 available_names() {
   local f names=""
   for f in "$INSTALL_DIR/$1"/*.sh; do
@@ -149,26 +159,31 @@ available_names() {
 }
 
 # Return 0 if a variant_<name> function is defined.
+# Usage: variant_exists <variant>
 variant_exists() {
   [[ -n "$1" ]] && declare -F "variant_$1" >/dev/null
 }
 
 # Return 0 if an os_<name> function is defined.
+# Usage: os_exists <os>
 os_exists() {
   [[ -n "$1" ]] && declare -F "os_$1" >/dev/null
 }
 
 # Return 0 if a profile_<name> function is defined.
+# Usage: profile_exists <profile>
 profile_exists() {
   [[ -n "$1" ]] && declare -F "profile_$1" >/dev/null
 }
 
 # Return 0 if OS $1 supports profile $2, which it does by defining os_<os>_<profile>.
+# Usage: os_supports_profile <os> <profile>
 os_supports_profile() {
   os_exists "$1" && profile_exists "$2" && declare -F "os_$1_$2" >/dev/null
 }
 
 # Print the profiles OS $1 supports.
+# Usage: os_profiles <os>
 os_profiles() {
   local profile profiles=""
   for profile in $(available_names profiles); do

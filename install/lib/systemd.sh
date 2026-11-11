@@ -12,6 +12,7 @@ _unit_has_install() {
 }
 
 # Return 0 if this process can reach a systemd user manager (not under su or sudo, or before a login).
+# Usage: has_user_session
 has_user_session() {
   systemctl --user show-environment >/dev/null 2>&1
 }

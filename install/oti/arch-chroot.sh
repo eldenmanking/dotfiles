@@ -50,6 +50,7 @@ oti_config_arch_chroot() {
 
 # Print partition $2 of disk $1, as the kernel names it: a p goes between a disk name ending in a digit and the number
 # (/dev/nvme0n1p1), and nothing otherwise (/dev/vda1).
+# Usage: arch_chroot_partition <disk> <n>
 arch_chroot_partition() {
   local disk="$1" n="$2"
   case "$disk" in
@@ -59,12 +60,14 @@ arch_chroot_partition() {
 }
 
 # Print the sfdisk script for the guide's layout: GPT, an EFI system partition, then Linux on the rest.
+# Usage: arch_chroot_sfdisk_script
 arch_chroot_sfdisk_script() {
   printf '%s\n' "label: gpt" "size=$ARCH_CHROOT_ESP_SIZE, type=uefi" "type=linux"
 }
 
 # Print the packages to install for CPU vendor $1 (vendor_id in /proc/cpuinfo), with $2 true when dual booting: the
 # guide's, the CPU's microcode, and os-prober to list the other OSes in GRUB.
+# Usage: arch_chroot_packages <vendor> <dual>
 arch_chroot_packages() {
   local vendor="$1" dual="$2" packages
   packages="$(printf '%s ' $ARCH_CHROOT_PACKAGES)"
@@ -77,11 +80,13 @@ arch_chroot_packages() {
 }
 
 # Print /etc/hosts for hostname $1.
+# Usage: arch_chroot_hosts <hostname>
 arch_chroot_hosts() {
   printf '%s\n' "127.0.0.1 localhost" "::1 localhost" "127.0.1.1 $1"
 }
 
 # Return 0 if the account $2 in shadow file $1 has a password set.
+# Usage: arch_chroot_has_password <shadow> <user>
 arch_chroot_has_password() {
   local shadow="$1" user="$2" hash
   hash="$(awk -F: -v u="$user" '$1 == u { print $2 }' "$shadow" 2>/dev/null)"
@@ -89,42 +94,50 @@ arch_chroot_has_password() {
 }
 
 # Print the fstab line for swap $1: the swap file's path, or a swap partition's UUID=... .
+# Usage: arch_chroot_swap_fstab <swap>
 arch_chroot_swap_fstab() {
   printf '%s none swap defaults 0 0\n' "$1"
 }
 
 # Return 0 if $1 is a swap file size in GiB, a whole number from 0 (no swap) up to $2.
+# Usage: arch_chroot_valid_swap_size <size> <max>
 arch_chroot_valid_swap_size() {
   [[ "$1" =~ ^(0|[1-9][0-9]*)$ ]] && (( $1 <= $2 ))
 }
 
 # Return 0 if $1 is a valid hostname label.
+# Usage: arch_chroot_valid_hostname <hostname>
 arch_chroot_valid_hostname() {
   [[ "$1" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$ ]]
 }
 
 # Return 0 if $1 is a valid new user name: lowercase, starting with a letter or _, at most 32 characters, not root.
+# Usage: arch_chroot_valid_user <user>
 arch_chroot_valid_user() {
   [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ && "$1" != root ]]
 }
 
 # Return 0 if $1 names a time zone file under zoneinfo directory $2 (e.g. America/New_York).
+# Usage: arch_chroot_valid_timezone <timezone> <zoneinfo_dir>
 arch_chroot_valid_timezone() {
   [[ "$1" != /* && "$1" != *..* && -f "$2/$1" ]]
 }
 
 # Return 0 if $1 is a locale listed in supported-locales file $2 (e.g. en_US.UTF-8).
+# Usage: arch_chroot_valid_locale <locale> <supported_file>
 arch_chroot_valid_locale() {
   awk -v l="$1" '$1 == l { found = 1 } END { exit !found }' "$2" 2>/dev/null
 }
 
 # Return 0 if $1 is a console keymap under keymaps directory $2 (e.g. us).
+# Usage: arch_chroot_valid_keymap <keymap> <keymaps_dir>
 arch_chroot_valid_keymap() {
   [[ "$1" != */* && -n "$(find "$2" \( -name "$1.map.gz" -o -name "$1.map" \) 2>/dev/null | head -1)" ]]
 }
 
 # Print the blkid tag (UUID=... or LABEL=...) archiso found its medium by, from kernel command line $1; nothing when
 # there is neither archisosearchuuid nor archisolabel.
+# Usage: arch_chroot_live_tag <cmdline>
 arch_chroot_live_tag() {
   local word uuid="" label=""
   for word in $1; do
@@ -144,6 +157,7 @@ arch_chroot_live_tag() {
 
 # Print the disk the live ISO booted from (e.g. /dev/sda), or nothing when it can't be found (e.g. PXE). Checking for
 # mounts isn't enough: with copytoram, archiso copies the ISO into RAM and unmounts the medium.
+# Usage: arch_chroot_live_disk
 arch_chroot_live_disk() {
   local tag dev parent
   tag="$(arch_chroot_live_tag "$(cat /proc/cmdline 2>/dev/null || true)")"
@@ -160,6 +174,7 @@ arch_chroot_live_disk() {
 
 # Return 0 if $1 is partitions, or a whole disk that isn't the live medium $2 (none when empty) and has nothing on it
 # mounted.
+# Usage: arch_chroot_valid_disk <disk> <live>
 arch_chroot_valid_disk() {
   [[ "$1" == partitions ]] && return 0
   [[ -b "$1" && "$(lsblk -dno TYPE "$1" 2>/dev/null)" == disk && "$1" != "$2" ]] \
@@ -169,6 +184,7 @@ arch_chroot_valid_disk() {
 # Return 0 if $1 is a partition with nothing mounted and not on the live medium $2 (none when empty), of GPT type $3
 # (any when empty), that isn't one of $4 (the partitions chosen already). With $5 true, it must not be an EFI system
 # partition.
+# Usage: arch_chroot_valid_partition <part> <live> <type> <taken> [<not_esp>]
 arch_chroot_valid_partition() {
   local part="$1" live="$2" type="$3" taken="$4" not_esp="${5:-false}" parttype
   [[ -b "$part" && "$(lsblk -dno TYPE "$part" 2>/dev/null)" == part ]] || return 1
@@ -182,6 +198,7 @@ arch_chroot_valid_partition() {
 
 # Return 0 if $1 is an EFI system partition to install GRUB on: nothing mounted, not on the live medium $2, and FAT32
 # or not formatted yet.
+# Usage: arch_chroot_valid_esp <part> <live>
 arch_chroot_valid_esp() {
   local fstype
   arch_chroot_valid_partition "$1" "$2" "$ARCH_CHROOT_ESP_TYPE" "" || return 1
@@ -190,17 +207,20 @@ arch_chroot_valid_esp() {
 }
 
 # Return 0 if $1 is a partition for the root filesystem, not on the live medium $2, apart from EFI system partition $3.
+# Usage: arch_chroot_valid_root <part> <live> <esp>
 arch_chroot_valid_root() {
   arch_chroot_valid_partition "$1" "$2" "" "$3" true
 }
 
 # Return 0 if $1 is none or a partition for swap, not on the live medium $2, apart from the EFI system and root
 # partitions $3 and $4.
+# Usage: arch_chroot_valid_swap_part <part> <live> <esp> <root>
 arch_chroot_valid_swap_part() {
   [[ "$1" == none ]] || arch_chroot_valid_partition "$1" "$2" "" "$3 $4" true
 }
 
 # Return 0 if disk $1 has the guide's layout already: a FAT32 first partition and a btrfs second one.
+# Usage: arch_chroot_laid_out <disk>
 arch_chroot_laid_out() {
   local disk="$1"
   [[ "$(probe blkid -o value -s TYPE "$(arch_chroot_partition "$disk" 1)" || true)" == vfat \
@@ -259,6 +279,7 @@ arch_chroot_installed() {
 # asked for with prompt $3 and default $4 until validator $6 (called with the value and the remaining args) accepts
 # it, warning $5 otherwise. A value from the environment that the validator rejects is an error. Under --dry-run
 # nothing is asked or checked: the environment's value, the default, or <$1> stands in.
+# Usage: arch_chroot_ask <name> <earlier> <prompt> <default> <hint> <validator> [<arg>...]
 arch_chroot_ask() {
   local name="$1" earlier="$2" prompt="$3" default="$4" hint="$5" validator="$6" value
   shift 6
@@ -287,6 +308,7 @@ arch_chroot_ask() {
 
 # Print a password for $1, typed twice at the terminal without echo; nothing when $2 is true (it has one already) or
 # under --dry-run.
+# Usage: arch_chroot_ask_password <who> <has>
 arch_chroot_ask_password() {
   local who="$1" has="$2" password again
   if [[ "$has" == true ]] || $DRY_RUN; then
@@ -305,6 +327,7 @@ arch_chroot_ask_password() {
 
 # Return 0 if this is the Arch live ISO booted in UEFI mode, as root, at a terminal and online; warn what is missing
 # otherwise. Under --dry-run, which changes nothing, it passes.
+# Usage: arch_chroot_preflight
 arch_chroot_preflight() {
   $DRY_RUN && return 0
   [[ -d /run/archiso ]] || { warn "Not running from the Arch live ISO (no /run/archiso)."; return 1; }
@@ -319,6 +342,7 @@ arch_chroot_preflight() {
 
 # Print what partition $1 holds now, for the summary, e.g. ' (previously ntfs "Windows", 407.2G)'; nothing when it
 # can't be read (under --dry-run).
+# Usage: arch_chroot_previously <part>
 arch_chroot_previously() {
   local fstype label size
   size="$(lsblk -dno SIZE "$1" 2>/dev/null | tr -d ' ')" || return 0
@@ -332,6 +356,8 @@ arch_chroot_previously() {
 # system partition $3 (formatted when $4 is true), root partition $5 (formatted when $6 is true), swap partition $7
 # (none; formatted when $8 is true) or swap file size $9 (GiB, 0 for none), then the time zone, locale, keymap,
 # hostname and user (${10} to ${14}) and whether the passwords are set already (${15}, ${16}).
+# Usage: arch_chroot_summary <disk> <wipe> <esp> <format_esp> <root_part> <format_root> \
+#   <swap_part> <format_swap> <swap_size> <timezone> <locale> <keymap> <hostname> <user> <root_pw> <user_pw>
 arch_chroot_summary() {
   local disk="$1" wipe="$2" esp="$3" format_esp="$4" root_part="$5" format_root="$6" swap_part="$7"
   local format_swap="$8" swap_size="$9" size model disks p
@@ -391,6 +417,7 @@ arch_chroot_summary() {
 # $4, $6 and $8 are true, then mount the @ and @home subvolumes with compression and the EFI system partition at /efi
 # (not /boot, so the kernels stay in @ and its snapshots). With swap size $9 (GiB) above 0, also @swap at /swap, holding
 # a swap file of that size. Subvolumes an interrupted run left out are created; a swap file that exists is kept.
+# Usage: arch_chroot_disk <disk> <wipe> <esp> <format_esp> <btrfs> <format_root> <swap_part> <format_swap> <swap_size>
 arch_chroot_disk() {
   local disk="$1" wipe="$2" esp="$3" format_esp="$4" btrfs="$5" format_root="$6" swap_part="$7" format_swap="$8"
   local swap_size="$9" root="$ARCH_CHROOT_ROOT" top="$ARCH_CHROOT_TOP" sub subvolumes="$ARCH_CHROOT_SUBVOLUMES"
@@ -435,6 +462,7 @@ arch_chroot_disk() {
 # Install the packages into $ARCH_CHROOT_ROOT with pacstrap (os-prober too when $1 is true, for dual booting), unless
 # they all are, then write its fstab from what is mounted there, adding swap partition $2 (or none) or the swap file
 # when swap size $3 is above 0. The keyring is only set up (-K) the first time.
+# Usage: arch_chroot_pacstrap <dual> <swap_part> <swap_size>
 arch_chroot_pacstrap() {
   local dual="$1" swap_part="$2" swap_size="$3" root="$ARCH_CHROOT_ROOT" vendor packages keyring="" swap_line=""
   local fstab uuid
@@ -465,6 +493,7 @@ arch_chroot_pacstrap() {
 }
 
 # Write $2 to file $1 in $ARCH_CHROOT_ROOT, unless it already holds exactly that.
+# Usage: arch_chroot_write <file> <content>
 arch_chroot_write() {
   local path="$ARCH_CHROOT_ROOT$1" content="$2"
   if [[ -f "$path" && "$(cat "$path")" == "$content" ]]; then
@@ -479,6 +508,7 @@ arch_chroot_write() {
 # true: the clock, the locale and keymap, hostname and hosts, the root password, the user in wheel with sudo, GRUB on
 # the EFI system partition (with os-prober when dual booting; else also at the removable fallback path, for firmware
 # that forgets its boot entries), and NetworkManager and time sync enabled.
+# Usage: arch_chroot_system <timezone> <locale> <keymap> <hostname> <user> <root_pw> <user_pw> <dual>
 arch_chroot_system() {
   local timezone="$1" locale="$2" keymap="$3" hostname="$4" user="$5" root_pw="$6" user_pw="$7" dual="$8"
   local root="$ARCH_CHROOT_ROOT" service
@@ -542,6 +572,7 @@ arch_chroot_system() {
 
 # Clone this checkout's commit (the one the install branch pinned) into the new user $1's ~/dotfiles, on its branch
 # and with its origin, so the first login can run ~/dotfiles/install.sh. Uncommitted changes aren't copied.
+# Usage: arch_chroot_dotfiles <user>
 arch_chroot_dotfiles() {
   local user="$1" target="$ARCH_CHROOT_ROOT/home/$1/dotfiles" head branch origin
   if [[ -e "$target" ]] && ! $DRY_RUN; then
@@ -568,6 +599,7 @@ arch_chroot_dotfiles() {
 # possibly shared with another OS, a root partition and an optional swap partition), for dual booting. Asks every
 # question up front, shows what it will do and asks once before changing anything, then runs unattended, printing each
 # command. A run that stopped partway resumes where it stopped.
+# Usage: oti_arch_chroot
 oti_arch_chroot() {
   local disk="" esp root_part swap_part swap_size timezone locale keymap hostname user root_has user_has root_pw
   local user_pw wipe=false format_esp=false format_root=false format_swap=false dual=false max_swap=0 fstype live

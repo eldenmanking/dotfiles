@@ -16,6 +16,8 @@ index="$STATE_DIR/index-$(sha256sum < "$TTYD" | cut -d' ' -f1).html"
 
 tmp=""
 pid=""
+# Stop the ttyd started below, if any, and remove the temporary directory, on exit.
+# Usage: finish
 finish() {
   if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
   if [ -n "$tmp" ]; then rm -rf "$tmp"; fi
