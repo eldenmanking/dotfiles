@@ -495,8 +495,9 @@ main() {
   # DOTFILES_VARIANT's.
   f_call load_install_defaults default_variant default_os default_profile default_machine default_features \
     -- "$INSTALL_CONFIG"
-  # The default variant only fills in an OS or profile that neither the command line nor the defaults give.
-  if [[ -z "${os:-$default_os}" || -z "${profile:-$default_profile}" ]]; then
+  # An unknown default variant is only an error when it would have filled in an OS or profile that neither the command
+  # line nor the other defaults give.
+  if variant_exists "$default_variant" || [[ -z "${os:-$default_os}" || -z "${profile:-$default_profile}" ]]; then
     f_call variant_dimensions default_os=os default_profile=profile -- \
       "$default_variant" "$default_os" "$default_profile" "DOTFILES_VARIANT in the environment or $INSTALL_CONFIG"
   fi

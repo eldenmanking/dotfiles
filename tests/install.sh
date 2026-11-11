@@ -208,7 +208,7 @@ test_cli() {
   install_ok "$home" --variant arch --dry-run --reinstall --logind --link \
     && check "  ...--reinstall uninstalls everything, then installs" sh -c '
       last_uninstall="$(grep -n "Uninstalling feature" "$1" | tail -1 | cut -d: -f1)"
-      first_install="$(grep -n "Installing\|would run feature" "$1" | head -1 | cut -d: -f1)"
+      first_install="$(grep -n "ln -snfv" "$1" | head -1 | cut -d: -f1)"
       [ -n "$last_uninstall" ] && [ -n "$first_install" ] && [ "$last_uninstall" -lt "$first_install" ]' sh "$LOG"
 }
 
