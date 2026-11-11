@@ -34,17 +34,25 @@ make_symlink() {
 # encrypted and locked when they run.
 SYSTEM_BIN_DIR=/etc/dotfiles/bin
 
+# Copy file $2 to $3 with sudo and mode $1, replacing any old symlink, unless it is already up to date. Returns 0 if it
+# copied, 1 if it was up to date.
+# Usage: _copy_system_file <mode> <src> <dest>
+_copy_system_file() {
+  local mode="$1" src="$2" dest="$3"
+  if [[ ! -L "$dest" ]] && cmp -s "$src" "$dest"; then
+    info "$dest already up to date"
+    return 1
+  fi
+  info "Copying $src to $dest..."
+  run sudo rm -f "$dest"
+  run sudo install -Dvm"$mode" "$src" "$dest"
+}
+
 # Copy repo file $2 (under root/) to its install path with sudo and mode $1, replacing any old symlink, unless it is
 # already up to date. For files run or read while an encrypted home may still be locked.
 # Usage: copy_system_file <mode> <root/path>
 copy_system_file() {
-  local mode="$1" src="$2" dest="/${2#root/}"
-  if [[ ! -L "$dest" ]] && cmp -s "$DOTFILES_ROOT/$src" "$dest"; then
-    info "$dest already up to date"
-    return 0
-  fi
-  run sudo rm -f "$dest"
-  run sudo install -Dvm"$mode" "$DOTFILES_ROOT/$src" "$dest"
+  _copy_system_file "$1" "$DOTFILES_ROOT/$2" "/${2#root/}" || true
 }
 
 # Remove files $1... with sudo, then SYSTEM_BIN_DIR and its parent if that left them empty (other features may still
@@ -63,28 +71,6 @@ remove_system_files() {
   done
 }
 
-# Copy each file in $src_dir matching $glob into $dst_dir with sudo, replacing
-# any old symlink. For system files read at boot, before an encrypted home is
-# mounted, where a symlink into ~ would dangle. Outputs: changed, the
-# space-separated targets that were copied (empty if all were up to date).
-# Usage: f_call copy_system_files changed -- <src_dir> <dst_dir> <glob>
-copy_system_files() {
-  local src_dir="$1" dst_dir="$2" glob="$3" file target changed=""
-  for file in "$src_dir"/$glob; do
-    [[ -e "$file" ]] || continue
-    target="$dst_dir/$(basename "$file")"
-    if [[ ! -L "$target" ]] && cmp -s "$file" "$target"; then
-      info "$target already up to date"
-      continue
-    fi
-    info "Copying $file to $target..."
-    run sudo rm -f "$target"
-    run sudo install -Dvm 644 "$file" "$target"
-    changed+="${changed:+ }$target"
-  done
-  f_return changed
-}
-
 # Print the paths that copy_system_files would copy each file in $1 matching $2 to in $3, one per line.
 # Usage: system_file_targets <src_dir> <glob> <dst_dir>
 system_file_targets() {
@@ -93,6 +79,49 @@ system_file_targets() {
     [[ -e "$file" ]] && printf '%s\n' "$dst_dir/$(basename "$file")"
   done
   return 0
+}
+
+# Copy each file in $src_dir matching $glob into $dst_dir with sudo, replacing
+# any old symlink. For system files read at boot, before an encrypted home is
+# mounted, where a symlink into ~ would dangle. Outputs: changed, the
+# space-separated targets that were copied (empty if all were up to date).
+# Usage: f_call copy_system_files changed -- <src_dir> <glob> <dst_dir>
+copy_system_files() {
+  local src_dir="$1" glob="$2" dst_dir="$3" file target changed=""
+  for file in "$src_dir"/$glob; do
+    [[ -e "$file" ]] || continue
+    target="$dst_dir/$(basename "$file")"
+    if _copy_system_file 644 "$file" "$target"; then
+      changed+="${changed:+ }$target"
+    fi
+  done
+  f_return changed
+}
+
+# Copy the files in $src_dir matching $glob into $dst_dir (copy_system_files) and keep them across SteamOS updates
+# under keep list subblock $name (keep_across_steamos_updates). Outputs: changed, the space-separated targets that
+# were copied.
+# Usage: f_call install_system_dir changed -- <name> <src_dir> <glob> <dst_dir>
+install_system_dir() {
+  local name="$1" src_dir="$2" glob="$3" dst_dir="$4" targets changed
+  targets="$(system_file_targets "$src_dir" "$glob" "$dst_dir")"
+  keep_across_steamos_updates "$name" $targets
+  f_call copy_system_files changed -- "$src_dir" "$glob" "$dst_dir"
+  f_return changed
+}
+
+# Remove the files install_system_dir copied (those installed from $src_dir matching $glob) and stop keeping them
+# across SteamOS updates. Outputs: removed, the space-separated targets that were removed.
+# Usage: f_call uninstall_system_dir removed -- <name> <src_dir> <glob> <dst_dir>
+uninstall_system_dir() {
+  local name="$1" src_dir="$2" glob="$3" dst_dir="$4" target removed=""
+  for target in $(system_file_targets "$src_dir" "$glob" "$dst_dir"); do
+    [[ -e "$target" || -L "$target" ]] || continue
+    remove_system_files "$target"
+    removed+="${removed:+ }$target"
+  done
+  forget_across_steamos_updates "$name"
+  f_return removed
 }
 
 # --- Managed block helper ---

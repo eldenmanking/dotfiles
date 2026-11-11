@@ -120,29 +120,29 @@ gui_supported() {
 DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link desktop manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
 
 feature_function() {
-  printf 'feature_%s' "${1//-/_}"
+  fn_name feature_ "$1"
 }
 
 # Features can define uninstall_feature_<name>, run by --uninstall and before
 # feature_<name> by --reinstall. It must be idempotent and honor --dry-run.
 uninstall_function() {
-  printf 'uninstall_feature_%s' "${1//-/_}"
+  fn_name uninstall_feature_ "$1"
 }
 
 # Return 0 if feature $1 defines an uninstall function.
 feature_uninstallable() {
-  declare -F "$(uninstall_function "$1")" >/dev/null
+  fn_defined "$(uninstall_function "$1")"
 }
 
 # Features can define capture_feature_<name>, run by --capture to copy settings changed on this system (e.g. in a settings app)
 # back into the repo's files. It must honor --dry-run.
 capture_function() {
-  printf 'capture_feature_%s' "${1//-/_}"
+  fn_name capture_feature_ "$1"
 }
 
 # Return 0 if feature $1 defines a capture function.
 feature_capturable() {
-  declare -F "$(capture_function "$1")" >/dev/null
+  fn_defined "$(capture_function "$1")"
 }
 
 # Print the names of the definitions in install/$1 (variants, os or profiles), from their file names.
@@ -157,22 +157,22 @@ available_names() {
 
 # Return 0 if a variant_<name> function is defined.
 variant_exists() {
-  [[ -n "$1" ]] && declare -F "variant_$1" >/dev/null
+  [[ -n "$1" ]] && fn_defined "variant_$1"
 }
 
 # Return 0 if an os_<name> function is defined.
 os_exists() {
-  [[ -n "$1" ]] && declare -F "os_$1" >/dev/null
+  [[ -n "$1" ]] && fn_defined "os_$1"
 }
 
 # Return 0 if a profile_<name> function is defined.
 profile_exists() {
-  [[ -n "$1" ]] && declare -F "profile_$1" >/dev/null
+  [[ -n "$1" ]] && fn_defined "profile_$1"
 }
 
 # Return 0 if OS $1 supports profile $2, which it does by defining os_<os>_<profile>.
 os_supports_profile() {
-  os_exists "$1" && profile_exists "$2" && declare -F "os_$1_$2" >/dev/null
+  os_exists "$1" && profile_exists "$2" && fn_defined "os_$1_$2"
 }
 
 # Print the profiles OS $1 supports.
