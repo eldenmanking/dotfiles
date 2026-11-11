@@ -7,7 +7,7 @@ resources I used.
 
 Follow Valve's official guide: [Installing SteamOS][steamos-install]. On a
 Linux box, write the recovery image with `dd` as below rather than a
-multi-boot tool like Ventoy, which the SteamOS image behaves poorly with.
+multi-boot tool like Ventoy (see [bootloader.md](bootloader.md)), which the SteamOS image behaves poorly with.
 
 1. Download the SteamOS recovery image from the page above: the Deck, Machine
    and PC image, or the separate Frame image. Either one downloads as
