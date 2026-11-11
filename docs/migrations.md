@@ -22,6 +22,18 @@ Don't add migration code to `install.sh` or the features for these; when a chang
 instead (newest last) in the same shape. The `update-migrations` skill (`.claude/skills/update-migrations`) says when
 an entry is needed, how to write one, and how to fill in its commit once it merges.
 
+## Move clip and vis out of /usr/local/bin (079c1c2)
+`clip` and `vis` moved from `root/usr/local/bin` to `home/.local/bin`, so `--link` now links them into
+`~/.local/bin` and no longer into `/usr/local/bin`. Applies to machines that linked them into `/usr/local/bin` with
+an earlier `install.sh` (or `light-install.sh --link-bin`).
+
+### Old clip and vis links in /usr/local/bin (all)
+- **Check:** `find /usr/local/bin -maxdepth 1 -type l \( -name clip -o -name vis \) -lname "$HOME/dotfiles/*" 2>/dev/null`
+- **Fix:** run `~/dotfiles/install.sh --link` first (use your `--variant`), so `~/.local/bin/clip` and
+  `~/.local/bin/vis` exist; then, after asking, `sudo rm` each link the check listed (only links, never regular
+  files).
+- **Verify:** the check prints nothing, and `command -v clip vis` finds both under `~/.local/bin`.
+
 ## Merge steamos-config into dotfiles (#18, 9e2f895)
 The standalone steamos-config repo moved into `~/dotfiles/steamos`, and `home_units` started installing its files
 under names after `dotfiles`. Applies to SteamOS machines that ran steamos-config's installer.
@@ -68,6 +80,19 @@ tmpfiles config).
   `sudo udevadm control --reload` if a udev rule was removed.
 - **Verify:** rerunning the check lists only paths in `LINK_DESKTOP_PATHS`.
 
+## Stop installing atomic-update.conf.d/orei-switch.conf (61396a2)
+The `orei_switch` feature no longer copies its own `/etc/atomic-update.conf.d/orei-switch.conf` (a copy, not a
+link); its keep list is now part of `/etc/atomic-update.conf.d/dotfiles.conf`, written by
+`keep_across_steamos_updates`. Applies to SteamOS machines that ran `--orei_switch` before the change.
+
+### Old orei-switch keep list (steamos)
+The old file keeps `/etc/dotfiles/orei-switch/**` across SteamOS updates, a directory that no longer exists after
+the move to `/etc/dotfiles/bin` (see #62).
+- **Check:** `ls /etc/atomic-update.conf.d/orei-switch.conf 2>/dev/null`
+- **Fix:** run `~/dotfiles/install.sh --variant steamos --orei_switch` first, so `dotfiles.conf` has the new keep
+  list; then, after asking, `sudo rm /etc/atomic-update.conf.d/orei-switch.conf`.
+- **Verify:** the check prints nothing, and `grep -c orei-switch /etc/atomic-update.conf.d/dotfiles.conf` is nonzero.
+
 ## Install webterm's units into /etc/systemd/user (#51, 21beb51)
 webterm's units moved from `home/.config/systemd/user` to `root/etc/systemd/user`, and `--webterm` now copies them
 into `/etc/systemd/user` (with sudo), so `home-units-start` can start them after an encrypted home is unlocked
@@ -110,7 +135,7 @@ The auto-suspend timer, its service and `auto-suspend` script are gone: `--link`
   `sudo systemctl daemon-reload`.
 - **Verify:** the check prints nothing and `systemctl list-timers --all | grep auto-suspend` prints nothing.
 
-## Enable webterm globally and remove home_units (#62)
+## Enable webterm globally and remove home_units (#62, 80a4e5a)
 `--webterm` now enables its units for all users (`systemctl --global enable`), so their enable links are in
 `/etc/systemd/user` with the units and start from boot even with an encrypted home. The `home_units` feature, which
 started units enabled in the home once dirlock unlocked it, is gone. Applies to SteamOS machines that ran
@@ -130,7 +155,7 @@ started units enabled in the home once dirlock unlocked it, is gone. Applies to 
 - **Verify:** the check prints nothing, `readlink /etc/systemd/user/sockets.target.wants/webterm.socket` is
   `/etc/systemd/user/webterm.socket`, and after a reboot the URL `--webterm` prints answers once you log in.
 
-## Move service scripts into /etc/dotfiles/bin (#62)
+## Move service scripts into /etc/dotfiles/bin (#62, 80a4e5a)
 The scripts and binaries that system units and the login screen run moved into `/etc/dotfiles/bin`:
 `/etc/dotfiles/orei-switch/orei-switch.sh` is now `/etc/dotfiles/bin/orei-switch`, and `framework_tool` and
 `sddm-xsetup` moved beside it. The units and the SDDM config point at the new paths.
@@ -143,7 +168,7 @@ The scripts and binaries that system units and the login screen run moved into `
 - **Verify:** the check prints nothing, `/etc/dotfiles/bin/framework_tool --version` runs, and
   `grep DisplayCommand /etc/sddm.conf.d/orei-switch.conf` shows `/etc/dotfiles/bin/sddm-xsetup`.
 
-## Move webterm to port 7681 (#79)
+## Move webterm to port 7681 (#79, 04c39e5)
 `webterm.socket` listens on `127.0.0.1:7681` instead of `127.0.0.1:3000`, which dev servers often take. Applies to
 machines that ran `--webterm` (steamos).
 
