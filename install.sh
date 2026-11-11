@@ -57,7 +57,7 @@ clone_checkout_to_root() {
     git -C "$DOTFILES_ROOT" checkout --quiet --detach "$head"
   fi
   [[ -z "$origin" ]] || git -C "$DOTFILES_ROOT" remote set-url origin "$origin"
-  exec bash "$DOTFILES_ROOT/install.sh" "$@"
+  exec "${BASH:-bash}" "$DOTFILES_ROOT/install.sh" "$@"
 }
 
 # Source install/lib, features, OSes, profiles and variants. They only define functions and constants, so their
@@ -170,7 +170,7 @@ EOF
   fi
   cat <<EOF
   --dry-run        print what would happen without making changes
-  --help           show this help page
+  --help, -h       show this help page
 EOF
 }
 
@@ -184,26 +184,30 @@ usage_error() {
 
 parse_args() {
   local variant="" os="" profile="" machine="" infer=false flags=" " mode=install all=false dry_run=false help=false
-  local oti=""
+  local oti="" opt value
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --variant|--os|--profile|--machine|--oti)
-        [[ $# -ge 2 ]] || usage_error "$1 requires a value"
-        case "$1" in
-          --oti)     oti="$2" ;;
-          --variant) variant="$2" ;;
-          --os)      os="$2" ;;
-          --profile) profile="$2" ;;
-          --machine) machine="$2" ;;
+      --variant|--os|--profile|--machine|--oti|--variant=*|--os=*|--profile=*|--machine=*|--oti=*)
+        opt="${1%%=*}"
+        if [[ "$1" == *=* ]]; then
+          value="${1#*=}"
+          shift
+        else
+          [[ $# -ge 2 ]] || usage_error "$opt requires a value"
+          value="$2"
+          shift 2
+        fi
+        [[ -n "$value" ]] || usage_error "$opt requires a non-empty value"
+        [[ "$value" != --* ]] || usage_error "$opt requires a value, but got the option $value"
+        case "$opt" in
+          --oti)     [[ -z "$oti" ]] || usage_error "$opt was given twice"; oti="$value" ;;
+          --variant) [[ -z "$variant" ]] || usage_error "$opt was given twice"; variant="$value" ;;
+          --os)      [[ -z "$os" ]] || usage_error "$opt was given twice"; os="$value" ;;
+          --profile) [[ -z "$profile" ]] || usage_error "$opt was given twice"; profile="$value" ;;
+          --machine) [[ -z "$machine" ]] || usage_error "$opt was given twice"; machine="$value" ;;
         esac
-        shift 2
         ;;
-      --variant=*) variant="${1#--variant=}"; shift ;;
-      --os=*)      os="${1#--os=}"; shift ;;
-      --profile=*) profile="${1#--profile=}"; shift ;;
-      --machine=*) machine="${1#--machine=}"; shift ;;
-      --oti=*)     oti="${1#--oti=}"; shift ;;
       --infer)     infer=true; shift ;;
       --all)       all=true; shift ;;
       --dry-run)   dry_run=true; shift ;;
@@ -214,8 +218,12 @@ parse_args() {
         shift
         ;;
       --help|-h)   help=true; shift ;;
-      --?*)        flags+="${1#--} "; shift ;;
-      *)           usage_error "Unexpected argument: $1" ;;
+      *)
+        # Feature names only, so later word splitting of the flags can't glob.
+        [[ "$1" =~ ^--[a-z0-9_-]+$ ]] || usage_error "Unexpected argument: $1"
+        flags+="${1#--} "
+        shift
+        ;;
     esac
   done
 
@@ -245,12 +253,13 @@ load_install_defaults() {
     default_features="${DOTFILES_FEATURES:-$file_features}"
 }
 
-# Outputs: os and profile, OS $2 and profile $3, with each one left empty filled in from variant $1 (if given).
+# Outputs: os and profile, OS $2 and profile $3, with each one left empty filled in from variant $1 (if given). $4
+# says where the variant came from, for the error if it doesn't exist.
 variant_dimensions() {
-  local variant="$1" os="$2" profile="$3" variant_os variant_profile
+  local variant="$1" os="$2" profile="$3" origin="${4:-}" variant_os variant_profile
   if [[ -n "$variant" ]]; then
     variant_exists "$variant" \
-      || usage_error "Unknown variant '$variant'. Available variants: $(available_names variants)"
+      || usage_error "Unknown variant '$variant'${origin:+ (from $origin)}. Available variants: $(available_names variants)"
     f_call variant_config variant_os=os variant_profile=profile -- "$variant"
     [[ -n "$os" ]] || os="$variant_os"
     [[ -n "$profile" ]] || profile="$variant_profile"
@@ -268,6 +277,7 @@ apply_default_features() {
     && [[ -z "$default_os$default_profile" || "$os $profile" == "$default_os $default_profile" ]]; then
     for word in $default_features; do
       word="${word#--}"
+      [[ "$word" =~ ^[a-z0-9_-]+$ ]] || usage_error "Invalid feature '$word' in DOTFILES_FEATURES"
       if [[ "$word" == all ]]; then all=true; else flags+="$word "; fi
     done
   fi
@@ -322,6 +332,10 @@ exit_with_usage_unless_runnable() {
   [[ -z "$os" ]] || os_exists "$os" || usage_error "Unknown OS '$os'. Available OSes: $(available_names os)"
   [[ -z "$profile" ]] || profile_exists "$profile" \
     || usage_error "Unknown profile '$profile'. Available profiles: $(available_names profiles)"
+  if $help && [[ -z "$os" || -z "$profile" ]]; then
+    usage "" "" "$machine"
+    exit 0
+  fi
   [[ -n "$os" ]] || usage_error "--profile $profile needs --os (or --infer)"
   [[ -n "$profile" ]] || usage_error "--os $os needs --profile, one of: $(os_profiles "$os") (or --infer)"
   os_supports_profile "$os" "$profile" \
@@ -385,7 +399,7 @@ resolve_features() {
 # --uninstall ($5). --help ($6) prints the usage instead. Defaults from the environment and install.conf don't apply.
 run_oti_and_exit() {
   local oti="$1" dimensions="$2" flags="$3" all="$4" mode="$5" help="$6"
-  ! $help || { usage; exit 0; }
+  ! $help || { usage "" ""; exit 0; }
   oti_exists "$oti" || usage_error "Unknown one-time install '$oti'. Available: $(available_names oti)"
   [[ -z "$dimensions" ]] || usage_error "--oti can't be combined with$dimensions"
   [[ "$flags" == " " && "$all" == false ]] || usage_error "--oti can't be combined with features or --all"
@@ -431,36 +445,35 @@ reverse_words() {
   printf '%s' "$reversed"
 }
 
-# Run the enabled features in the order of OS $1 with profile $2: install runs feature_<name>, reinstall runs
-# uninstall_feature_<name> (if defined) then feature_<name>, and uninstall runs uninstall_feature_<name> in reverse
-# order. capture runs capture_feature_<name> instead. Each gets the OS, the profile and the enabled features.
+# Run the enabled features ($3, already in the order of OS $1 with profile $2): install runs feature_<name> in order,
+# uninstall runs uninstall_feature_<name> (where defined) in reverse order, and reinstall does the uninstalls then
+# the installs. capture runs capture_feature_<name> instead. Each gets the OS, the profile and the enabled features.
 run_features() {
-  local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" features feature
-
-  f_call os_profile_config features -- "$os" "$profile"
-  if [[ "$mode" == uninstall ]]; then
-    features="$(reverse_words "$features")"
-  fi
+  local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" feature
 
   info "Beginning dotfiles $mode (os: $os, profile: $profile, machine: $machine)..."
-  for feature in $features; do
-    list_contains "$enabled" "$feature" || continue
-    if [[ "$mode" == capture ]]; then
+  if [[ "$mode" == capture ]]; then
+    for feature in $enabled; do
       info "Capturing feature: $feature"
       "$(capture_function "$feature")" "$os" "$profile" "$enabled"
-      continue
-    fi
-    if [[ "$mode" != install ]] && feature_uninstallable "$feature"; then
+    done
+  fi
+  if [[ "$mode" == uninstall || "$mode" == reinstall ]]; then
+    for feature in $(reverse_words "$enabled"); do
+      feature_uninstallable "$feature" || continue
       info "Uninstalling feature: $feature"
       "$(uninstall_function "$feature")" "$os" "$profile" "$enabled"
-    fi
-    [[ "$mode" != uninstall ]] || continue
-    if $DRY_RUN && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
-      info "[dry-run] would run feature: $feature"
-      continue
-    fi
-    "$(feature_function "$feature")" "$os" "$profile" "$enabled"
-  done
+    done
+  fi
+  if [[ "$mode" == install || "$mode" == reinstall ]]; then
+    for feature in $enabled; do
+      if $DRY_RUN && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
+        info "[dry-run] would run feature: $feature"
+        continue
+      fi
+      "$(feature_function "$feature")" "$os" "$profile" "$enabled"
+    done
+  fi
   info "dotfiles $mode complete."
 }
 
@@ -482,8 +495,12 @@ main() {
   # DOTFILES_VARIANT's.
   f_call load_install_defaults default_variant default_os default_profile default_machine default_features \
     -- "$INSTALL_CONFIG"
-  f_call variant_dimensions default_os=os default_profile=profile -- \
-    "$default_variant" "$default_os" "$default_profile"
+  # An unknown default variant is only an error when it would have filled in an OS or profile that neither the command
+  # line nor the other defaults give.
+  if variant_exists "$default_variant" || [[ -z "${os:-$default_os}" || -z "${profile:-$default_profile}" ]]; then
+    f_call variant_dimensions default_os=os default_profile=profile -- \
+      "$default_variant" "$default_os" "$default_profile" "DOTFILES_VARIANT in the environment or $INSTALL_CONFIG"
+  fi
   os="${os:-$default_os}"
   profile="${profile:-$default_profile}"
   machine="${machine:-$default_machine}"
