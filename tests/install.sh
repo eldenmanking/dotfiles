@@ -793,8 +793,10 @@ test_f_call() {
     '! (f_call pair _a) && ! (f_call pair a=_a)'
   check "returns a bare name's variable" f_call_snippet \
     'f() { local a="x=1 y" b=""; f_return a b c=3; }; g() { local a b c; f_call f a b c; [[ "$a|$b|$c" == "x=1 y||3" ]]; }; g'
-  check "fails on a bare name that isn't set" f_call_snippet \
-    'f() { local a; f_return a; }; ! out="$( (f_call f a) 2>&1)" && [[ "$out" == *"is not set"* ]]'
+  check "returns a bare name declared with no value as empty" f_call_snippet \
+    'f() { local a; f_return a; }; g() { local a=x; f_call f a; [[ -z "$a" ]]; }; g'
+  check "fails on a bare name that isn't a variable" f_call_snippet \
+    'f() { f_return nope; }; ! out="$( (f_call f nope) 2>&1)" && [[ "$out" == *"is not a variable"* ]]'
   check "rejects a return without a name" f_call_snippet \
     'f() { f_return "=1"; }; ! (f_call f a) && f() { f_return _a; } && ! (f_call f a)'
 }

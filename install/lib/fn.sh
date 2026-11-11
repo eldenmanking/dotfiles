@@ -47,8 +47,8 @@ f_call() {
 
 # Return each name=value to the nearest f_call that asked for name; one that no caller asked for is dropped, so a
 # caller that needs none of fn's values calls fn directly. A bare name returns the caller's variable of that name, so
-# `f_return os profile=default` is `f_return os="$os" profile=default`; it must be set. Call f_return again to replace
-# a value. Each name=value splits at its first =, which a name can't contain, so the value can hold anything, = signs
+# `f_return os profile=default` is `f_return os="$os" profile=default`; it must be a variable, but one declared with no
+# value (local os) returns empty, as bash 3.2 can't tell it from an empty one. Call f_return again to replace a value. Each name=value splits at its first =, which a name can't contain, so the value can hold anything, = signs
 # and newlines included, as long as it is quoted as one word. Values are strings: return a list as space-separated
 # words, as the OS configs do. A value of exactly F_NULL reads as not returned.
 # Usage: f_return name[=value]...
@@ -59,8 +59,8 @@ f_return() {
     _f_is_name "$__f_name" \
       || error "f_return: '$__f_arg' must be name or name=value, with a name that doesn't start with an underscore"
     if [[ "$__f_arg" != *=* ]]; then
-      [[ -n "${!__f_name+x}" ]] || error "f_return: '$__f_name' is not set"
-      __f_arg="$__f_name=${!__f_name}"
+      declare -p "$__f_name" >/dev/null 2>&1 || error "f_return: '$__f_name' is not a variable"
+      __f_arg="$__f_name=${!__f_name-}"
     fi
     __f_out="_$__f_name"
     [[ -z "${!__f_out+x}" ]] || printf -v "$__f_out" '%s' "${__f_arg#*=}"
