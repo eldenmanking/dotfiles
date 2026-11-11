@@ -252,7 +252,7 @@ test_defaults() {
     grep -q "Options for OS 'portable' with profile 'workspace'" "$LOG"
 
   write_install_conf "$home" "DOTFILES_VARIANT=coder" "DOTFILES_FEATURES=all"
-  install_ok "$home" --dry-run && check "  ...runs --all" grep -q "would run feature: binaries" "$LOG"
+  install_ok "$home" --dry-run && check "  ...runs --all" grep -q "dry-run.* git clone --depth 1" "$LOG"
   install_ok "$home" --variant arch && check "  ...ignores the features for another variant" \
     grep -q "Options for OS 'arch' with profile 'desktop'" "$LOG"
   install_ok "$home" --profile minimal && check "  ...and for another profile" \
