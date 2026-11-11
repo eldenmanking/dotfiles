@@ -63,16 +63,16 @@ require_vm() {
   steamos_vm_defined || error "No SteamOS VM; install it with: ~/dotfiles/install.sh --steamos_vm"
 }
 
-# Redefine the VM when the render node it should use (see steamos_vm_render_node) isn't the one it is defined with,
-# e.g. after the eGPU was connected or disconnected.
-match_render_node() {
-  local want have
-  want="$(steamos_vm_render_node)"
-  [[ -n "$want" ]] || error "No AMD GPU render node for the VM's GPU acceleration."
-  have="$(steamos_vm_defined_render_node)"
-  if [[ "$want" != "$have" ]]; then
-    info "The guest's GPU work runs on $want, so its display moves there too (was ${have:-unset})."
-    steamos_vm_define "$want"
+# Redefine the VM when its XML for this host as it is now (steamos_vm_current_xml) isn't the one it was defined with:
+# the render node its GPU work runs on changes when the eGPU is connected or disconnected, and a dotfiles update can
+# change the rest.
+match_definition() {
+  local render
+  render="$(steamos_vm_render_node)"
+  [[ -n "$render" ]] || error "No AMD GPU render node for the VM's GPU acceleration."
+  if [[ "$(steamos_vm_current_xml)" != "$(cat "$STEAMOS_VM_XML" 2>/dev/null)" ]]; then
+    info "Updating the VM's definition (its GPU work runs on $render)..."
+    steamos_vm_define
   fi
 }
 
@@ -80,7 +80,7 @@ match_render_node() {
 # resource busy"), so retry briefly.
 boot() {
   local tries=0 out
-  match_render_node
+  match_definition
   until out="$(steamos_vm_virsh start "$STEAMOS_VM_NAME" 2>&1)"; do
     tries=$(( tries + 1 ))
     if (( tries >= 10 )) || ! grep -q -i -E 'busy|in use|already' <<< "$out"; then

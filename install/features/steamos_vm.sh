@@ -166,14 +166,14 @@ install_steamos_vm_disk() {
   fi
 }
 
-# Define the VM, unless it is. steamos-vm start redefines it when the render node it should use changes.
+# Define the VM, unless it is. steamos-vm start redefines it when its XML for this host changes (e.g. the render node).
 define_steamos_vm() {
   if steamos_vm_defined; then
     info "VM '$STEAMOS_VM_NAME' already defined (use --reinstall to recreate it)"
     return
   fi
   info "Defining VM '$STEAMOS_VM_NAME'..."
-  steamos_vm_define "$(steamos_vm_render_node)"
+  steamos_vm_define
 }
 
 # Create a virt-manager VM running SteamOS, installed unattended from Valve's recovery image onto a blank 64G NVMe
