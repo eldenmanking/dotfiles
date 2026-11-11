@@ -13,9 +13,6 @@
 # when the TV is behind a switch (this laptop's physical address is two levels deep, like 1.1.0.0), so sleeping away
 # from the projector, or on a TV without a switch, leaves them on.
 FWT=/etc/dotfiles/bin/framework_tool
-# framework_tool polls the EC with no timeout of its own, and the boot and sleep units wait for this script (oneshot
-# units have none either), so a wedged EC would hold back the login screen or suspend for good.
-FWT_TIMEOUT=10
 PD=1      # left PD controller (ports 2,3); right is 0
 UCSI=/sys/kernel/debug/usb/ucsi/USBC000:00
 CONN=3    # UCSI connector for the HDMI card (typec port2 + 1)
@@ -27,11 +24,6 @@ ON_WAIT=60    # seconds to keep trying to turn the projector on, e.g. while it f
 OFF_MARKER=/run/orei-switch/projector-off
 
 log() { logger -t orei-switch "$*"; }
-
-# Run framework_tool with its arguments, giving up after FWT_TIMEOUT seconds.
-fwt() {
-  timeout "$FWT_TIMEOUT" "$FWT" "$@"
-}
 
 # Return 0 if an external display is connected with a readable EDID. A wake can leave the connector "connected" without
 # one: then there is no CEC adapter and gamescope falls back to 640x480, and only a UCSI reset fixes it.
@@ -141,7 +133,7 @@ projector_on() {
 # poweroff, and anything else (e.g. a manual --pd-disable) could have cut the ports too.
 pd_disabled() {
   local ports
-  ports="$(fwt --pd-info 2>/dev/null | awk -v pd="$PD" '
+  ports="$("$FWT" --pd-info 2>/dev/null | awk -v pd="$PD" '
     /^Right/ { n = 0 } /^Left/ { n = 1 } /^Back/ { n = 2 }
     n == pd && /Ports Enabled/ { sub(/.*: */, ""); print }')"
   [[ "$ports" != "0, 1" ]]
@@ -152,7 +144,7 @@ pd_disabled() {
 reconnect() {
   local step secs
   log "enabling PD $PD"
-  fwt --pd-enable "$PD"
+  "$FWT" --pd-enable "$PD"
   for step in "PD enable" "UCSI reset 1" "UCSI reset 2"; do
     secs="$RESET_WAIT"
     if [[ "$step" == "PD enable" ]]; then
@@ -181,7 +173,7 @@ case "$1" in
     mkdir -p "${OFF_MARKER%/*}" && touch "$OFF_MARKER"
     if behind_switch; then
       log "disabling PD $PD"
-      fwt --pd-disable "$PD"
+      "$FWT" --pd-disable "$PD"
       sleep 1
     fi
     ;;
