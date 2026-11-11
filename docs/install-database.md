@@ -12,7 +12,7 @@ undo what a feature no longer does and an uninstall can restore what was there b
 - Undo, generically: remove what a feature installed, restoring what it replaced, without per-feature code.
 - Upgrade by diff: after a feature runs, undo what it did last time but not this time, as pacman does for files dropped
   from a package. This replaces most `docs/migrations.md` entries.
-- Uninstall features that are no longer in the variant, or no longer in the repo.
+- Uninstall features that are no longer in the selection's feature list, or no longer in the repo.
 - Never destroy a change the user made after install without asking.
 - A fallback for anything the current code can't undo: the commit that installed it.
 
@@ -47,7 +47,7 @@ its entries:
 
 ```
 version	1
-feature	<name>	<sha of the checkout its last run used>	<variant>
+feature	<name>	<sha of the checkout its last run used>	<os>	<profile>	<machine>
 <name>	<kind>	<key...>	<written>	<prior>
 ...
 ```
@@ -91,10 +91,10 @@ For each selected feature, in `_features` order:
    manifest. If it failed, write the old entries plus the new ones and undo nothing, so the next run can still clean up.
 
 Features in the manifest that this run doesn't select:
-- With `--all`, once every selected feature has run, each feature in the manifest that the variant doesn't list in
-  `_features` is undone, in reverse manifest order. That covers features since dropped from the variant or deleted
-  from the repo, and those of a variant the machine used before. Optional features the variant lists stay installed,
-  since `--all` never selects them. Their entries are only undone by `--uninstall` with their flag.
+- With `--all`, once every selected feature has run, each feature in the manifest that the selected OS and profile
+  don't list in `_features` is undone, in reverse manifest order. That covers features since dropped from the list or
+  deleted from the repo, and those of an OS or profile the machine used before. Optional features the list names stay
+  installed, since `--all` never selects them. Their entries are only undone by `--uninstall` with their flag.
 - Without `--all`, they are left alone: a run that names features changes only those.
 
 `--uninstall` with a feature's flag removes it even if the feature has since been deleted from the repo.
@@ -102,7 +102,7 @@ Features in the manifest that this run doesn't select:
 ## Undo
 Entries are undone in one of two modes:
 - Stale undo, the default: every install undoes the entries a feature no longer records, and under `--all` the
-  features the variant no longer lists (see Install and reinstall). It is conservative. It skips an entry whose
+  features the selection no longer lists (see Install and reinstall). It is conservative. It skips an entry whose
   current state differs from `written`, since the user changed it (like pacman's `.pacsave`), and an entry the
   generic undo can't remove (see Escape hatch in Follow-ups). Both are reported and stay in the manifest, so
   `--uninstall` can still remove them.
@@ -154,15 +154,16 @@ garbage-collects it (e.g. after a squash merge removes the branch it was on). To
 1. Refuse if `~/dotfiles` has uncommitted changes to tracked files.
 2. Write `.state/fallback` with the current branch or commit and the features being undone.
 3. Group the features by recorded commit. For each commit: `git checkout --detach <commit>`, then
-   `./install.sh --uninstall --variant <variant> --<feature>...`. Before the database existed, this runs the old
+   `./install.sh --uninstall --os <os> --profile <profile> --machine <machine> --<feature>...`. Before the database existed, this runs the old
    `uninstall_feature_<name>`; after, the old code's own generic undo.
 4. Check out the branch or commit from step 2 again, remove `.state/fallback`, and continue the install.
 
 A run that finds `.state/fallback` was interrupted. It restores the checkout before doing anything else. The checkout
 happens in place because `install.sh` only runs from `~/dotfiles`, and linked config points into it.
 
-Because old commits are invoked this way, `./install.sh --uninstall --variant <v> --<feature>` is a compatibility
-contract: later versions must keep accepting it.
+Because old commits are invoked this way,
+`./install.sh --uninstall --os <os> --profile <profile> --machine <machine> --<feature>` is a compatibility contract:
+later versions must keep accepting it.
 
 ## Relation to existing pieces
 - `BACKUPS_ROOT` (`~/dotfiles/.backup`) is replaced by `.state/backups`. Backups recorded in `prior` are restorable,
