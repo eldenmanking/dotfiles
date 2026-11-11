@@ -922,7 +922,7 @@ download_with_cache() {
   local cache="$1"
   shift
   "$INSTALL_BASH" -c 'set -euo pipefail; DRY_RUN=false DOWNLOAD_CACHE="$1"; shift
-    source "$0/output.sh"; source "$0/fs.sh"; download_verified "$@" test' \
+    source "$0/output.sh"; source "$0/fn.sh"; source "$0/fs.sh"; download_verified "$@" test' \
     "$REPO_ROOT/install/lib" "$cache" "$@" >"$LOG" 2>&1
 }
 
@@ -934,11 +934,6 @@ test_download_cache() {
   dir="$(mktemp -d "$SCRATCH/download.XXXXXX")"
   printf 'payload\n' > "$dir/src"
   sha="$(sha256_of "$dir/src")"
-  # download_verified checks files with GNU sha256sum's -c --status, which only the Linux features that call it need.
-  if ! echo "$sha  $dir/src" | sha256sum -c --status >/dev/null 2>&1; then
-    warn "sha256sum can't check files here (-c --status); skipping the download cache test"
-    return
-  fi
   check "a download is stored in the cache" download_with_cache "$dir/cache" "file://$dir/src" "$sha" "$dir/out1"
   check "  ...under its SHA-256" cmp -s "$dir/src" "$dir/cache/$sha"
   mv "$dir/src" "$dir/moved"
@@ -950,6 +945,59 @@ test_download_cache() {
   else
     pass "a cached file that doesn't match its SHA-256 is downloaded again"
   fi
+}
+
+# Run the code in $2 in a fresh bash with the shared library loaded, DRY_RUN=$1 and BACKUPS_ROOT and DOTFILES_ROOT in
+# SCRATCH, its output going to LOG. Returns its status.
+lib_run() {
+  local dry_run="$1" code="$2" lib="$REPO_ROOT/install/lib"
+  "$INSTALL_BASH" -c 'set -euo pipefail; DRY_RUN="$1"; BACKUPS_ROOT="$2/backups"; DOTFILES_ROOT="$2/root"
+    for f in output fn exec fs capture; do source "$3/$f.sh"; done
+    eval "$4"' lib_run "$dry_run" "$SCRATCH" "$lib" "$code" >"$LOG" 2>&1
+}
+
+# The shared library's dry-run output, upsert_block, confirmsed, write_captured and file_sha256.
+test_lib_helpers() {
+  local dir file
+  info "install/lib: dry-run output, upsert_block, confirmsed, write_captured, file_sha256"
+  dir="$(mktemp -d "$SCRATCH/lib.XXXXXX")"
+
+  lib_run true 'run printf "%s\n" "two words" ""'
+  check "run shows a command with its quoting under --dry-run" grep -qF "'two words' ''" "$LOG"
+
+  file="$dir/rc"
+  lib_run false "upsert_block '$file' x 'line one'"
+  lib_run true "upsert_block '$file' x 'line one'"
+  check "upsert_block --dry-run says an unchanged block is up to date" grep -q "already up to date" "$LOG"
+  lib_run true "upsert_block '$file' x 'line two'"
+  check "upsert_block --dry-run says a changed block would be set" grep -q "would set block" "$LOG"
+  check "  ...and leaves the file alone" grep -qx "line one" "$file"
+
+  file="$dir/main.conf"
+  printf 'a\n#Opt=off\nb\n' > "$file"
+  lib_run true "confirmsed '$file' '#Opt=off' 'Opt=on&x'"
+  check "confirmsed --dry-run announces the replacement" grep -q "would replace" "$LOG"
+  check "  ...and leaves the file alone" grep -qx "#Opt=off" "$file"
+  lib_run false "confirm() { return 0; }; has_tty() { return 1; }; confirmsed '$file' '#Opt=off' 'Opt=on&x'"
+  check "confirmsed replaces the matching line with the literal text" grep -qxF "Opt=on&x" "$file"
+  check "  ...keeping the other lines" test "$(wc -l < "$file")" = 3
+  check "  ...and a backup" grep -qx "#Opt=off" "$SCRATCH/backups$file"
+  lib_run false "confirm() { return 1; }; confirmsed '$file' 'Opt=on&x' 'z'"
+  check "confirmsed leaves the file alone when declined" grep -qxF "Opt=on&x" "$file"
+  lib_run false "confirmsed '$file' 'nothing' 'nope'"
+  check "confirmsed warns when neither is found" grep -q "Neither" "$LOG"
+  lib_run false "confirmsed '$file' 'nothing' 'Opt=on&x'"
+  check "  ...but not when the replacement is already there" test ! -s "$LOG"
+
+  mkdir -p "$SCRATCH/root"
+  file="$SCRATCH/root/new.txt"
+  lib_run true "write_captured '$file' 'text'"
+  check "write_captured --dry-run diffs a missing file against empty" grep -q "^+text" "$LOG"
+  check "  ...without creating it" test ! -e "$file"
+
+  printf 'payload\n' > "$dir/src"
+  lib_run false "f_call file_sha256 sha=sha256 -- '$dir/src'; sha256_matches '$dir/src' \"\$sha\" && ! sha256_matches '$dir/src' 00"
+  check "file_sha256 and sha256_matches compare a file's SHA-256" test ! -s "$LOG"
 }
 
 main() {
@@ -973,6 +1021,7 @@ main() {
   test_steam
   test_capture
   test_download_cache
+  test_lib_helpers
   test_f_call
   test_env_sh
   test_vm_usb

@@ -226,12 +226,6 @@ upsert_block() {
     return 1
   fi
 
-  if $DRY_RUN; then
-    rm -f "$work"
-    info "[dry-run] would set block '$name' in $file"
-    return 0
-  fi
-
   local tmp content_file
   content_file="$(mktemp)"
 
@@ -287,6 +281,11 @@ upsert_block() {
     rm -f "$tmp"
     return 0
   fi
+  if $DRY_RUN; then
+    rm -f "$tmp"
+    info_dry_run "set block '$name' in $file"
+    return 0
+  fi
   info "Updating block '$name' in $file"
   _replace_contents "$file" "$tmp" "$sudo_cmd"
 }
@@ -299,7 +298,7 @@ remove_block() {
   local header="$DOTFILES_SUBBLOCK_PREFIX$name"
   [[ -f "$file" ]] && grep -qxF "$header" "$file" || return 0
   if $DRY_RUN; then
-    info "[dry-run] would remove block '$name' from $file"
+    info_dry_run "remove block '$name' from $file"
     return 0
   fi
   local tmp
@@ -367,17 +366,31 @@ forget_across_steamos_updates() {
 write_file() {
   local dest="$1"
   if $DRY_RUN; then
-    info "[dry-run] would write $dest"
+    info_dry_run "write $dest"
     cat >/dev/null
   else
     cat >"$dest"
   fi
 }
 
+# Outputs: sha256, the SHA-256 of file $1 (sha256sum on Linux, shasum on macOS).
+file_sha256() {
+  local sha256
+  if command -v sha256sum >/dev/null; then
+    sha256="$(sha256sum "$1")"
+  else
+    sha256="$(shasum -a 256 "$1")"
+  fi
+  sha256="${sha256%% *}"
+  f_return sha256
+}
+
 # Return 0 if $file exists and has SHA-256 $sha256.
 sha256_matches() {
-  local file="$1" sha256="$2"
-  [[ -f "$file" ]] && echo "$sha256  $file" | sha256sum -c --status
+  local file="$1" sha256="$2" actual
+  [[ -f "$file" ]] || return 1
+  f_call file_sha256 actual=sha256 -- "$file"
+  [[ "$actual" == "$sha256" ]]
 }
 
 # Download $url to $out and check it against $sha256 ($name is for messages). With DOWNLOAD_CACHE set, a file there
@@ -386,7 +399,7 @@ download_verified() {
   local url="$1" sha256="$2" out="$3" name="$4"
   local cached="$DOWNLOAD_CACHE/$sha256"
   if $DRY_RUN; then
-    info "[dry-run] would download $url"
+    info_dry_run "download $url"
     return
   fi
   if [[ -n "$DOWNLOAD_CACHE" ]] && sha256_matches "$cached" "$sha256"; then
@@ -398,4 +411,41 @@ download_verified() {
   sha256_matches "$out" "$sha256" || { warn "$name checksum mismatch"; return 1; }
   [[ -z "$DOWNLOAD_CACHE" ]] || { mkdir -p "$DOWNLOAD_CACHE" && install -m 644 "$out" "$cached"; } \
     || warn "could not store $name in $DOWNLOAD_CACHE"
+}
+
+# Replace the lines of <file> that match the ERE ^pattern$ with the literal text <replace> (with a backup) after user
+# confirmation. Warns if neither the pattern nor the replacement is there. Fourth arg is an optional sudo-style prefix
+# for the write.
+# Usage: confirmsed <file> <pattern> <replace> [sudo]
+confirmsed() {
+  local file="$1" pattern="$2" replace="$3" sudo_cmd="${4:-}"
+
+  if [[ ! -f "$file" ]]; then
+    warn "$file does not exist."
+    return
+  fi
+
+  if grep -Eq "^${pattern}\$" "$file"; then
+    if $DRY_RUN; then
+      info_dry_run "replace '$pattern' with '$replace' in $file"
+      return
+    fi
+    if confirm "Edit $file to replace '$pattern' with '$replace'?"; then
+      run mkdir -pv "$(dirname "$BACKUPS_ROOT$file")"
+      if has_tty; then
+        run_tty cp -nvi "$file" "$BACKUPS_ROOT$file"
+      else
+        run cp -nv "$file" "$BACKUPS_ROOT$file"
+      fi
+      local tmp line
+      tmp="$(mktemp)"
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^${pattern}$ ]]; then line="$replace"; fi
+        printf '%s\n' "$line"
+      done < "$file" > "$tmp"
+      _replace_contents "$file" "$tmp" "$sudo_cmd"
+    fi
+  elif ! grep -qxF -- "$replace" "$file"; then
+    warn "Neither '$pattern' nor '$replace' were found in $file."
+  fi
 }

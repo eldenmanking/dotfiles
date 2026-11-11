@@ -10,7 +10,7 @@ has_tty() {
 # Execute a command, or just announce it under --dry-run.
 run() {
   if $DRY_RUN; then
-    printf '\033[36m[dry-run]\033[0m %s\n' "$*"
+    show_command "$(shell_words "$@")"
   else
     "$@"
   fi
@@ -35,35 +35,6 @@ confirm() {
   [[ "$reply" =~ ^[Yy]$ ]]
 }
 
-# Replace ^pattern$ with replace in file (with backup) after user confirmation.
-# Fourth arg is an optional sudo-style prefix for the copy.
-confirmsed() {
-  local file="$1" pattern="$2" replace="$3" user="${4:-}"
-
-  if [[ ! -f "$file" ]]; then
-    warn "$file does not exist."
-    return
-  fi
-
-  if grep -Eq "^${pattern}\$" "$file"; then
-    if $DRY_RUN; then
-      info "[dry-run] would replace '$pattern' with '$replace' in $file"
-      return
-    fi
-    if confirm "Edit $file to replace '$pattern' with '$replace'?"; then
-      mkdir -pv "$(dirname "$BACKUPS_ROOT$file")"
-      cp -nvi "$file" "$BACKUPS_ROOT$file" < /dev/tty
-      local tmp
-      tmp="$(mktemp)"
-      sed -E "s@^${pattern}\$@${replace}@" "$file" > "$tmp"
-      ${user:+"$user"} cp "$tmp" "$file"
-      rm -f "$tmp"
-    fi
-  elif ! grep -Eq "^${replace}\$" "$file"; then
-    warn "Neither '$pattern' nor '$replace' were found in $file."
-  fi
-}
-
 # Error unless every given command is available.
 require_commands() {
   local cmd missing=""
@@ -85,6 +56,11 @@ shell_words() {
     line+="${line:+ }$word"
   done
   printf '%s' "$line"
+}
+
+# Print "[info] [dry-run] would $*": what a --dry-run skipped, as a sentence rather than a command.
+info_dry_run() {
+  info "[dry-run] would $*"
 }
 
 # Print command line $1 as [run], or as [dry-run] under --dry-run.
