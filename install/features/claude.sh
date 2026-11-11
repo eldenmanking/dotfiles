@@ -86,18 +86,18 @@ sync_tools_repo() {
     fi
     info "Updating tools repo at $tools_dir"
     if [[ -n "$tools_ref" ]]; then
-      if ! { git -C "$tools_dir" fetch --quiet origin "$tools_ref" \
-        && git -C "$tools_dir" checkout --quiet "$tools_ref"; }; then
+      if ! { run git -C "$tools_dir" fetch --quiet origin "$tools_ref" \
+        && run git -C "$tools_dir" checkout --quiet "$tools_ref"; }; then
         warn "Failed to check out '$tools_ref' in $tools_dir"
       fi
     fi
-    git -C "$tools_dir" pull --quiet --ff-only 2>/dev/null \
+    run git -C "$tools_dir" pull --quiet --ff-only 2>/dev/null \
       || warn "Could not fast-forward $tools_dir; using it as-is"
   elif [[ -d "$tools_dir" ]]; then
     info "Using tools directory $tools_dir as-is (not a git checkout)"
   else
     info "Cloning $tools_repo into $tools_dir"
-    git clone --quiet ${tools_ref:+--branch "$tools_ref"} "$tools_repo" "$tools_dir" \
+    run git clone --quiet ${tools_ref:+--branch "$tools_ref"} "$tools_repo" "$tools_dir" \
       || error "Failed to clone $tools_repo"
   fi
 }
@@ -114,12 +114,7 @@ configure_claude_dirs() {
       local src_dir="$tools_dir/claude/$dir"
       [[ -d "$src_dir" ]] || continue
 
-      # Migrate from old directory-level symlink to per-entry symlinks
-      if [[ -L "$dst_dir" ]]; then
-        info "Replacing directory symlink $dst_dir with real directory"
-        rm "$dst_dir"
-      fi
-      mkdir -p "$dst_dir"
+      run mkdir -p "$dst_dir"
 
       for src in "$src_dir"/*; do
         [[ -e "$src" ]] || continue
@@ -134,20 +129,19 @@ configure_claude_dirs() {
     done
   done
 
-  # Clean up broken symlinks into a tools repo (e.g. deleted skills) or the old dotfiles/.claude location.
+  # Clean up broken symlinks into a tools repo (e.g. skills deleted there).
   local link target
-  for dir in scripts skills commands; do
+  for dir in scripts skills; do
     for link in "$HOME/.claude/$dir"/*; do
       [[ -L "$link" && ! -e "$link" ]] || continue
       target="$(readlink "$link")"
       local stale=false
-      [[ "$target" == "$DOTFILES_ROOT/.claude/"* ]] && stale=true
       for tools_dir in "$@"; do
         [[ "$target" == "$tools_dir/claude/"* ]] && stale=true
       done
       if $stale; then
         info "Removing stale symlink: $link -> $target"
-        rm "$link"
+        run rm "$link"
       fi
     done
   done
@@ -170,6 +164,11 @@ configure_claude_settings() {
 
   if ! command -v python3 &>/dev/null; then
     warn "python3 not found, skipping settings merge"
+    return
+  fi
+
+  if $DRY_RUN; then
+    info "[dry-run] would merge ${srcs[*]} into $dst"
     return
   fi
 
@@ -285,4 +284,30 @@ feature_claude() {
   configure_claude_md "${tools_dirs[@]}"
   configure_claude_dirs "${tools_dirs[@]}"
   configure_claude_settings "${tools_dirs[@]}"
+}
+
+# Remove the skill and script symlinks into the tools repos from ~/.claude and the CLAUDE.md block. The tools repos,
+# the merged ~/.claude/settings.json (it may hold your own settings) and the entries of other tools stay.
+uninstall_feature_claude() {
+  local tools repo dir ref tools_dirs=() entry link target
+  tools="$(load_tools_config)" || exit 1
+  while IFS=$'\t' read -r -u 3 repo dir ref; do
+    [[ -z "$repo" ]] || tools_dirs+=("$dir")
+  done 3<<< "$tools"
+
+  for entry in scripts skills; do
+    for link in "$HOME/.claude/$entry"/*; do
+      [[ -L "$link" ]] || continue
+      target="$(readlink "$link")"
+      for dir in ${tools_dirs[@]+"${tools_dirs[@]}"}; do
+        if [[ "$target" == "$dir/claude/"* ]]; then
+          info "Removing $link"
+          run rm "$link"
+          break
+        fi
+      done
+    done
+  done
+
+  remove_block "$HOME/git/.claude/CLAUDE.md" claude
 }

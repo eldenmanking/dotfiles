@@ -7,6 +7,7 @@
 # @machine any
 # @os steamos
 # @gui any
+# @requires distrobox
 feature_steamos_make() {
   install_distrobox_binary make
 }

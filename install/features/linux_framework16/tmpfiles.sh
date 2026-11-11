@@ -18,3 +18,13 @@ feature_tmpfiles() {
     run sudo systemd-tmpfiles --create "$target"
   done
 }
+
+# Remove the configs and stop keeping them across SteamOS updates. What they already created stays.
+uninstall_feature_tmpfiles() {
+  local target
+  for target in $(system_file_targets "$DOTFILES_ROOT/$TMPFILES_SRC" '*.conf' "$TMPFILES_DST"); do
+    [[ -e "$target" || -L "$target" ]] || continue
+    remove_system_files "$target"
+  done
+  forget_across_steamos_updates tmpfiles
+}

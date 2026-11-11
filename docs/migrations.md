@@ -197,3 +197,19 @@ and `~/.config/git` are no longer linked either: nothing read them from there. A
 - **Fix:** after asking the user, `rm` the listed links (only links, never regular files), then `rmdir` any of those
   directories that is now empty.
 - **Verify:** the check prints nothing; new shells still start, since the startup files source the checkout directly.
+
+## Claude skills and scripts links from older layouts
+The `claude` feature no longer replaces an old directory-level symlink at `~/.claude/scripts` or `~/.claude/skills`,
+and no longer removes broken links into `~/dotfiles/.claude/` or `~/.claude/commands`. Applies to machines that
+linked those directories to a tools repo, or from `~/dotfiles/.claude`, before per-entry links.
+
+### Directory symlinks in ~/.claude
+- **Check:** `find ~/.claude/scripts ~/.claude/skills -maxdepth 0 -type l 2>/dev/null`
+- **Fix:** `rm` each path the check printed (they are symlinks; this removes only the link), then
+  `~/dotfiles/install.sh --claude`.
+- **Verify:** the check prints nothing and `~/.claude/skills` is a real directory of per-entry links.
+
+### Broken links into dotfiles/.claude
+- **Check:** `find ~/.claude/scripts ~/.claude/skills ~/.claude/commands -maxdepth 1 -xtype l -lname "$HOME/dotfiles/.claude/*" 2>/dev/null`
+- **Fix:** `rm` each link the check printed.
+- **Verify:** the check prints nothing.

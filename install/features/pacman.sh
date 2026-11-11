@@ -116,7 +116,7 @@ _build_yay_in() {
 #
 # @machine any
 # @os arch
-# @gui any
+# @gui gnome
 feature_pacman() {
   info "Installing pacman packages for terminal..."
   run_tty sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"

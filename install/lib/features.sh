@@ -138,7 +138,7 @@ FEATURES_TOOLS="tmux claude gitconfig"
 FEATURES_PORTABLE="binaries link zsh shell starship tmux"
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops console link desktop manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops console link desktop manual shell starship zsh claude binaries gng tre tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
 
 # Print the name of feature <feature>'s function, feature_<name> with any - as _.
 # Usage: feature_function <feature>

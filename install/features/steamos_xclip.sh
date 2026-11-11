@@ -7,6 +7,7 @@
 # @machine any
 # @os steamos
 # @gui desktop
+# @requires distrobox
 feature_steamos_xclip() {
   install_distrobox_binary xclip
 }
