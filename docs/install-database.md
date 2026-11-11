@@ -42,18 +42,21 @@ The database lives in the checkout, ignored by git, next to everything else `ins
 
 ## Manifest format
 The manifest is one text file with one record per line and fields separated by tabs. bash 3.2 can read it with
-`IFS=$'\t' read -r`. Its first line is the format version, then each installed feature has a header line followed by
-its entries:
+`IFS=$'\t' read -r`. Its first line names the manifest layout, then each installed feature has a header line followed
+by its entries:
 
 ```
-version	1
-feature	<name>	<sha of the checkout its last run used>	<os>	<profile>	<machine>
+manifest	1
+feature	<name>	<version>	<sha of the checkout its last run used>	<os>	<profile>	<machine>
 <name>	<kind>	<key...>	<written>	<prior>
 ...
 ```
 
-Each feature keeps its own commit, since runs can install a subset of features (`--tmux`) or fail partway. A feature's
-entries appear in the order they were made, and are undone in reverse. A path containing a tab or newline is an error.
+The layout, which is this first line, the `feature` header and an entry's first two and last two fields, never
+changes. Everything inside a section is versioned per feature by `<version>` (see Versioning the format), so sections
+written by different commits can sit in one manifest. Each feature also keeps its own commit, since runs can install
+a subset of features (`--tmux`) or fail partway. A feature's entries appear in the order they were made, and are
+undone in reverse. A path containing a tab or newline is an error.
 
 | Kind | Made by | Key | `written` | `prior` |
 |---|---|---|---|---|
@@ -83,9 +86,8 @@ tree it loads into first.
 
 ## Install and reinstall
 For each selected feature, in `_features` order:
-1. Read the manifest. If its `version` isn't the current one, take the commit fallback (below) for every feature in
-   it before going on. If only this feature's section holds a kind this code doesn't know, take it for this feature.
-   Never undo part of a feature's entries.
+1. Read the feature's section. If its `version` isn't the current one, or it holds a kind this code doesn't know,
+   take the commit fallback (below) for this feature before going on. Never undo part of a feature's entries.
 2. Run the feature, recording entries.
 3. If it succeeded, undo the old entries whose keys weren't recorded this run, newest first, and write the new
    manifest. If it failed, write the old entries plus the new ones and undo nothing, so the next run can still clean up.
@@ -95,7 +97,10 @@ Features in the manifest that this run doesn't select:
   don't list in `_features` is undone, in reverse manifest order. That covers features since dropped from the list or
   deleted from the repo, and those of an OS or profile the machine used before. Optional features the list names stay
   installed, since `--all` never selects them. Their entries are only undone by `--uninstall` with their flag.
-- Without `--all`, they are left alone: a run that names features changes only those.
+- Without `--all`, they are left alone, since a run that names features changes only those. The run ends by listing
+  the features in the manifest that the selected OS and profile don't list in `_features`, each with its OS, profile
+  and recorded commit, and how to remove them: `--all`, or `--uninstall` with their flags. Features the list does
+  name but this run didn't select aren't listed: they're still part of the install.
 
 `--uninstall` with a feature's flag removes it even if the feature has since been deleted from the repo.
 
@@ -141,11 +146,29 @@ feature's list, or a feature undone under `--all`.
   stays in the manifest, so a later run asks again. `--dry-run` reports what it would ask.
 
 ## Versioning the format
-The manifest format has one integer version. Bump it on any change a reader must understand: removing or renaming a
-kind, changing what a field means, or adding a kind, since older code can't undo it. Fields a reader may ignore can
-be added without a bump. Readers accept only their own version. A mismatch is never converted in code. It takes the
-commit fallback, which runs the code that wrote the manifest and so understands it. Dropping a kind therefore needs no
-compatibility code: machines with an old manifest take the fallback once, for all their features.
+The format of a section has one integer version, recorded in each feature's header. Bump it on any change a reader
+must understand: removing or renaming a kind, changing what a field means, or adding a kind, since older code can't
+undo it. Fields a reader may ignore can be added without a bump. Readers accept only their own version. A mismatch is
+never converted in code. It takes the commit fallback, which runs the code that wrote the section and so understands
+it. Dropping a kind therefore needs no compatibility code: each feature takes the fallback once, the next time a run
+touches it.
+
+### Partial installs across versions
+Runs that select only some features (`--tmux`), or check out different commits between runs, leave sections of
+different versions in one manifest. That is expected:
+- A run reads and rewrites only the sections of the features it touches: the ones it installs, uninstalls, or undoes
+  under `--all`. Every other section is copied through byte for byte, and read only through the fixed layout (for
+  the ownership check below), so a run never needs to understand a section it doesn't touch, and never takes the
+  fallback for one.
+- Touching a feature whose section has another version, older or newer, takes the commit fallback for that feature
+  only: uninstall it with the code that wrote it, then, if this run installs it, install it with this code. Running
+  an older commit against a newer section works the same way, since `refs/dotfiles/installed/<feature>` keeps the
+  newer commit. So the fallback and the layout must already be in place in the first version, and never change.
+- The ownership check compares (kind, key) against every section, whatever its version, using only the fixed layout.
+  Against a section of another version it can miss a conflict, if a kind was renamed between them (e.g. `file` to
+  `dir`). The conflict pre-check in Follow-ups, which also checks the disk, closes that gap.
+- Each run that touches a feature rewrites its whole section at the current version, so a feature's sections
+  converge to the current version as it is reinstalled, and versions don't pile up.
 
 ## Commit fallback
 Each feature's header records the commit that wrote its entries, and `refs/dotfiles/installed/<feature>` points at it so git never
