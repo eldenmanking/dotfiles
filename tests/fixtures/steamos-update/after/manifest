@@ -1,9 +1,9 @@
 kept    /etc/atomic-update.conf.d d 755 root:root
 new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 61a172c55facab86
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
-new     /etc/dotfiles/bin/orei-switch f 755 root:root 2b557b37b495a303
-new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root 3b3111dd183ed5cc
-new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 1f708c32bbc3f993
+new     /etc/dotfiles/bin/orei-switch f 755 root:root 2efd05ebd080bd62
+new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root b0fd815e55bf5a37
+new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 3a45f82ce67017c3
 removed /etc/dummy.conf f 644 root:root ab7814129600d3fa
 new     /etc/previous d 755 root:root
 new     /etc/previous/dummy.conf f 644 root:root ab7814129600d3fa
