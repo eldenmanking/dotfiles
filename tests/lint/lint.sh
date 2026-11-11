@@ -48,15 +48,19 @@ each_file() {
 }
 
 # Print the names that f_return statements in file $1 return bare (f_return name), one per line, joining lines continued
-# with a backslash. Each reads the variable of that name, which shellcheck doesn't see.
+# with a backslash. Each reads the variable of that name, which shellcheck doesn't see. This approximates shell syntax:
+# a quoted value that spans lines hides the names after it, which then fail lint as unused.
 bare_returns() {
   awk '
     { line = (cont ? cont " " : "") $0; cont = "" }
     sub(/\\$/, "", line) { cont = line; next }
+    line ~ /^[[:space:]]*#/ { next }
     line ~ /f_return/ {
-      # Drop quoted values first, so that words in them are not taken for names, then split the commands apart.
+      # Drop quoted values first, so that words in them are not taken for names, then comments, then split the
+      # commands apart. A quoted value leaves "" behind, so that the stray words of a nested one stay glued to it.
       gsub(/"([^"\\]|\\.)*"/, "\"\"", line)
       gsub(/\047[^\047]*\047/, "", line)
+      sub(/(^|[[:space:]])#.*/, "", line)
       n = split(line, commands, /;|&&|\|\||[|&]/)
       for (c = 1; c <= n; c++) {
         if (!sub(/^.*(^|[[:space:]{(])f_return[[:space:]]+/, "", commands[c])) continue
