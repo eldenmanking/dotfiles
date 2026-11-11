@@ -81,8 +81,8 @@ _build_logiops_in() {
   )
 }
 
-# Build logiops (Logitech mouse and keyboard daemon) from a pinned release and enable logid.service, which reads
-# root/etc/logid.cfg.
+# Build logiops (Logitech mouse and keyboard daemon) from a pinned release, copy root/etc/logid.cfg (not linked:
+# logid.service reads it at boot) and enable logid.service.
 #
 # @machine any
 # @os arch
@@ -101,9 +101,16 @@ feature_logiops() {
     fi
   fi
 
+  local cfg=root/etc/logid.cfg cfg_changed=true
+  cmp -s "$DOTFILES_ROOT/$cfg" "/${cfg#root/}" && [[ ! -L "/${cfg#root/}" ]] && cfg_changed=false
+  copy_system_file 644 "$cfg"
+
   if [[ "$(systemctl is-active logid.service 2>/dev/null || true)" != "active" ]]; then
     info "Enabling logid.service..."
     run sudo systemctl enable --now logid.service
+  elif $cfg_changed; then
+    info "Restarting logid.service to load the new configuration..."
+    run sudo systemctl restart logid.service
   fi
 }
 

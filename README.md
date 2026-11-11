@@ -130,9 +130,9 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │       ├── orei-switch      --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
 │   │   │       ├── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
 │   │   │       └── sddm-xstop       --- redoes the VT switch to the session that the login screen's exit dropped (copied by orei_switch)
-│   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals
+│   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals (copied by logiops)
 │   │   ├── modprobe.d               ---
-│   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
+│   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys (copied by console)
 │   │   ├── sddm.conf.d              ---
 │   │   │   └── orei-switch.conf     --- runs sddm-xsetup and sddm-xstop for the X11 login screen (copied by orei_switch)
 │   │   ├── systemd                  ---
@@ -158,7 +158,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │       ├── webterm-ttyd.serv--- ttyd on a private UNIX socket (copied by webterm)
 │   │   │       ├── webterm.service  --- systemd-socket-proxyd, exits when idle (copied by webterm)
 │   │   │       └── webterm.socket   --- listens on 127.0.0.1:7681 (copied by webterm)
-│   │   └── vconsole.conf            --- Linux virtual console configuration file
+│   │   └── vconsole.conf            --- Linux virtual console configuration file (copied by console only where none exists)
 │   └── usr                          ---
 │       ├── local                    ---
 │       │   └── bin                  ---
@@ -167,7 +167,7 @@ This repository contains configuration files for my linux workspace. The followi
 │       └── share                    ---
 │           └── kbd                  ---
 │               └── keymaps          ---
-│                   └── us-caps.map  --- keymap for linux console remapping caps to escape
+│                   └── us-caps.map  --- keymap for linux console remapping caps to escape (copied by console)
 ├── scripts                          ---
 │   └── bootstrap.sh                 --- fills in bootstrap/install.sh's pin; --publish commits it to the install branch
 └── tests                            --- behavior tests, plus lint and validation (see Testing)
@@ -296,6 +296,7 @@ Features copy the systemd units they install, never link them, with the helpers 
 | `dconf` | any | linux | gnome | |
 | `xdg` | any | linux | gnome | `pacman` |
 | `desktop` | any | arch | gnome | `pacman` |
+| `console` | any | arch | any | |
 | `tmux` | any | any | any | `link` |
 | `binaries`, `neovim` | any | linux, macos | any | |
 | `flatpak` | any | linux | desktop | |
