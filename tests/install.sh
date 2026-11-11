@@ -179,6 +179,39 @@ test_dimensions() {
     grep -q "Options for OS 'steamos' with profile 'minimal'" "$LOG"
 }
 
+# Command-line parsing: --help in every form, value options, option names, and the order --reinstall runs in.
+test_cli() {
+  local home
+  info "cli: option parsing and --reinstall order"
+  f_call new_home home
+  install_ok "$home" --oti arch-chroot --help && check "  ...--oti --help prints usage" grep -q '^Usage:' "$LOG"
+  install_ok "$home" --os arch --help && check "  ...--os alone with --help prints usage" grep -q '^Usage:' "$LOG"
+  install_ok "$home" --profile minimal --help && check "  ...--profile alone with --help prints usage" grep -q '^Usage:' "$LOG"
+  install_ok "$home" -h && check "  ...-h prints usage" grep -q '^Usage:' "$LOG"
+  install_ok "$home" --os=portable --profile=minimal --help \
+    && check "  ...--opt=value works" grep -q "Options for OS 'portable' with profile 'minimal'" "$LOG"
+  install_refused "$home" --os --all
+  check "  ...--os --all says the value is missing" grep -q "requires a value, but got the option --all" "$LOG"
+  install_refused "$home" --os= --profile minimal
+  check "  ...an empty value is rejected" grep -q "requires a non-empty value" "$LOG"
+  install_refused "$home" --variant coder --variant arch
+  check "  ...a repeated option is rejected" grep -q "given twice" "$LOG"
+  install_refused "$home" --variant coder '--*'
+  check "  ...odd option names are rejected, not globbed" grep -q "Unexpected argument: --\*" "$LOG"
+  write_install_conf "$home" "DOTFILES_VARIANT=nope"
+  install_ok "$home" --os portable --profile minimal --help \
+    && check "  ...a bad default variant is ignored when --os and --profile are given" \
+      grep -q "Options for OS 'portable'" "$LOG"
+  install_refused "$home" --help
+  check "  ...a bad default variant is named as the default" grep -q "Unknown variant 'nope' (from DOTFILES_VARIANT" "$LOG"
+  rm -f "$home/.config/dotfiles/install.conf"
+  install_ok "$home" --variant arch --dry-run --reinstall --logind --link \
+    && check "  ...--reinstall uninstalls everything, then installs" sh -c '
+      last_uninstall="$(grep -n "Uninstalling feature" "$1" | tail -1 | cut -d: -f1)"
+      first_install="$(grep -n "Installing\|would run feature" "$1" | head -1 | cut -d: -f1)"
+      [ -n "$last_uninstall" ] && [ -n "$first_install" ] && [ "$last_uninstall" -lt "$first_install" ]' sh "$LOG"
+}
+
 # Write install.conf in home $1 with the remaining args as its lines.
 write_install_conf() {
   local home="$1"
@@ -904,6 +937,7 @@ main() {
   test_usage "$(with_install_loaded available_names variants)"
   test_dimensions
   test_defaults
+  test_cli
   test_checkout_location
   test_clone_checkout
   test_bootstrap
