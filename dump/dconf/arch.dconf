@@ -108,7 +108,7 @@ application-id='xdg-desktop-portal-gnome.desktop'
 application-id='Zoom.desktop'
 
 [org/gnome/desktop/peripherals/keyboard]
-delay=uint32 150
+delay=uint32 200
 numlock-state=false
 repeat-interval=uint32 10
 

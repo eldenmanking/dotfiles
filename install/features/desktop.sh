@@ -1,4 +1,4 @@
-# Features: desktop setup (fonts, logiops, services, dconf, xdg).
+# Features: desktop setup (fonts, logiops, desktop system units, dconf, xdg).
 
 # JetBrainsMono Nerd Font, checked against a pinned SHA-256. Fonts in ~/.local/share/fonts are also seen by browsers
 # (including flatpak ones), which webterm relies on.
@@ -82,13 +82,42 @@ feature_logiops() {
   fi
 }
 
-# Enable and start bluetooth.
+# System units the Arch desktop enables and starts right away.
+DESKTOP_START_UNITS=(
+  "bluetooth.service"                                           # bluetooth (bluez, from --pacman)
+)
+# System units it enables for the next boot only: starting the login screen now would replace the session running
+# the install.
+DESKTOP_BOOT_UNITS=(
+  "gdm.service"                                                 # GNOME login screen (gdm, from --pacman)
+)
+# The target it boots into: the login screen, not a console.
+DESKTOP_DEFAULT_TARGET="graphical.target"
+
+# Enable the desktop's system units (bluetooth, and GDM from the next boot) and boot into the graphical target.
 #
 # @machine any
-# @os linux
-# @gui any
-feature_services() {
-  run sudo systemctl enable --now bluetooth.service
+# @os arch
+# @gui gnome
+# @requires pacman
+feature_desktop() {
+  local unit
+  for unit in "${DESKTOP_START_UNITS[@]}"; do
+    if ! systemctl is-enabled --quiet "$unit" 2>/dev/null || ! systemctl is-active --quiet "$unit"; then
+      info "Enabling and starting $unit..."
+      run sudo systemctl enable --now "$unit"
+    fi
+  done
+  for unit in "${DESKTOP_BOOT_UNITS[@]}"; do
+    if ! systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+      info "Enabling $unit from the next boot..."
+      run sudo systemctl enable "$unit"
+    fi
+  done
+  if [[ "$(systemctl get-default 2>/dev/null)" != "$DESKTOP_DEFAULT_TARGET" ]]; then
+    info "Booting into $DESKTOP_DEFAULT_TARGET from now on..."
+    run sudo systemctl set-default "$DESKTOP_DEFAULT_TARGET"
+  fi
 }
 
 # Edit files that can't be symlinked in place, e.g. turn on bluetooth at boot in /etc/bluetooth/main.conf.

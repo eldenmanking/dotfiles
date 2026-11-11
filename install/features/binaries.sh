@@ -110,7 +110,7 @@ feature_binaries() {
   install_tmux_binary
 }
 
-# Install just neovim (prebuilt) into ~/.local, for variants whose tmux comes from elsewhere (building it needs gcc).
+# Install just neovim (prebuilt) into ~/.local, for installs whose tmux comes from elsewhere (building it needs gcc).
 #
 # @machine any
 # @os linux macos

@@ -25,10 +25,12 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── bootloader.md                ---
 │   ├── framework16-sleep.md         --- Framework 16 sleep battery drain diagnosis and fix
 │   ├── install-database.md          --- design proposal: record what features install, to undo it and restore what it replaced
+│   ├── light-sleep.md               --- light sleep instead of suspend while an eGPU is on the Framework 16 expansion bay
 │   ├── mac-os-setup.md              ---
 │   ├── migrations.md                --- manual steps after pulling changes that leave stale files behind
 │   ├── orei-switch.md               --- OREI HDMI switch sleep/wake handoff: findings and the orei_switch feature
 │   ├── steamos-setup.md             --- SteamOS install, Steam settings, encryption and Windows VMs
+│   ├── upstream-sync.md             --- plan for rewriting and merging with the upstream repo this was forked from
 │   ├── windows-setup.md             ---
 │   └── wsl-setup.md                 ---
 ├── dump                             --- exported configuration settings
@@ -38,6 +40,8 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   └── vimium.conf              --- configuration for chrome vimium extension
 │   ├── insync                       ---
 │   │   └── ignorerules              ---
+│   ├── keychron                     ---
+│   │   └── k3-ultra-8k-ansi.json    --- Keychron Launcher keymap export for the K3 Ultra 8K
 │   ├── okular                       ---
 │   │   └── default.shortcuts        ---
 │   ├── vscode                       ---
@@ -56,6 +60,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   ├── git                      ---
 │   │   │   └── ignore               --- default ignored git files
 │   │   ├── kcminputrc               --- KDE input settings (keyboard repeat), merged by the kde feature (not linked)
+│   │   ├── kxkbrc                   --- KDE keyboard layout settings (no XKB options), merged by the kde feature (not linked)
 │   │   ├── nvim                     ---
 │   │   │   ├── core                 ---
 │   │   │   │   ├── autocommands.vim --- global autocommands
@@ -66,13 +71,14 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   │   ├── plugins.vim      --- default neovim plugins and settings
 │   │   │   │   └── plugmaps.vim     --- mappings for neovim plugins
 │   │   │   └── init.vim             --- Neovim main configuration file (sources 'core')
+│   │   ├── powerdevilrc             --- KDE power settings (lid action on AC), merged by the kde feature (not linked)
 │   │   ├── sh                       ---
 │   │   │   ├── aliases.sh           --- default shell aliases
 │   │   │   ├── env.sh               ---
 │   │   │   └── starship.sh          --- starts the starship prompt in bash or zsh
 │   │   ├── starship.toml            ---
 │   │   ├── webterm                  ---
-│   │   │   └── env                  --- webterm settings (shell, font), linked on steamos
+│   │   │   └── env                  --- webterm settings (shell, font), linked on steamos and arch
 │   │   ├── yapf                     ---
 │   │   │   └── style                --- yapf python formatter global configuration file
 │   │   └── zsh                      ---
@@ -103,6 +109,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── .pylintrc                    --- pylint global configuration file
 │   ├── .tmux                        ---
 │   │   └── resurrect                ---
+│   │       ├── claude_save.sh       --- post-save hook resuming Claude panes on restore
 │   │       ├── saferestore.sh       --- safe restore script for tmux resurrect
 │   │       └── strategies           ---
 │   │           └── nvim_obsession.s ---
@@ -110,29 +117,35 @@ This repository contains configuration files for my linux workspace. The followi
 │   ├── .vimrc                       --- Vim main configuration file (deprecated)
 │   ├── .zprofile                    --- zshell login startup file
 │   └── .zshrc                       --- zshell interactive startup file
-├── install                          --- pieces of the install script (lib, features, variants)
+├── install                          --- pieces of the install script (lib, features, os, profiles, variants)
 ├── install.sh                       --- dotfiles install script
 ├── root                             ---
 │   ├── etc                          ---
 │   │   ├── dotfiles                 ---
 │   │   │   └── bin                  ---
+│   │   │       ├── light-sleep      --- suspends, or idles with the displays off while an eGPU is on the expansion bay (copied by light_sleep)
 │   │   │       ├── orei-switch      --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
-│   │   │       └── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
+│   │   │       ├── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
+│   │   │       └── sddm-xstop       --- redoes the VT switch to the session that the login screen's exit dropped (copied by orei_switch)
 │   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals
 │   │   ├── modprobe.d               ---
 │   │   │   └── hid_apple.conf       --- NuPhy Air75 fix for function keys
 │   │   ├── sddm.conf.d              ---
-│   │   │   └── orei-switch.conf     --- runs sddm-xsetup for the X11 login screen (copied by orei_switch)
+│   │   │   └── orei-switch.conf     --- runs sddm-xsetup and sddm-xstop for the X11 login screen (copied by orei_switch)
 │   │   ├── systemd                  ---
+│   │   │   ├── logind.conf.d        ---
+│   │   │   │   └── lid.conf         --- don't suspend on lid close while on external power (copied by logind)
 │   │   │   └── system               ---
 │   │   │       ├── hdmi-audio-fix.se--- keeps the Framework 16 780M SoC clock up for HDMI audio (copied by hdmi_audio_fix)
 │   │   │       ├── orei-switch-boot.--- re-enables the left ports and turns the projector on at boot (copied by orei_switch)
 │   │   │       ├── orei-switch-power--- turns the projector off over CEC on poweroff (copied by orei_switch)
-│   │   │       └── orei-switch.servi--- runs orei-switch around sleep (copied by orei_switch)
+│   │   │       ├── orei-switch.servi--- runs orei-switch around sleep (copied by orei_switch)
+│   │   │       └── systemd-suspend.s--- light-sleep.conf: suspends through light-sleep (copied by light_sleep)
 │   │   ├── tmpfiles.d               ---
 │   │   │   └── ec-no-wakeup.conf    --- stop the embedded controller (ACPI GPE 0x0B) from waking the laptop from s2idle (copied, not linked)
 │   │   ├── udev                     ---
 │   │   │   └── rules.d              ---
+│   │   │       ├── 90-egpu-no-runpm.--- keep an eGPU on the Framework 16 expansion bay powered while idle: it is often lost waking from BACO (copied, not linked; see docs/light-sleep.md)
 │   │   │       └── 90-touchpad-nowak--- stop I2C devices (Framework 16 touchpad) from waking the laptop (copied, not linked; candidate for removal, see docs/framework16-sleep.md)
 │   │   ├── systemd                  ---
 │   │   │   └── user                 ---
@@ -141,7 +154,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │       ├── keyboard-rescan.s--- the restart, after a 1 s pause (copied by gamescope_screenshot)
 │   │   │       ├── webterm-ttyd.serv--- ttyd on a private UNIX socket (copied by webterm)
 │   │   │       ├── webterm.service  --- systemd-socket-proxyd, exits when idle (copied by webterm)
-│   │   │       └── webterm.socket   --- listens on 127.0.0.1:3000 (copied by webterm)
+│   │   │       └── webterm.socket   --- listens on 127.0.0.1:7681 (copied by webterm)
 │   │   └── vconsole.conf            --- Linux virtual console configuration file
 │   └── usr                          ---
 │       ├── local                    ---
@@ -161,7 +174,7 @@ This repository contains configuration files for my linux workspace. The followi
     │   ├── portable-existing-rc     --- portable install over the same files
     │   ├── portable-old-markers     --- portable install over files with an older version's single-# section
     │   ├── steamos-existing-rc      --- steamos install over the same files
-    │   ├── steamos-kde-config       --- --kde merging keyboard repeat into an existing kcminputrc
+    │   ├── steamos-kde-config       --- --kde merging keyboard repeat, XKB options and the lid action into KDE config
     │   ├── steamos-steam            --- --steam replacing the Game Mode hotkeys in an existing localconfig.vdf
     │   └── steamos-update           --- steamos install with the Framework 16 fixes surviving a (mock) SteamOS update
     ├── fixtures.sh                  --- make fixtures: runs each fixture in its container image and compares after/
@@ -179,7 +192,7 @@ This repository contains configuration files for my linux workspace. The followi
     ├── lint                         ---
     │   └── lint.sh                  --- make lint: syntax, shellcheck, actionlint and TOML checks
     ├── validation                   ---
-    │   ├── features.sh              --- checks feature docs, and that variants suit and order their features
+    │   ├── features.sh              --- checks feature docs, and that each OS and profile suits and orders its features
     │   ├── readme_tree.py           --- checks this tree against the files tracked by git
     │   └── validate.sh              --- make validate: checkout name, README tree, checksums, features
     ├── versions.env                 --- pinned versions and checksums of shellcheck and actionlint
@@ -187,7 +200,7 @@ This repository contains configuration files for my linux workspace. The followi
 ```
 
 ## Installation
-`install.sh` is the single entry point. Choose a platform with `--variant` (`coder`, `arch`, `steamos`, `portable`) and toggle features with flags; run `./install.sh --variant <name> --help` to list the features of a variant, and `--all` to enable all of its default ones. Optional features (listed under "Optional" in `--help`, e.g. `--printer` on `arch`) are skipped by `--all` and run only when named. With no arguments it prints usage, unless defaults are set (see [Defaults](#defaults)). Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each variant lives in `install/variants/`, each feature in `install/features/`, and the files each variant links are listed in `install/features/link.sh`. Files under `home/` are installed into `$HOME` and files under `root/` into `/`, at the same path: most are linked, while some are copied by the feature that needs them (e.g. udev rules, which are read before an encrypted home is mounted, or systemd units). Paths under `root/` are linked one file at a time, never as a whole directory, so a copied file can't get linked too; `make validate` checks this. Everything else at the top level stays in the repo.
+`install.sh` is the single entry point. Choose what to install for with `--variant` (`coder`, `arch`, `steamos`, `portable`), which names an OS and a profile, or with `--os`, `--profile` and `--machine`, or let `--infer` guess them (see [OS, Profile and Machine](#os-profile-and-machine)), and toggle features with flags; run `./install.sh --variant <name> --help` to list the features, and `--all` to enable all of the default ones. Optional features (listed under "Optional" in `--help`, e.g. `--printer` on `arch`) are skipped by `--all` and run only when named. With no arguments it prints usage, unless defaults are set (see [Defaults](#defaults)). To set up a machine once instead, such as installing Arch from its live ISO, use `--oti` (see [One-time installs](#one-time-installs)). Features that can be undone also accept `--uninstall`, which removes them, and `--reinstall`, which removes then installs them again; both apply to every selected feature that supports them (listed by `--help`), and the rest are skipped or just installed. For example, `--distrobox --reinstall` asks before deleting the `arch` distrobox, then recreates and enters it. Each OS lives in `install/os/`, each profile in `install/profiles/`, each variant in `install/variants/` and each feature in `install/features/`, and the files each OS and profile link are listed in `install/features/link.sh`. Files under `home/` are installed into `$HOME` and files under `root/` into `/`, at the same path: most are linked, while some are copied by the feature that needs them (e.g. udev rules, which are read before an encrypted home is mounted, or systemd units). Paths under `root/` are linked one file at a time, never as a whole directory, so a copied file can't get linked too; `make validate` checks this. Everything else at the top level stays in the repo.
 
 The repo must live at `~/dotfiles`, since everything `install.sh` links points there, and `install.sh` refuses to run from any other checkout. `~/dotfiles` may be a symlink, but the checkout itself must be a directory named `dotfiles`, which lint relies on. When run from a git checkout elsewhere (such as the one Coder clones to `~/.config/coderv2/dotfiles`) and `~/dotfiles` doesn't exist, `install.sh` clones that checkout's current commit to `~/dotfiles`, sets the clone's `origin` to the checkout's, and re-runs from the clone with the same arguments; uncommitted changes aren't copied. `install.sh` doesn't clean up after layout changes, so after pulling, follow [docs/migrations.md](docs/migrations.md) for any changes that left stale files behind (it is written so an agent can work through it). `install.sh` doesn't run on its own: it refuses without its `install/` directory beside it.
 
@@ -198,10 +211,31 @@ The bootstrap is generated from its template, `bootstrap/install.sh`, by `script
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/install/install.sh)" -- --variant coder --all
 ```
 
+#### OS, Profile and Machine
+An install is for three things:
+ - the OS (`--os`): `arch` (Arch Linux or Arch-based), `steamos`, or `portable` (any Linux or macOS, e.g. WSL, without its package manager or root);
+ - the profile (`--profile`), how the machine is used: `desktop` (your own machine with a desktop session), `minimal` (a terminal setup only) or `workspace` (a Coder workspace);
+ - the machine (`--machine`), the hardware: `generic` (the default) or `framework16`.
+
+Only these combinations exist:
+
+| OS | Profiles | Machines | Variants |
+|---|---|---|---|
+| `arch` | `desktop`, `minimal` | `generic`, `framework16` | `arch` (desktop) |
+| `steamos` | `desktop`, `minimal` | `generic`, `framework16` | `steamos` (desktop) |
+| `portable` | `minimal`, `workspace` | `generic` | `portable` (minimal), `coder` (workspace) |
+
+Each OS is a file in `install/os/`: `os_<os>` sets the `@os` values its features must suit (`_platforms`) and the machines it supports (`_machines`), and an `os_<os>_<profile>` function for each profile it supports sets that combination's `_features` (in the order they run), `_optional`, `_gui` and `_link_paths`. Each profile is a file in `install/profiles/` whose `profile_<name>` sets what holds for it on every OS (`_git_fsmonitor`, off for workspaces). Each variant in `install/variants/` only names an OS and profile; `--os` and `--profile` override the variant's, so `--variant steamos --profile minimal` is the SteamOS terminal setup. Features get the OS, the profile and the enabled features as `feature_<name> <os> <profile> <enabled>`.
+
+Features for specific hardware (an `@machine` other than `any`, see [Feature Requirements](#feature-requirements)) live in `install/features/<os>_<machine>/`, e.g. `install/features/steamos_framework16/orei_switch.sh`. `--all` includes them only on their machine; on other machines `--help` lists them under "For other machines", and naming one still runs it, with a warning.
+
+`--infer` guesses whichever of the three isn't given by an option or a default, with `install/lib/infer.sh`, to suit the ones given. The OS is `portable` in a Coder workspace (`CODER=true`), else `steamos` or `arch` from `/etc/os-release`, else `portable` (other Linux systems and macOS); it is also `portable` when the given profile needs it, as `workspace` does. The profile is `workspace` in a Coder workspace on `portable`, `desktop` on `arch` and `steamos` (since their desktop installs set up the desktop, an Arch install without one yet still gets it), and `minimal` otherwise. The machine comes from the DMI vendor and product name in `/sys/class/dmi/id`, and is `generic` on an OS that doesn't support the one found. Without `--infer` nothing is guessed: `--os` needs `--profile` (and the other way around) unless `--variant` gives it, and the machine is `generic`. `./install.sh --infer --help` shows what it picks without installing anything.
+
 #### Defaults
 To run `install.sh` without arguments (as Coder's dotfiles support does), set defaults in the environment or in `~/.config/dotfiles/install.conf`, which is sourced like a shell script (the environment wins; set `DOTFILES_INSTALL_CONFIG` to read a different file):
- - `DOTFILES_VARIANT`: the variant to use when `--variant` isn't given.
- - `DOTFILES_FEATURES`: the features to run when the command line names none, as a space-separated list of feature names, with `all` for `--all` (e.g. `all printer`). They are ignored under `--uninstall`, and when `--variant` names a different variant than `DOTFILES_VARIANT`.
+ - `DOTFILES_VARIANT`, `DOTFILES_OS` and `DOTFILES_PROFILE`: the OS and profile to use when the command line doesn't give them, as a variant whose OS and profile `DOTFILES_OS` and `DOTFILES_PROFILE` override (like `--variant`, `--os` and `--profile`).
+ - `DOTFILES_MACHINE`: the machine to use when `--machine` isn't given (and not inferred, even with `--infer`).
+ - `DOTFILES_FEATURES`: the features to run when the command line names none, as a space-separated list of feature names, with `all` for `--all` (e.g. `all printer`). They are ignored under `--uninstall`, and when the command line picks a different OS or profile than the defaults name.
 
 ```bash
 # ~/.config/dotfiles/install.conf
@@ -228,7 +262,7 @@ Each `feature_<name>` function has a doc comment directly above it: a brief desc
 feature_webterm() {
 ```
 
-Each variant declares the `_os` and `_gui` it targets. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature in a variant suits the variant's OS and GUI and runs after the features it requires; `--help` lists each feature's requirements. Machines aren't checked against variants, since variants don't pick hardware: `udev`, `tmpfiles` and `hdmi_audio_fix` hold Framework 16 fixes. On SteamOS, the features that write into `/etc` also name the files SteamOS's default keep list doesn't cover in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, each in its own subblock, with `keep_across_steamos_updates`, so OS updates keep them. It does nothing where `/etc/atomic-update.conf.d` doesn't exist, so features call it on every OS. The default list keeps system services, sockets and mounts with their enablement links, so `hdmi_audio_fix` has nothing to add, but it keeps nothing in `/etc/systemd/user`.
+Each OS declares the `_platforms` (`@os` values) and `_machines` it targets, and each of its profiles the `_gui`. `tests/validation/features.sh` (run by `make validate`) scans `install/features` for `feature_<name>` functions and fails if any lacks a `feature_description` entry, a description, the bare `#` line or the `@machine`, `@os` or `@gui` tag, has text after its tags, or uses a value outside the lists in `install/lib/features.sh`. It also checks that every feature of each OS and profile suits its platforms and GUI, is for a machine the OS supports, and runs after the features it requires, and that every variant names an OS and profile that go together; `--help` lists each feature's requirements. A feature for specific hardware must also have a single `@os` and `@machine` and sit in `install/features/<os>_<machine>/`, and every other feature at the top of `install/features`. `udev`, `tmpfiles` and `hdmi_audio_fix` hold Framework 16 fixes for any Linux (`linux_framework16/`), `orei_switch` one for SteamOS (`steamos_framework16/`), and `logind` a fix for any Linux laptop (`linux_laptop/`; `laptop` covers `framework16`). On SteamOS, the features that write into `/etc` also name the files SteamOS's default keep list doesn't cover in the keep list `/etc/atomic-update.conf.d/dotfiles.conf`, each in its own subblock, with `keep_across_steamos_updates`, so OS updates keep them. It does nothing where `/etc/atomic-update.conf.d` doesn't exist, so features call it on every OS. The default list keeps system services, sockets and mounts with their enablement links, so `hdmi_audio_fix` has nothing to add, but it keeps nothing in `/etc/systemd/user`.
 
 Features copy the systemd units they install, never link them, with the helpers in `install/lib/systemd.sh`. `install_system_units` copies units into `/etc/systemd/system`, then reenables and restarts those that changed (`--no-start` skips the restart); `install_user_units --global` or `--user` copies them into `/etc/systemd/user`, where every user manager sees them from boot even with an encrypted home, and reenables those that changed, for every user or just this one. Both only copy units without an `[Install]` section, which another unit starts. `uninstall_system_units` and `uninstall_user_units` undo them. `unit_keep_paths` lists what a feature must add to its keep list subblock: units in `/etc/systemd/user` with their enablement links, and in `/etc/systemd/system` only units that aren't services, sockets or mounts, such as timers. Scripts and binaries that system units or the login screen run go into `/etc/dotfiles/bin` (`root/etc/dotfiles/bin` in the repo), copied with `copy_system_file` (`install/lib/fs.sh`), since the home may still be locked when they run.
 
@@ -236,24 +270,28 @@ Features copy the systemd units they install, never link them, with the helpers 
 |---|---|---|---|---|
 | `pacman`, `terminal`, `printer`, `logiops` | any | arch | any | |
 | `yay` | any | arch | gnome | |
-| `font`, `services`, `manual`, `distrobox` | any | linux | any | |
+| `font`, `manual`, `distrobox` | any | linux | any | |
 | `link`, `info`, `shell`, `starship`, `zsh`, `gng`, `tre`, `claude`, `gitconfig` | any | any | any | |
 | `dconf` | any | linux | gnome | |
 | `xdg` | any | linux | gnome | `pacman` |
+| `desktop` | any | arch | gnome | `pacman` |
 | `tmux` | any | any | any | `link` |
 | `binaries`, `neovim` | any | linux, macos | any | |
 | `flatpak` | any | linux | desktop | |
 | `udev`, `tmpfiles`, `hdmi_audio_fix` | framework16 | linux | any | |
-| `orei_switch` | framework16 | linux | any | |
+| `logind` | laptop | linux | any | |
+| `orei_switch`, `light_sleep` | framework16 | steamos | any | |
 | `steamos_xclip` | any | steamos | desktop | |
+| `steamos_make` | any | steamos | any | |
+| `steamos_arch_vm` | any | steamos | desktop | `flatpak` |
 | `webterm` | any | linux | any | `link` |
 | `steam` | any | steamos | any | |
 | `gamescope_screenshot` | any | steamos | any | `link` |
 | `kde` | any | linux | kde | |
 
-`linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The variants target: `arch` (arch, gnome), `steamos` (steamos, kde), `coder` (linux, no GUI) and `portable` (linux and macos, no GUI).
+`linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The OSes target the platforms `arch`, `steamos`, and `linux` and `macos` (`portable`); the `desktop` profile targets GNOME on `arch` and KDE on `steamos`, and the other profiles no GUI.
 
-The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `steam` feature sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, replacing only keys Steam already wrote and only while Steam is closed, since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`. Its `orei_switch` feature, another Framework 16 fix, makes an OREI HDMI switch hand over to another input while the laptop sleeps; see [docs/orei-switch.md](docs/orei-switch.md). Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd from user units it copies into `/etc/systemd/user` and enables for all users (with sudo), so they start from boot even with an encrypted home; see [Webterm](#webterm) and [docs/steamos-setup.md](docs/steamos-setup.md). Its `gamescope_screenshot` feature takes Game Mode screenshots from the keyboard; see [Gaming Mode screenshots](#gaming-mode-screenshots). Its `hdmi_audio_fix` feature, a Framework 16 fix like `udev` and `tmpfiles`, copies `root/etc/systemd/system/hdmi-audio-fix.service` into `/etc/systemd/system` (with sudo). At boot and after every resume it sets the 780M to the `manual` level and gives its SoC clock a 720 MHz floor (`pp_dpm_socclk` levels 2 to 7), leaving the graphics, memory and fabric clocks free. At idle `socclk` otherwise drops to 400 MHz and HDMI audio stutters; games aren't capped (PipeWire buffer settings don't help: it reports no underruns); `--uninstall` removes it and sets the level back to `auto`.
+The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. Its `kde` feature merges partial KDE config files such as `home/.config/kcminputrc` (keyboard repeat rate) and `home/.config/kxkbrc` (clears XKB options like `caps:escape`, since the Keychron's firmware already swaps Caps Lock and Escape) and `home/.config/powerdevilrc` (closing the lid on external power does nothing; PowerDevil keeps the lid switch from logind, so the `logind` feature's `lid.conf` doesn't reach Desktop Mode) into their `~/.config` counterparts key by key with `kwriteconfig6`, rather than linking them, since KDE rewrites its config files and would break symlinks; keys not in the repo file are left alone. Add more files to `KDE_CONFIG_FILES` in `install/features/kde.sh`. Its `steam` feature sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, replacing only keys Steam already wrote and only while Steam is closed, since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`. Its `orei_switch` feature, another Framework 16 fix, makes an OREI HDMI switch hand over to another input while the laptop sleeps; see [docs/orei-switch.md](docs/orei-switch.md). Its `light_sleep` feature, also for the Framework 16, keeps an eGPU on the expansion bay working across sleep: the bay's PCIe link drops whenever the laptop reaches hardware sleep, and an eGPU with its own power supply never comes back, so while one is attached a suspend idles with the displays off instead; see [docs/light-sleep.md](docs/light-sleep.md). Its `webterm` feature serves a shell in the browser on localhost, started on demand by systemd from user units it copies into `/etc/systemd/user` and enables for all users (with sudo), so they start from boot even with an encrypted home; see [Webterm](#webterm) and [docs/steamos-setup.md](docs/steamos-setup.md). Its `gamescope_screenshot` feature takes Game Mode screenshots from the keyboard; see [Gaming Mode screenshots](#gaming-mode-screenshots). Its `logind` feature copies `root/etc/systemd/logind.conf.d/lid.conf` into `/etc` (with sudo) so that closing the lid on external power doesn't suspend: logind only counts the laptop as docked while an external display is in use, so a lid closed all session otherwise suspends it in the gaps, like between the login screen and Gaming Mode or after gamescope crashes, and an eGPU doesn't come back from that. Its `hdmi_audio_fix` feature, a Framework 16 fix like `udev` and `tmpfiles`, copies `root/etc/systemd/system/hdmi-audio-fix.service` into `/etc/systemd/system` (with sudo). At boot and after every resume it sets the 780M to the `manual` level and gives its SoC clock a 720 MHz floor (`pp_dpm_socclk` levels 2 to 7), leaving the graphics, memory and fabric clocks free. It retries for up to 30 s while amdgpu still refuses the write at boot, and only matches the 780M's PCI ID, so an eGPU is never touched. At idle `socclk` otherwise drops to 400 MHz and HDMI audio stutters; games aren't capped (PipeWire buffer settings don't help: it reports no underruns); `--uninstall` removes it and sets the level back to `auto`.
 
 Variants that don't symlink whole files (e.g. `coder`) instead write into a single `## Managed by dotfiles` ... `## /Managed by dotfiles` section of each managed file (`~/.profile`, `~/.zprofile`, `~/.bash_profile` if present, `~/.bashrc`, `~/.zshrc`, `~/git/.claude/CLAUDE.md`, and on SteamOS the keep list `/etc/atomic-update.conf.d/dotfiles.conf`). Each feature owns a `## feature <name>` subblock inside it and rewrites only that subblock on re-run. The markers start with `##`, a comment in sh and in SteamOS keep lists alike; sections written with the older single-`#` markers are converted on the next run. Shell startup file subblocks only source files under `home/.config/sh` and `home/.config/zsh`, which the linked startup files (on `arch` and `steamos`) source too. Edit the files outside the section freely.
 
@@ -263,7 +301,7 @@ The `arch` variant is designed to work for Arch Linux (or other Arch-based distr
  - tmux
  - Neovim
  - LaTeX
- - Gnome (desktop environment, display manager, theme)
+ - Gnome (desktop environment, the GDM login screen enabled from the next boot, theme)
  - dconf configuration
  - Audiovisual media viewers and basic editors
  - Insync
@@ -271,8 +309,50 @@ The `arch` variant is designed to work for Arch Linux (or other Arch-based distr
 
 A basic Arch installation along with `install.sh` requires ~15gb of drive space.
 
+#### One-time installs
+`./install.sh --oti <name>` runs a one-time install from `install/oti/<name>.sh`: it sets up a machine once, such as installing Arch from its live ISO, rather than configuring the machine `install.sh` runs on. So it takes no `--variant`, OS, profile, machine or features, ignores the defaults from `install.conf`, and has no `--uninstall`, since what it does (like erasing a disk) can't be undone. `--help` lists the one-time installs. Each one:
+ - asks all its questions up front, checks each answer, then shows a summary and asks once before changing anything, so the rest runs unattended;
+ - prints every command it runs: `[run]` for changes, with input it feeds a command shown as a here-document (passwords masked) and files it writes shown as the `cat > file` that writes them, and `[check]` for the read-only commands that decide what to do. Under `--dry-run` the changes are printed as `[dry-run]` and not run, so a dry run lists exactly the commands a real run would;
+ - is idempotent: each step checks what is done first, so running it again resumes where a run that stopped left off, and asks only what isn't settled yet.
+
+`install/oti/<name>.sh` defines `oti_<name>` (with `-` as `_`), which runs it, and `oti_config_<name>`, which sets its `_description`; it uses the shown-command helpers in `install/lib/exec.sh` (`run_shown`, `run_shown_input`, `run_shown_secret`, `run_shown_to`, `write_shown` and `probe`). `make validate` checks these and that it defines no `uninstall_` functions.
+
+#### Installing Arch from the live ISO
+The `arch-chroot` one-time install puts Arch Linux on a blank disk from the live ISO, following mjkstra's [Modern Arch linux installation guide](https://gist.github.com/mjkstra/96ce7a5689d753e7a6bdd92cdc169bae) up to, not including, its automatic snapshot boot entries. Boot the ISO in UEFI mode, connect to the internet (`iwctl` for Wi-Fi), install `git` (the live ISO has none), then run the bootstrap, which clones the repo to `/root/dotfiles`:
+```bash
+pacman -Sy --noconfirm git
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/eldenmanking/dotfiles/install/install.sh)" -- --oti arch-chroot
+```
+It first checks that it runs as root on the live ISO, booted in UEFI mode, at a terminal and online. Then it asks, checking each answer against the live ISO, and skipping any set in the environment:
+
+| Question | Environment | Default | Checked |
+|---|---|---|---|
+| Disk to install onto, or `partitions` | `DOTFILES_ARCH_DISK` | | `partitions`, or a whole disk with nothing mounted that isn't the live medium (found by the `archisosearchuuid` it booted with, since `copytoram` unmounts it) |
+| With `partitions`: the EFI system partition | `DOTFILES_ARCH_EFI` | | an EFI system partition, FAT32 or unformatted, with nothing mounted |
+| With `partitions`: the root partition | `DOTFILES_ARCH_ROOT` | | a partition with nothing mounted, not the EFI system partition |
+| With `partitions`: the swap partition | `DOTFILES_ARCH_SWAP_PART` | `none` | `none`, or another partition with nothing mounted |
+| Time zone | `DOTFILES_ARCH_TIMEZONE` | `America/New_York` | under `/usr/share/zoneinfo` |
+| Locale | `DOTFILES_ARCH_LOCALE` | `en_US.UTF-8` | in `/usr/share/i18n/SUPPORTED` |
+| Console keymap | `DOTFILES_ARCH_KEYMAP` | `us` | under `/usr/share/kbd/keymaps` |
+| Hostname | `DOTFILES_ARCH_HOSTNAME` | `arch` | a valid host name |
+| User name | `DOTFILES_ARCH_USER` | | a valid user name, not `root` |
+| On a whole disk: swap file size in GiB | `DOTFILES_ARCH_SWAP_SIZE` | `0` (no swap) | a whole number, at most half the disk |
+| root's and the user's passwords | | | typed twice, hidden |
+
+It installs onto either:
+ - **a whole disk**, which it erases: GPT with a 2G FAT32 EFI system partition (the guide uses 512M; the extra room is for another OS's boot loader and kernels when dual booting later) and btrfs on the rest (`wipefs`, `sfdisk`, `mkfs.fat`, `mkfs.btrfs`). Swap is an optional swap file at `/swap/swapfile`, made with `btrfs filesystem mkswapfile` in its own `@swap` subvolume (mounted at `/mnt/swap`) so snapshots of `@` leave it out;
+ - **`partitions` you prepared** beforehand (e.g. with `cfdisk`, in space freed beside Windows), for dual booting: an EFI system partition, usually the one Windows already uses, which is kept as it is when it is FAT32 and only formatted when it has no filesystem; a root partition, formatted btrfs; and an optional swap partition, formatted with `mkswap` and added to fstab by UUID. Nothing else on the disk is touched. GRUB is installed beside the other OS's boot loader (in `EFI/GRUB`), `os-prober` is installed and enabled in `/etc/default/grub` so GRUB's menu lists the other OS, and the removable fallback path is left to whichever OS owns it. os-prober often finds nothing from the live ISO's chroot, so if GRUB's menu lacks the other OS, run `sudo grub-mkconfig -o /boot/grub/grub.cfg` once the new system is up.
+
+Hibernation isn't set up either way. A value from the environment that fails its check stops the install. It then shows the disk or partitions, what happens to each (`ERASED`, `FORMATTED` or `kept`), the disks' current partitions and every answer, and asks once before running, unattended:
+ - the disk: what is marked above, then the `@` and `@home` subvolumes (and `@swap` for a swap file), mounted with `compress=zstd` at `/mnt` and `/mnt/home`, and the EFI system partition at `/mnt/efi` (not `/boot`, so the kernels stay in `@` and its snapshots);
+ - the guide's packages with `pacstrap` (with `neovim` instead of `vim`, `amd-ucode` or `intel-ucode` for the CPU, and `os-prober` when dual booting), then `/mnt/etc/fstab` from `genfstab -U`, plus the swap's line;
+ - from `arch-chroot`: the time zone and hardware clock, the locale, keymap, hostname and `/etc/hosts`, the passwords (with `chpasswd`), the user in `wheel` with sudo (a drop-in, `/etc/sudoers.d/wheel`, checked with `visudo -c`), GRUB on the EFI system partition (on a whole disk also at the removable fallback path `/EFI/BOOT/BOOTX64.EFI`, for firmware that forgets its boot entries), and NetworkManager and `systemd-timesyncd` enabled (what the guide's `timedatectl set-ntp true` after the reboot does);
+ - the repo, at the commit the bootstrap cloned, into the new user's `~/dotfiles`, so after `umount -R /mnt`, a reboot and logging in, `~/dotfiles/install.sh --variant arch --all` sets up the rest.
+
+Run it again after it stops partway and it resumes: it reads the partitions and settings an earlier run left in `/mnt` instead of asking, asks "Resume the install?" instead of erasing a disk or root partition that already has the layout, creates subvolumes and installs packages that are missing, and skips what is done. On SteamOS, the `steamos_arch_vm` feature makes a VM for trying it out.
+
 #### Arch Linux Installation
-To setup a new computer, install Arch Linux using the [installation guide](https://wiki.archlinux.org/title/installation_guide), or use the `archinstall` utility available in live ISO's. Useful packages to install while chroot'ed using the live ISO include:
+To install Arch with this repo's choices, see [Installing Arch from the live ISO](#installing-arch-from-the-live-iso). To setup a new computer, install Arch Linux using the [installation guide](https://wiki.archlinux.org/title/installation_guide), or use the `archinstall` utility available in live ISO's. Useful packages to install while chroot'ed using the live ISO include:
  - sudo
  - networkmanager
  - neovim
@@ -318,10 +398,10 @@ git@github.com:work/claude-config.git  -  stable       # ~/claude-config, on the
 ```
 
 #### Webterm
-The `--webterm` feature (on `steamos`) gives you a real shell in the browser on localhost. It runs [ttyd](https://github.com/tsl0922/ttyd), a single static binary (about 1.3 MB) that serves an [xterm.js](https://xtermjs.org/) page and connects it to your shell. systemd starts it the first time you open the page and stops it once no browser has been connected for 30 s. There is nothing to compile and no Node, npm or Python needed, which is handy on SteamOS, where the root filesystem is read-only. The only files outside your home directory are the three units, which go into `/etc` with sudo.
+The `--webterm` feature (on `steamos` and `arch`) gives you a real shell in the browser on localhost. It runs [ttyd](https://github.com/tsl0922/ttyd), a single static binary (about 1.3 MB) that serves an [xterm.js](https://xtermjs.org/) page and connects it to your shell. systemd starts it the first time you open the page and stops it once no browser has been connected for 30 s. There is nothing to compile and no Node, npm or Python needed, which is handy on SteamOS, where the root filesystem is read-only. The only files outside your home directory are the three units, which go into `/etc` with sudo.
 
 ```
-browser ⇄ 127.0.0.1:3000 ──► webterm.socket            (always listening)
+browser ⇄ 127.0.0.1:7681 ──► webterm.socket            (always listening)
                               │ first connection starts
                               ▼
                              webterm.service          systemd-socket-proxyd
@@ -330,7 +410,7 @@ browser ⇄ 127.0.0.1:3000 ──► webterm.socket            (always listening
                              webterm-ttyd.service     ttyd ⇄ pty ⇄ your shell
 ```
 
-- **`webterm.socket`** listens on `127.0.0.1:3000`. It's the only part that runs all the time, and systemd itself does the listening.
+- **`webterm.socket`** listens on `127.0.0.1:7681` (ttyd's default port, which dev servers rarely take). It's the only part that runs all the time, and systemd itself does the listening.
 - **`webterm.service`** runs `systemd-socket-proxyd`, which ships with systemd. ttyd can't take over a socket that systemd opened, so the proxy takes it and forwards each connection to ttyd. After 30 s with no open connections, the proxy exits. That covers both a closed tab and a page that never connected.
 - **`webterm-ttyd.service`** runs ttyd on a UNIX socket in your private runtime directory, so other local users can't reach it. It has `StopWhenUnneeded=yes`, so it stops when the proxy exits. The socket keeps listening, so your next visit starts everything again.
 - ttyd pings each browser every 10 s, so dead connections (a browser crash, a laptop suspend) get closed and the idle timer can run.
@@ -338,11 +418,11 @@ browser ⇄ 127.0.0.1:3000 ──► webterm.socket            (always listening
 A backend is needed because a web page can't start processes; only a local program can start a shell and attach it to a terminal. It needs Linux with systemd (including `/usr/lib/systemd/systemd-socket-proxyd`), `curl` and `sha256sum`, on x86_64 or aarch64 (the CPU types ttyd publishes static builds for), all of which come with a stock SteamOS or Arch install; `tmux` is optional, to [keep work running](#keeping-work-with-tmux).
 
 ```sh
-~/dotfiles/install.sh --variant steamos --link --font --webterm
+~/dotfiles/install.sh --variant steamos --link --font --webterm   # or --variant arch
 ~/dotfiles/install.sh --variant steamos --webterm   # just ttyd and the units
 ```
 
-`--all` installs these along with the rest of the `steamos` variant. When it finishes, it prints your URL, which looks like `http://localhost:3000/<token>/`. Bookmark it; the token is explained in [Security](#security). To update, `git pull` in `~/dotfiles` and run the installer again, after the steps in [docs/migrations.md](docs/migrations.md) for any changes it pulled in. What gets installed:
+`--all` installs these along with the rest of the `steamos` and `arch` variants. When it finishes, it prints your URL, which looks like `http://localhost:7681/<token>/`. Bookmark it; the token is explained in [Security](#security). To update, `git pull` in `~/dotfiles` and run the installer again, after the steps in [docs/migrations.md](docs/migrations.md) for any changes it pulled in. What gets installed:
 
 - **Scripts and settings** (`--link`): `home/.local/bin/webterm-{index,shell,ttyd}`, `home/.local/share/webterm/tab-keys.html` and `home/.config/webterm/env` are linked into place.
 - **Font** (`--font`): installs JetBrainsMono Nerd Font (Nerd Fonts v3.4.0) into `~/.local/share/fonts/JetBrainsMonoNerdFont/`, after checking its SHA-256. It does nothing if `fc-list` already lists the font.
@@ -363,14 +443,14 @@ Your URL token stays in `~/.config/webterm/token`.
 | Shell        | `SHELL` in the env file                                       | `/usr/bin/zsh`     |
 | Font         | `WEBTERM_FONT` in the env file                                | JetBrainsMono Nerd Font Mono |
 | URL token    | `WEBTERM_TOKEN` in `~/.config/webterm/token`                  | random, 32 hex     |
-| Port         | `ListenStream` in `root/etc/systemd/user/webterm.socket`      | `127.0.0.1:3000`   |
+| Port         | `ListenStream` in `root/etc/systemd/user/webterm.socket`      | `127.0.0.1:7681`   |
 
 The env file, `~/.config/webterm/env`, is linked from `home/.config/webterm/env` by the `link` feature, so settings there are kept in git; run `--link` before `--webterm`, which needs it. The token gets its own unlinked file (mode 600), which `--webterm` creates if it's missing, so it never lands in the repo. Change the environment settings with a drop-in, for example `systemctl --user edit webterm.service` with `[Service] Environment=WEBTERM_IDLE=5min`. That drop-in lives in `~/.config/systemd/user/`, so with an encrypted home the user manager doesn't see it after a reboot until something reloads it (rerunning `--webterm` does); for one that holds from boot, use `sudo systemctl --global edit webterm.service`, and on SteamOS add it to a keep list too. To change the port, edit `root/etc/systemd/user/webterm.socket`.
 
-After any change, run `~/dotfiles/install.sh --variant steamos --webterm` again. You don't need to close the browser. It copies the units that changed into `/etc/systemd/user` (so edits and a `git pull` take effect) and reloads systemd, then restarts the proxy and ttyd, but only if they're running; if they aren't, the next visit starts them with the new settings anyway. `~/.config/webterm/env` and `~/.config/webterm/token` are read again on every start, so changes there apply too. Open tabs show "Reconnecting..." and come back by themselves with the new settings (font, title and so on), without a page reload. Each tab gets a **fresh shell**, so anything running in a bare shell ends; tmux sessions survive (see [Keeping work with tmux](#keeping-work-with-tmux)). The exception is the token: after changing it, open the new URL, since tabs still on the old one can't reconnect.
+After any change, run `~/dotfiles/install.sh --variant steamos --webterm` (or `--variant arch`) again. You don't need to close the browser. It copies the units that changed into `/etc/systemd/user` (so edits and a `git pull` take effect) and reloads systemd, restarts the socket if its unit changed (so a new port applies), then restarts the proxy and ttyd, but only if they're running; if they aren't, the next visit starts them with the new settings anyway. `~/.config/webterm/env` and `~/.config/webterm/token` are read again on every start, so changes there apply too. Open tabs show "Reconnecting..." and come back by themselves with the new settings (font, title and so on), without a page reload. Each tab gets a **fresh shell**, so anything running in a bare shell ends; tmux sessions survive (see [Keeping work with tmux](#keeping-work-with-tmux)). The exception is the token: after changing it, open the new URL, since tabs still on the old one can't reconnect.
 
 ##### Font
-The terminal uses **JetBrainsMono Nerd Font Mono** by default. The Mono variant draws Nerd Font icons one cell wide, so prompts line up in the grid. ttyd's `-t key=value` passes any option straight to xterm.js, so the unit runs `-t "fontFamily=${WEBTERM_FONT}"`; no custom build is needed. The page only names the font: the browser draws it from fonts installed on the machine it runs on, which is the Deck here, so the `font` feature installs it. Flatpak browsers (the default on SteamOS) should also see `~/.local/share/fonts`. If the browser was already open when the font was installed, restart it; until then it uses the next font in the list.
+The terminal uses **JetBrainsMono Nerd Font Mono** by default. The Mono variant draws Nerd Font icons one cell wide, so prompts line up in the grid. ttyd's `-t key=value` passes any option straight to xterm.js, so the unit runs `-t "fontFamily=${WEBTERM_FONT}"`; no custom build is needed. The page only names the font: the browser draws it from fonts installed on the machine it runs on, which is the one webterm runs on, so the `font` feature installs it. Flatpak browsers (the default on SteamOS) should also see `~/.local/share/fonts`. If the browser was already open when the font was installed, restart it; until then it uses the next font in the list.
 
 To use a different font, change `WEBTERM_FONT` in `home/.config/webterm/env`, for example to `WEBTERM_FONT=JetBrainsMonoNL Nerd Font Mono, monospace`, then rerun `--webterm`; open tabs switch fonts when they reconnect. The value can be any CSS font list without an `=`. Run `fc-list : family | grep -i nerd` to see the exact names that are installed.
 
@@ -386,7 +466,7 @@ After changing `tab-keys.html`, rerun `--webterm` and reload open tabs.
 ##### Encrypted home directory (dirlock)
 With an encrypted home directory, the user manager (`systemd --user`) starts before dirlock unlocks the home, so for the rest of the boot it doesn't see anything in `~/.config/systemd/user`: units and enable links there are skipped. So webterm keeps both outside the home: `--webterm` copies its units into `/etc/systemd/user` and enables them with `sudo systemctl --global enable`, which links them in `/etc/systemd/user/sockets.target.wants/`. Every user manager sees those from boot, so `webterm.socket` listens as soon as you log in; after a reboot, `systemctl --user status webterm.socket` should be `active (listening)`. The services read `~/.config/webterm` and run scripts in `~/.local/bin` only when they start, so a visit before the home is unlocked fails, and the next one after works.
 
-The socket is enabled for every user on the machine, so where several users log in, only the first gets port 3000. A unit you enable yourself with `systemctl --user enable` gets its link in `~/.config/systemd/user` and doesn't start after a reboot with an encrypted home; put its file in `/etc/systemd/user` and enable it with `sudo systemctl --global enable` instead, and on SteamOS name both in a keep list.
+The socket is enabled for every user on the machine, so where several users log in, only the first gets port 7681. A unit you enable yourself with `systemctl --user enable` gets its link in `~/.config/systemd/user` and doesn't start after a reboot with an encrypted home; put its file in `/etc/systemd/user` and enable it with `sudo systemctl --global enable` instead, and on SteamOS name both in a keep list.
 
 ##### Security
 **This is a full shell running as your user.** Anyone who can use the page can do anything you can.
@@ -420,13 +500,21 @@ sudo /etc/dotfiles/bin/framework_tool --pd-enable 0
 journalctl --user -u gamescope-screenshot.service -u keyboard-rescan.service -n 20
 ```
 
-## Testing
-Checks come in three kinds, each with a make target; `make check` runs all three. Fixtures (`make fixtures`) are a fourth, kept out of `make check` since they need docker and network access.
+#### Arch install test VM
+The optional `--steamos_arch_vm` feature (on the `steamos` desktop profile; `--all` skips it) defines a GNOME Boxes VM named `arch-install` for trying out Arch installs, with two disks:
 
-- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, `tests/versions.env` pins a SHA-256 for every tool on every platform, every feature is documented and suits the variants that use it (see Feature Requirements), every link path exists, naming single files under `root/`, and `install.sh` pins this repo at a commit on `main` (see Installation; CI's validate job checks out full history for this).
+- The install medium: the latest Arch ISO itself (`~/Downloads/archlinux-x86_64.iso`, downloaded and checked against the mirror's `sha256sums.txt` if missing; delete it to get a newer one). The ISO is a hybrid image, made to be written to a USB stick as is, so the VM attaches it directly as a read-only removable USB disk, first in the boot order. Nothing in the VM can change it.
+- `arch-install-target.qcow2` in Boxes' image directory (`~/.var/app/org.gnome.Boxes/data/gnome-boxes/images`), a blank thin-provisioned 40G disk on virtio (`/dev/vda` in the guest) to install onto.
+
+The VM is UEFI (OVMF) with Secure Boot off, since the Arch ISO isn't signed, with 8 vCPUs and 6 GiB of RAM. The disks have the serials `ARCHMEDIUM` and `ARCHTARGET`, so `/dev/disk/by-id` tells them apart. The feature runs `virsh` and `qemu-img` from inside the Boxes Flatpak, so the domain XML (`arch_vm_domain_xml` in `install/features/steamos_arch_vm.sh`) is written under the Flatpak's cache directory, since its sandbox can't see `/tmp`. Each step is skipped when its result exists. `--uninstall` removes the VM, its UEFI variables and the target disk after asking, and keeps the ISO, so `--reinstall` resets the VM to a blank target without downloading anything. The sizes, memory and vCPUs are the `ARCH_VM_*` constants at the top of the file.
+
+## Testing
+Checks come in three kinds, each with a make target; `make check` runs all three. Fixtures (`make fixtures`) are a fourth, kept out of `make check` since they need docker or podman and network access.
+
+- **Validation** (`make validate`, `tests/validation/`) enforces the repo's structure, which has to keep holding as files are added, moved or removed: the checkout is a directory named `dotfiles`, the tree above matches the files tracked by git, `tests/versions.env` pins a SHA-256 for every tool on every platform, every feature is documented and suits the OSes and profiles that use it (see Feature Requirements), every variant names an OS and profile that go together, every link path exists, naming single files under `root/`, and `install.sh` pins this repo at a commit on `main` (see Installation; CI's validate job checks out full history for this).
 - **Lint** (`make lint`, `tests/lint/`) checks code quality: the syntax of every shell, zsh, Python and TOML file, shellcheck and actionlint. The shellcheck and actionlint versions are pinned in `tests/versions.env`; `make lint` downloads them into `~/.cache/dotfiles-test` on first use and refuses any download that doesn't match its pinned SHA-256.
-- **Tests** (`make test`, `tests/install.sh`) check behavior, so changes don't break what already works. They run `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every variant, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` for managed variants) for every variant that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `tests/webterm_smoke.py` is a separate smoke test for webterm, run by hand (see [Webterm](#smoke-test)).
-- **Fixtures** (`make fixtures`, `tests/fixtures.sh`, needs docker) show and pin exactly what an install does to existing files. Each case in `tests/fixtures/<name>/` has a `case.sh` that names a container image from `tests/images/` (`IMAGE`) and the `install.sh` arguments (`ARGS`), and optionally the paths under `~` whose files `after/` shows in full (`FILES`, by default the shell startup files), the paths outside `~` to compare (`ROOT_FILES`), a command to run after installing (`AFTER_INSTALL`), and a command to run `install.sh` under (`RUN_WITH`, e.g. `dbus-run-session --` for the session bus `dconf load` needs). Next to it, `before/` holds a `home/` tree (for `~`) and a `root/` tree (for `/`), like the repo's own, copied into an otherwise empty home and into `/`. `after/` holds the results once `install.sh` and `AFTER_INSTALL` have run: `manifest`, one line for every entry under `~` (except `~/dotfiles`, but for the `.backup` where `install.sh` moves what it replaces) and under `ROOT_FILES`, with its type, mode, owner, symlink target and the start of its SHA-256; and `home/` and `root/` trees with every symlink the manifest lists, to show the layout the install leaves, and the regular files under `FILES`, `~/dotfiles/.backup` and `ROOT_FILES`, for readable diffs. Each manifest line starts with what the install did to the entry, against a manifest taken just before it (after `before/` is copied in): `new`, `changed` (ending with `(was ...)` and what it was), `kept` (there before and untouched, like the image's own files), or `removed`. Paths and symlink targets under `~` start with `~`, so a manifest doesn't depend on the image's user. Each git clone (zsh plugins, tmux plugins, tools repos) is one line with its remote, followed by its untracked and changed files, since its contents follow upstream; for the same reason the files the `claude` feature builds from the tools repos are listed without a hash. A symlink that doesn't resolve fails the case, as does a `FILES` path inside a symlinked directory (name the symlink instead). Each case runs in a fresh container from a copy of the checkout, and runs `install.sh` again at the end, which must change nothing anywhere under `~` or `ROOT_FILES`: the install is idempotent, and `AFTER_INSTALL` didn't undo any of it. After changing what an install writes, run `tests/fixtures.sh --update [name...]` to rewrite `after/`, and review the change with `git diff`. SteamOS has no container image, so `tests/images/steamos` stands in for it: the same Arch image (SteamOS is built on Arch) with KDE's kconfig tools for `--kde`, stand-ins for `udevadm`, `systemd-tmpfiles` and the parts of `systemctl` that need a running systemd, and a mock `steamos-update`. Like a real SteamOS update since 3.6, the mock moves every change to `/etc` that no keep list names into `/etc/previous` and restores the original, and it drops files added to `/usr`; its default keep list is reconstructed from a deck's (`tests/images/steamos/atomic-update-keep.conf`), and like SteamOS's its entries are globs. The `steamos-update` case runs it after installing the Framework 16 fixes (`udev`, `tmpfiles`, `hdmi_audio_fix`, `orei_switch`) and `gamescope_screenshot`, so it fails if an update would wipe anything `install.sh` put in `/etc`, while its `before/root/etc/dummy.conf` shows an unlisted file being wiped. Both images have neovim, starship and tmux installed so the features don't download them, so fixtures only need GitHub (zsh plugins, tpm, tools repos). Features that need a real desktop (pacman, systemd) or a download are left out of the cases.
+- **Tests** (`make test`, `tests/install.sh`) check behavior, so changes don't break what already works. They run `install.sh` in scratch home directories, without touching your own: `--help` and `--dry-run` (plus `--reinstall` and `--uninstall`) for every OS and profile, which must leave the home unchanged; a real `--link --gitconfig` install (plus `--shell` where it writes managed blocks) for every OS and profile that only links under `$HOME`, which a second run must not change; and login and interactive bash and zsh loading the resulting startup files. Set `INSTALL_BASH` to test `install.sh` under another bash, e.g. `INSTALL_BASH=/bin/bash make test` for bash 3.2 on macOS. `tests/webterm_smoke.py` is a separate smoke test for webterm, run by hand (see [Webterm](#smoke-test)).
+- **Fixtures** (`make fixtures`, `tests/fixtures.sh`, needs docker or podman) show and pin exactly what an install does to existing files. Each case in `tests/fixtures/<name>/` has a `case.sh` that names a container image from `tests/images/` (`IMAGE`) and the `install.sh` arguments (`ARGS`), and optionally the paths under `~` whose files `after/` shows in full (`FILES`, by default the shell startup files), the paths outside `~` to compare (`ROOT_FILES`), a command to run after installing (`AFTER_INSTALL`), and a command to run `install.sh` under (`RUN_WITH`, e.g. `dbus-run-session --` for the session bus `dconf load` needs). Next to it, `before/` holds a `home/` tree (for `~`) and a `root/` tree (for `/`), like the repo's own, copied into an otherwise empty home and into `/`. `after/` holds the results once `install.sh` and `AFTER_INSTALL` have run: `manifest`, one line for every entry under `~` (except `~/dotfiles`, but for the `.backup` where `install.sh` moves what it replaces) and under `ROOT_FILES`, with its type, mode, owner, symlink target and the start of its SHA-256; and `home/` and `root/` trees with every symlink the manifest lists, to show the layout the install leaves, and the regular files under `FILES`, `~/dotfiles/.backup` and `ROOT_FILES`, for readable diffs. Each manifest line starts with what the install did to the entry, against a manifest taken just before it (after `before/` is copied in): `new`, `changed` (ending with `(was ...)` and what it was), `kept` (there before and untouched, like the image's own files), or `removed`. Paths and symlink targets under `~` start with `~`, so a manifest doesn't depend on the image's user. Each git clone (zsh plugins, tmux plugins, tools repos) is one line with its remote, followed by its untracked and changed files, since its contents follow upstream; for the same reason the files the `claude` feature builds from the tools repos are listed without a hash. A symlink that doesn't resolve fails the case, as does a `FILES` path inside a symlinked directory (name the symlink instead). Each case runs in a fresh container from a copy of the checkout, and runs `install.sh` again at the end, which must change nothing anywhere under `~` or `ROOT_FILES`: the install is idempotent, and `AFTER_INSTALL` didn't undo any of it. After changing what an install writes, run `tests/fixtures.sh --update [name...]` to rewrite `after/`, and review the change with `git diff`. SteamOS has no container image, so `tests/images/steamos` stands in for it: the same Arch image (SteamOS is built on Arch) with KDE's kconfig tools for `--kde`, stand-ins for `udevadm`, `systemd-tmpfiles` and the parts of `systemctl` that need a running systemd, and a mock `steamos-update`. Like a real SteamOS update since 3.6, the mock moves every change to `/etc` that no keep list names into `/etc/previous` and restores the original, and it drops files added to `/usr`; its default keep list is reconstructed from a deck's (`tests/images/steamos/atomic-update-keep.conf`), and like SteamOS's its entries are globs. The `steamos-update` case runs it after installing the Framework 16 fixes (`udev`, `tmpfiles`, `hdmi_audio_fix`, `orei_switch`) and `gamescope_screenshot`, so it fails if an update would wipe anything `install.sh` put in `/etc`, while its `before/root/etc/dummy.conf` shows an unlisted file being wiped. Both images have neovim, starship and tmux installed so the features don't download them, so fixtures only need GitHub (zsh plugins, tpm, tools repos). Features that need a real desktop (pacman, systemd) or a download are left out of the cases.
 
 zsh and python3 checks are skipped with a warning when those are missing, except in CI. CI (`.github/workflows/`) runs `make validate`, `make lint` and `make fixtures` on Ubuntu (and then points the `install` branch at the commit, see Installation), and `make test` on Arch Linux (in a container whose packages are pinned to an Arch Linux Archive snapshot), Ubuntu and macOS (only when the files it tests change). Actions are pinned to commit SHAs and kept current by Dependabot; container images, runner labels and `tests/versions.env` are bumped by hand.
 

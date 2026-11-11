@@ -11,6 +11,7 @@ new     ~/.claude/scripts/pr-state.sh l 777 user -> ~/tools/claude/scripts/pr-st
 new     ~/.claude/scripts/refresh-pr-state-core.sh l 777 user -> ~/tools/claude/scripts/refresh-pr-state-core.sh
 new     ~/.claude/scripts/statusline.sh l 777 user -> ~/tools/claude/scripts/statusline.sh
 new     ~/.claude/scripts/stop-ci-check.sh l 777 user -> ~/tools/claude/scripts/stop-ci-check.sh
+new     ~/.claude/scripts/tmux-session-id.sh l 777 user -> ~/tools/claude/scripts/tmux-session-id.sh
 new     ~/.claude/settings.json f 644 user *
 new     ~/.claude/skills d 755 user
 new     ~/.claude/skills/babysit-ci l 777 user -> ~/tools/claude/skills/babysit-ci
@@ -20,7 +21,7 @@ new     ~/.claude/skills/refresh-pr-state l 777 user -> ~/tools/claude/skills/re
 new     ~/.claude/skills/review-sessions l 777 user -> ~/tools/claude/skills/review-sessions
 new     ~/.claude/skills/setup-from-docs l 777 user -> ~/tools/claude/skills/setup-from-docs
 new     ~/.config d 755 user
-new     ~/.config/kcminputrc f 600 user 904daaf1bd50ec99
+new     ~/.config/kcminputrc f 600 user ffd7fb520c395d2f
 new     ~/.config/nvim d 755 user
 new     ~/.config/nvim/core d 755 user
 new     ~/.config/nvim/core/autocommands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/autocommands.vim
@@ -31,6 +32,7 @@ new     ~/.config/nvim/core/options.vim l 777 user -> ~/dotfiles/home/.config/nv
 new     ~/.config/nvim/core/plugins.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugins.vim
 new     ~/.config/nvim/core/plugmaps.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugmaps.vim
 new     ~/.config/nvim/init.vim l 777 user -> ~/dotfiles/home/.config/nvim/init.vim
+new     ~/.config/powerdevilrc f 600 user 088affb019510e8f
 new     ~/.config/starship.toml l 777 user -> ~/dotfiles/home/.config/starship.toml
 new     ~/.config/webterm d 755 user
 new     ~/.config/webterm/env l 777 user -> ~/dotfiles/home/.config/webterm/env
@@ -55,6 +57,7 @@ new     ~/.tmux/plugins/tmux-resurrect/strategies/nvim_obsession.sh l 777 user -
 new     ~/.tmux/plugins/tmux-sensible git 755 user https://github.com/tmux-plugins/tmux-sensible
 new     ~/.tmux/plugins/tpm git 755 user https://github.com/tmux-plugins/tpm
 new     ~/.tmux/resurrect d 755 user
+new     ~/.tmux/resurrect/claude_save.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/claude_save.sh
 new     ~/.tmux/resurrect/saferestore.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/saferestore.sh
 new     ~/.zprofile l 777 user -> ~/dotfiles/home/.zprofile
 changed ~/.zshrc l 777 user -> ~/dotfiles/home/.zshrc (was f 644 user 52f8d5f824113661)

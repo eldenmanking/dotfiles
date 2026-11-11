@@ -68,11 +68,13 @@ After the OS is installed and you've signed in to Steam:
 
    ```sh
    git clone https://github.com/eldenmanking/dotfiles ~/dotfiles
-   ~/dotfiles/install.sh --variant steamos --all
+   ~/dotfiles/install.sh --infer --all
    ```
 
-   Run `~/dotfiles/install.sh --help` to see the features, or add `--dry-run`
-   to preview the changes. This includes webterm, a browser shell on
+   `--infer` picks the `steamos` variant and, on a Framework 16, the
+   `framework16` machine, whose fixes `--all` then includes. Run
+   `~/dotfiles/install.sh --infer --help` to see the features, or add
+   `--dry-run` to preview the changes. This includes webterm, a browser shell on
    localhost; see [Webterm](../README.md#webterm).
 
 ## Disk encryption

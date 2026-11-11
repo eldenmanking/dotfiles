@@ -9,6 +9,7 @@ TERMINAL_PACMAN=(
   "zsh-history-substring-search"                                # .
   "zsh-completions"                                             # .
   "tmux"                                                        # terminal multiplexer
+  "starship"                                                    # shell prompt
   "git"                                                         # install.sh
   "git-lfs"                                                     # handling large files in git
   "gradle"                                                      # Gradle build tool
@@ -131,19 +132,17 @@ feature_yay() {
   run_tty yay --answerclean None --answerdiff None --needed -Sq "${GNOME_YAY[@]}"
 }
 
-# Install only the terminal packages, unless --pacman already covers them, plus starship.
+# Install only the terminal packages, unless --pacman already covers them.
 #
 # @machine any
 # @os arch
 # @gui any
 feature_terminal() {
-  local enabled="$2"
+  local enabled="$3"
   if ! list_contains "$enabled" pacman; then
     info "Installing pacman packages for terminal..."
     run_tty sudo pacman --needed -Sq "${TERMINAL_PACMAN[@]}"
   fi
-
-  install_starship_binary
 }
 
 # Install CUPS and the HP printer drivers and enable the cups service.

@@ -9,6 +9,9 @@ Description=Keep the Framework 16's Radeon 780M SoC clock up so HDMI audio doesn
 # graphics, memory and fabric clocks stay free, so games still boost; raising them instead doesn't help.
 # pp_dpm_socclk only takes writes at the manual level, which can keep a graphics clock range pinned by an earlier
 # level (e.g. 938 MHz left by profile_standard), so the range is reset (r) and committed (c) first.
+# amdgpu creates power_dpm_force_performance_level before it can take writes and refuses them ("Permission denied")
+# until then, which failed the unit at boot, so the first write is retried for up to 30 s.
+# Only the 780M is matched: an eGPU or the dGPU module has another device ID, so its clocks are left alone.
 # It runs again after every resume, in case the driver resets the level. Steam's "Manual GPU clock" toggle writes
 # the level too, so turning it off sets it back to auto until the next boot or resume.
 After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
@@ -17,7 +20,12 @@ After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate
 Type=oneshot
 ExecStart=/bin/sh -ec 'for dev in /sys/bus/pci/devices/*; do \
   [ "$$(cat "$$dev/vendor"):$$(cat "$$dev/device")" = 0x1002:0x15bf ] || continue; \
-  echo manual > "$$dev/power_dpm_force_performance_level"; \
+  tries=0; \
+  until echo manual 2>/dev/null > "$$dev/power_dpm_force_performance_level"; do \
+    tries=$$((tries + 1)); \
+    [ "$$tries" -lt 30 ] || { echo "$$dev refused the manual level for 30 s" >&2; exit 1; }; \
+    sleep 1; \
+  done; \
   echo r > "$$dev/pp_od_clk_voltage"; \
   echo c > "$$dev/pp_od_clk_voltage"; \
   echo "2 7" > "$$dev/pp_dpm_socclk"; \

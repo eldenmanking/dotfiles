@@ -1,7 +1,7 @@
 [Keyboard]
 KeyRepeat=repeat
 NumLock=0
-RepeatDelay=150
+RepeatDelay=300
 RepeatRate=100
 
 [Mouse]

@@ -15,5 +15,5 @@ lint: ## code quality: syntax, shellcheck, actionlint and TOML (downloads pinned
 test: ## behavior of install.sh in scratch homes: --dry-run for every variant, real rootless installs, idempotency
 	@tests/install.sh
 
-fixtures: ## before/after files of install.sh in containers (needs docker; tests/fixtures.sh --update rewrites them)
+fixtures: ## before/after files of install.sh in containers (needs docker or podman; tests/fixtures.sh --update rewrites them)
 	@tests/fixtures.sh

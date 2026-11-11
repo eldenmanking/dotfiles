@@ -1,0 +1,7 @@
+# Merged into ~/.config/powerdevilrc key by key by the kde feature (not linked, since KDE rewrites the file).
+# Closing the lid on external power does nothing. PowerDevil holds the lid switch away from logind, so the logind
+# feature's lid.conf doesn't reach Desktop Mode, and PowerDevil's default (sleep) re-suspends the laptop right after a
+# wake with the lid closed, while the projector's output is still coming back. Closing it on battery still suspends.
+# 0 is "do nothing". PowerDevil reads this when it starts, so it applies from the next login.
+[AC][SuspendAndShutdown]
+LidAction=0

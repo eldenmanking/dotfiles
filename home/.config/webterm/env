@@ -1,6 +1,6 @@
 # webterm settings, read by webterm-ttyd.service on every start (systemd EnvironmentFile syntax).
 # Linked from ~/dotfiles by the link feature; the URL token lives in the unlinked ~/.config/webterm/token.
-# Apply changes with: ~/dotfiles/install.sh --variant steamos --webterm
+# Apply changes with: ~/dotfiles/install.sh --infer --webterm
 
 # Shell each browser connection runs
 SHELL=/usr/bin/zsh
