@@ -1,0 +1,366 @@
+#!/usr/bin/env bash
+
+# Starts, stops and repairs the SteamOS test VM that the steamos_vm feature of ~/dotfiles/install.sh installs.
+# Usage: steamos-vm [start|stop|restart|status|view|console] [--no-view] [--force]
+#        steamos-vm sync [CHECKOUT]  |  steamos-vm run [--root] COMMAND...  |  steamos-vm screenshot [FILE]
+#        steamos-vm key KEY...
+#   start     start the VM, or bring back a running one that is suspended, paused or not answering, then open its
+#             window (default)
+#   stop      power it off through its agent, or force it off when that doesn't answer (--force: at once)
+#   restart   stop, then start: a full power cycle, which clears more than a reboot inside the guest
+#   status    print the VM's state, whether its agent answers and the GPU it renders on
+#   view      open the VM's window in virt-manager
+#   console   attach to its serial console (log in as deck; Ctrl+] leaves)
+#   sync      copy a checkout (default ~/dotfiles) as it is, uncommitted changes included, into the VM's ~/dotfiles
+#   run       run a command in the VM as deck (--root: as root) and print its output; nothing it runs can prompt
+#   screenshot  save a PNG of Game Mode, taken by gamescope in the VM
+#   key       press keys in the VM together, as virsh send-key names them (e.g. KEY_ENTER; KEY_LEFTCTRL KEY_C)
+# See SteamOS test VM in ~/dotfiles/README.md.
+
+LIB_DIR="$HOME/dotfiles/install/lib"
+# shellcheck source=../../../install/lib/output.sh
+source "$LIB_DIR/output.sh"
+# shellcheck source=../../../install/lib/exec.sh
+source "$LIB_DIR/exec.sh"
+# shellcheck source=../../../install/lib/fs.sh
+source "$LIB_DIR/fs.sh"
+# shellcheck source=../../../install/lib/steamos_vm.sh
+source "$LIB_DIR/steamos_vm.sh"
+
+DRY_RUN=false
+# How long a booting guest gets for its agent to answer, and a stopping one to power off, in seconds.
+BOOT_TIMEOUT=120
+STOP_TIMEOUT=60
+# How long run and sync wait for the guest, in seconds.
+RUN_TIMEOUT=600
+# The ref a sync's snapshot lives under while it is bundled.
+SYNC_REF="refs/steamos-vm/sync"
+
+# Send a line to the guest agent and print its one-line reply, or nothing when it doesn't answer within $2 seconds
+# (default 5). The socket is QEMU's, on the host, so host python talks to it directly, and closes it as soon as the
+# reply is in: QEMU takes one client at a time.
+#   $1: line (ping, poweroff, reboot, exec <base64 script>), $2: seconds
+agent() {
+  local line="$1" seconds="${2:-5}"
+  [[ -S "$STEAMOS_VM_AGENT" ]] || return 0
+  printf '%s\n' "$line" | python3 -I -c '
+import socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.settimeout(float(sys.argv[2]))
+try:
+    s.connect(sys.argv[1])
+    s.sendall(sys.stdin.buffer.read())
+    sys.stdout.buffer.write(s.makefile("rb").readline().rstrip(b"\n"))
+except OSError:
+    pass
+' "$STEAMOS_VM_AGENT" "$seconds"
+}
+
+# Run a bash script as root in the guest through the agent, print its output and return its exit status (124 when
+# the agent doesn't answer within $2 seconds).
+#   $1: script, $2: seconds
+guest_exec() {
+  local reply rc
+  reply="$(agent "exec $(printf '%s' "$1" | base64 -w0)" "$2")"
+  [[ -n "$reply" ]] || return 124
+  rc="${reply%% *}"
+  # The guest's output lost its last newline in a command substitution there.
+  [[ "$reply" == *" "?* ]] && { printf '%s' "${reply#* }" | base64 -d; echo; }
+  return "$rc"
+}
+
+# Return 0 once the guest agent answers ping, giving up after $1 seconds.
+#   $1: seconds
+wait_for_agent() {
+  local end=$(( SECONDS + $1 ))
+  until [[ "$(agent ping)" == pong ]]; do
+    (( SECONDS >= end )) && return 1
+    sleep 2
+  done
+}
+
+# Return 0 once the VM is off (or gone), giving up after $1 seconds.
+#   $1: seconds
+wait_for_off() {
+  local end=$(( SECONDS + $1 )) state
+  while state="$(steamos_vm_state "$STEAMOS_VM_NAME")"; [[ -n "$state" && "$state" != "shut off" ]]; do
+    (( SECONDS >= end )) && return 1
+    sleep 2
+  done
+}
+
+# Exit unless the VM is installed and no install is running.
+require_vm() {
+  [[ -z "$(steamos_vm_state "$STEAMOS_VM_INSTALLER")" ]] \
+    || error "SteamOS is being installed into the VM; wait for ~/dotfiles/install.sh to finish."
+  steamos_vm_defined || error "No SteamOS VM; install it with: ~/dotfiles/install.sh --steamos_vm"
+}
+
+# Redefine the VM when its XML for this host as it is now (steamos_vm_current_xml) isn't the one it was defined with:
+# the render node its GPU work runs on changes when the eGPU is connected or disconnected, and a dotfiles update can
+# change the rest.
+match_definition() {
+  local render
+  render="$(steamos_vm_render_node)"
+  [[ -n "$render" ]] || error "No AMD GPU render node for the VM's GPU acceleration."
+  if [[ "$(steamos_vm_current_xml)" != "$(cat "$STEAMOS_VM_XML" 2>/dev/null)" ]]; then
+    info "Updating the VM's definition (its GPU work runs on $render)..."
+    steamos_vm_define
+  fi
+}
+
+# Start the VM from off. libvirt can still hold the last run's serial log for a moment after it stops ("Device or
+# resource busy"), so retry briefly.
+boot() {
+  local tries=0 out
+  match_definition
+  until out="$(steamos_vm_virsh start "$STEAMOS_VM_NAME" 2>&1)"; do
+    tries=$(( tries + 1 ))
+    if (( tries >= 10 )) || ! grep -q -i -E 'busy|in use|already' <<< "$out"; then
+      error "Could not start the VM: $out"
+    fi
+    sleep 2
+  done
+  info "Started; waiting for SteamOS to answer..."
+  if wait_for_agent "$BOOT_TIMEOUT"; then
+    info "SteamOS is up."
+  else
+    warn "SteamOS hasn't answered yet; see: steamos-vm console"
+  fi
+}
+
+# Force the VM off.
+force_off() {
+  steamos_vm_virsh destroy "$STEAMOS_VM_NAME" &>/dev/null
+  wait_for_off 30 || error "The VM won't stop."
+}
+
+# Bring the VM to running and answering, from whatever state it is in.
+start_vm() {
+  local state
+  require_vm
+  state="$(steamos_vm_state "$STEAMOS_VM_NAME")"
+  case "$state" in
+    running)
+      if wait_for_agent 5; then
+        info "Already running."
+        return
+      fi
+      info "Running, but SteamOS isn't answering; waiting up to ${BOOT_TIMEOUT}s in case it is still booting..."
+      if wait_for_agent "$BOOT_TIMEOUT"; then
+        info "SteamOS is up."
+        return
+      fi
+      warn "SteamOS isn't answering; restarting the VM."
+      force_off
+      ;;
+    pmsuspended)
+      # The guest suspended itself (installs older than its suspend drop-in). Its GPU doesn't survive that, so
+      # waking it isn't enough: power cycle it.
+      warn "The VM is suspended, which breaks its GPU; restarting it."
+      force_off
+      ;;
+    paused)
+      info "Resuming the paused VM..."
+      steamos_vm_virsh resume "$STEAMOS_VM_NAME" >/dev/null || error "Could not resume the VM."
+      return
+      ;;
+    "shut off") ;;
+    *)
+      info "The VM is '$state'; forcing it off before starting."
+      force_off
+      ;;
+  esac
+  boot
+}
+
+# Power the VM off through its agent; force it off when the agent doesn't answer, it doesn't stop in time, or force
+# is true.
+#   $1: force (true/false)
+stop_vm() {
+  local force="$1" state
+  require_vm
+  state="$(steamos_vm_state "$STEAMOS_VM_NAME")"
+  if [[ "$state" == "shut off" ]]; then
+    info "Already off."
+    return
+  fi
+  # The agent checks for commands each second, so give it a second chance before forcing.
+  if ! $force && [[ "$state" == running ]] && [[ "$(agent poweroff)" == ok || "$(agent poweroff)" == ok ]]; then
+    info "Powering off..."
+    wait_for_off "$STOP_TIMEOUT" && { info "Off."; return; }
+    warn "SteamOS didn't power off within ${STOP_TIMEOUT}s; forcing it off."
+  elif ! $force; then
+    warn "SteamOS isn't answering; forcing the VM off."
+  fi
+  force_off
+  info "Off."
+}
+
+# Print the VM's state, whether its agent answers and the render node it uses.
+status_vm() {
+  local state reply
+  require_vm
+  state="$(steamos_vm_state "$STEAMOS_VM_NAME")"
+  echo "state:  $state"
+  if [[ "$state" == running ]]; then
+    reply="$(agent ping)"
+    echo "agent:  ${reply:-not answering}"
+  fi
+  echo "gpu:    $(steamos_vm_defined_render_node) (should be $(steamos_vm_render_node))"
+}
+
+# Require that the guest agent answers, so commands can run in the guest.
+require_agent() {
+  require_vm
+  [[ "$(steamos_vm_state "$STEAMOS_VM_NAME")" == running ]] || error "The VM isn't running; start it with: steamos-vm"
+  [[ "$(agent ping)" == pong ]] || error "SteamOS isn't answering yet; try again, or see: steamos-vm console"
+}
+
+# Run a command in the guest, as deck in a login shell (as root with --root), print its output and exit with its
+# status. It has no terminal, so nothing it runs can prompt (e.g. for a sudo password).
+#   $1: as root (true/false), $2: command line
+run_vm() {
+  local root="$1" cmd="$2" script
+  require_agent
+  if $root; then
+    script="$cmd"
+  else
+    script="XDG_RUNTIME_DIR=/run/user/1000 exec runuser -l deck -c $(printf '%q' "$cmd")"
+  fi
+  guest_exec "$script" "$RUN_TIMEOUT"
+}
+
+# Print the bash script that, run as root in the guest, writes a base64 git bundle to a file and has deck fetch its
+# snapshot ref into ~/dotfiles (created if missing) and check it out as a branch, discarding local changes there.
+#   $1: bundle file, $2: branch
+sync_script() {
+  local bundle="$1" branch="$2" deck
+  deck="set -e; [ -d dotfiles/.git ] || git init -q dotfiles; cd dotfiles
+git fetch -q /tmp/steamos-vm-sync.bundle +$SYNC_REF:refs/remotes/host/sync
+git checkout -q -f -B $(printf '%q' "$branch") refs/remotes/host/sync
+git log --oneline -1"
+  printf 'set -e\nbase64 -d > /tmp/steamos-vm-sync.bundle <<'\''BUNDLE'\''\n'
+  base64 -w0 "$bundle"
+  printf '\nBUNDLE\nchmod 644 /tmp/steamos-vm-sync.bundle\n'
+  printf 'trap "rm -f /tmp/steamos-vm-sync.bundle" EXIT\n'
+  printf 'runuser -l deck -c %q\n' "$deck"
+}
+
+# Copy a checkout as it is now, uncommitted and untracked (not ignored) files included, into the guest's ~/dotfiles,
+# on the same branch name. The snapshot is a commit made from a temporary index, so the checkout's own index, stash
+# and refs are untouched apart from a ref that lives for the copy. It goes over the agent channel as a git bundle, so
+# the guest needs no network. The guest's ~/dotfiles is a copy: local changes there are overwritten.
+#   $1: checkout (default ~/dotfiles)
+sync_vm() {
+  local dir="${1:-$HOME/dotfiles}" top branch index tree commit bundle rc
+  top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || error "$dir isn't a git checkout."
+  require_agent
+  branch="$(git -C "$top" symbolic-ref --short -q HEAD)" || branch="steamos-vm-sync"
+  index="$(mktemp)"
+  bundle="$(mktemp)"
+  rm -f "$index"
+  if ! tree="$(GIT_INDEX_FILE="$index" git -C "$top" add -A && GIT_INDEX_FILE="$index" git -C "$top" write-tree)"; then
+    rm -f "$index" "$bundle"
+    error "Could not snapshot $top."
+  fi
+  rm -f "$index"
+  commit="$(git -C "$top" commit-tree "$tree" -p HEAD -m "steamos-vm sync of $branch")"
+  git -C "$top" update-ref "$SYNC_REF" "$commit"
+  git -C "$top" bundle create -q "$bundle" "$SYNC_REF" 2>/dev/null
+  rc=$?
+  git -C "$top" update-ref -d "$SYNC_REF"
+  if (( rc != 0 )); then
+    rm -f "$bundle"
+    error "Could not bundle $top."
+  fi
+  info "Copying $top ($branch, ${commit:0:7}) into the VM's ~/dotfiles..."
+  if ! guest_exec "$(sync_script "$bundle" "$branch")" "$RUN_TIMEOUT"; then
+    rm -f "$bundle"
+    error "Copying into the VM failed."
+  fi
+  rm -f "$bundle"
+}
+
+# Save a screenshot of Game Mode to a PNG on the host (default steamos-vm-<time>.png here). gamescope takes it inside
+# the guest (gamescopectl, as the gamescope_screenshot feature does) and it comes back over the agent: QEMU can't
+# screenshot the VM itself, since with GPU acceleration the picture is GPU buffers it never reads back, not a surface.
+#   $1: file
+screenshot_vm() {
+  local file="${1:-steamos-vm-$(date +%Y%m%d-%H%M%S).png}" png
+  png="$(run_vm false 'set -a; . "$XDG_RUNTIME_DIR/gamescope-environment" 2>/dev/null || { echo "Not in Game Mode."; exit 1; }
+set +a; f=$(mktemp --suffix=.png); rm -f "$f"; gamescopectl screenshot "$f" >/dev/null 2>&1
+for i in $(seq 40); do [ -s "$f" ] && break; sleep 0.25; done; sleep 0.25
+[ -s "$f" ] || { echo "gamescope took no screenshot."; exit 1; }; base64 -w0 "$f"; rm -f "$f"')" \
+    || error "No screenshot: $png"
+  printf '%s' "$png" | base64 -d > "$file" || error "Could not write $file."
+  info "Saved $file"
+}
+
+# Press keys in the VM, as virsh send-key names them (KEY_ENTER, KEY_DOWN, KEY_LEFTMETA KEY_S for a chord, ...).
+#   $@: keys pressed together
+key_vm() {
+  require_vm
+  steamos_vm_virsh send-key "$STEAMOS_VM_NAME" "$@" >/dev/null || error "Could not send $*."
+}
+
+# Open the VM's window in virt-manager, detached, when there is a display to open it on.
+view_vm() {
+  if [[ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]]; then
+    info "No display to open the VM's window on; open virt-manager there, or use: steamos-vm console"
+    return
+  fi
+  setsid flatpak run "$STEAMOS_VM_APP" --connect "$STEAMOS_VM_URI" --show-domain-console "$STEAMOS_VM_NAME" \
+    &>/dev/null < /dev/null &
+}
+
+main() {
+  local cmd="start" view=true force=false root=false arg
+  case "${1:-}" in
+    sync)
+      shift
+      sync_vm "$@"
+      return
+      ;;
+    screenshot)
+      shift
+      screenshot_vm "$@"
+      return
+      ;;
+    key)
+      shift
+      [[ $# -gt 0 ]] || error "Usage: steamos-vm key KEY..."
+      key_vm "$@"
+      return
+      ;;
+    run)
+      shift
+      if [[ "${1:-}" == --root ]]; then
+        root=true
+        shift
+      fi
+      [[ $# -gt 0 ]] || error "Usage: steamos-vm run [--root] COMMAND..."
+      run_vm "$root" "$*"
+      return
+      ;;
+  esac
+  for arg in "$@"; do
+    case "$arg" in
+      start|stop|restart|status|view|console) cmd="$arg" ;;
+      --no-view) view=false ;;
+      --force) force=true ;;
+      -h|--help) sed -n '3,/^# See /p' "$0" | sed 's/^# \{0,1\}//'; return ;;
+      *) error "Unknown argument '$arg'; see steamos-vm --help" ;;
+    esac
+  done
+  case "$cmd" in
+    start) start_vm; ! $view || view_vm ;;
+    stop) stop_vm "$force" ;;
+    restart) stop_vm "$force"; start_vm; ! $view || view_vm ;;
+    status) status_vm ;;
+    view) require_vm; view_vm ;;
+    console) require_vm; exec flatpak run --user --command=virsh "$STEAMOS_VM_APP" -c "$STEAMOS_VM_URI" console "$STEAMOS_VM_NAME" ;;
+  esac
+}
+
+main "$@"
