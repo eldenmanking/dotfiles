@@ -178,7 +178,7 @@ machines that ran `--webterm` (steamos).
   Then tell the user to replace their bookmark with the URL it prints (`http://localhost:7681/<token>/`).
 - **Verify:** the check prints nothing, and the URL `--webterm` prints answers.
 
-## Copy boot-time files instead of linking them (#PRNUM)
+## Copy boot-time files instead of linking them (#101)
 `root/etc/logid.cfg`, `root/etc/modprobe.d/hid_apple.conf`, `root/etc/vconsole.conf` and
 `root/usr/share/kbd/keymaps/us-caps.map` are now copied by `--logiops` and the new `--console` instead of linked, since
 the kernel, initramfs and `logid.service` read them before an encrypted home is unlocked. `~/.config/sh`, `~/.config/zsh`
