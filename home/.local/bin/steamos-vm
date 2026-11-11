@@ -2,7 +2,8 @@
 
 # Starts, stops and repairs the SteamOS test VM that the steamos_vm feature of ~/dotfiles/install.sh installs.
 # Usage: steamos-vm [start|stop|restart|status|view|console] [--no-view] [--force]
-#        steamos-vm sync [CHECKOUT]  |  steamos-vm run [--root] COMMAND...
+#        steamos-vm sync [CHECKOUT]  |  steamos-vm run [--root] COMMAND...  |  steamos-vm screenshot [FILE]
+#        steamos-vm key KEY...
 #   start     start the VM, or bring back a running one that is suspended, paused or not answering, then open its
 #             window (default)
 #   stop      power it off through its agent, or force it off when that doesn't answer (--force: at once)
@@ -12,6 +13,8 @@
 #   console   attach to its serial console (log in as deck; Ctrl+] leaves)
 #   sync      copy a checkout (default ~/dotfiles) as it is, uncommitted changes included, into the VM's ~/dotfiles
 #   run       run a command in the VM as deck (--root: as root) and print its output; nothing it runs can prompt
+#   screenshot  save a PNG of Game Mode, taken by gamescope in the VM
+#   key       press keys in the VM together, as virsh send-key names them (e.g. KEY_ENTER; KEY_LEFTCTRL KEY_C)
 # See SteamOS test VM in ~/dotfiles/README.md.
 
 LIB_DIR="$HOME/dotfiles/install/lib"
@@ -279,6 +282,28 @@ sync_vm() {
   rm -f "$bundle"
 }
 
+# Save a screenshot of Game Mode to a PNG on the host (default steamos-vm-<time>.png here). gamescope takes it inside
+# the guest (gamescopectl, as the gamescope_screenshot feature does) and it comes back over the agent: QEMU can't
+# screenshot the VM itself, since with GPU acceleration the picture is GPU buffers it never reads back, not a surface.
+#   $1: file
+screenshot_vm() {
+  local file="${1:-steamos-vm-$(date +%Y%m%d-%H%M%S).png}" png
+  png="$(run_vm false 'set -a; . "$XDG_RUNTIME_DIR/gamescope-environment" 2>/dev/null || { echo "Not in Game Mode."; exit 1; }
+set +a; f=$(mktemp --suffix=.png); rm -f "$f"; gamescopectl screenshot "$f" >/dev/null 2>&1
+for i in $(seq 40); do [ -s "$f" ] && break; sleep 0.25; done; sleep 0.25
+[ -s "$f" ] || { echo "gamescope took no screenshot."; exit 1; }; base64 -w0 "$f"; rm -f "$f"')" \
+    || error "No screenshot: $png"
+  printf '%s' "$png" | base64 -d > "$file" || error "Could not write $file."
+  info "Saved $file"
+}
+
+# Press keys in the VM, as virsh send-key names them (KEY_ENTER, KEY_DOWN, KEY_LEFTMETA KEY_S for a chord, ...).
+#   $@: keys pressed together
+key_vm() {
+  require_vm
+  steamos_vm_virsh send-key "$STEAMOS_VM_NAME" "$@" >/dev/null || error "Could not send $*."
+}
+
 # Open the VM's window in virt-manager, detached, when there is a display to open it on.
 view_vm() {
   if [[ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]]; then
@@ -297,6 +322,17 @@ main() {
       sync_vm "$@"
       return
       ;;
+    screenshot)
+      shift
+      screenshot_vm "$@"
+      return
+      ;;
+    key)
+      shift
+      [[ $# -gt 0 ]] || error "Usage: steamos-vm key KEY..."
+      key_vm "$@"
+      return
+      ;;
     run)
       shift
       if [[ "${1:-}" == --root ]]; then
@@ -313,7 +349,7 @@ main() {
       start|stop|restart|status|view|console) cmd="$arg" ;;
       --no-view) view=false ;;
       --force) force=true ;;
-      -h|--help) sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//'; return ;;
+      -h|--help) sed -n '3,/^# See /p' "$0" | sed 's/^# \{0,1\}//'; return ;;
       *) error "Unknown argument '$arg'; see steamos-vm --help" ;;
     esac
   done
