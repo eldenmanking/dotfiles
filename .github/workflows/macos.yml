@@ -7,9 +7,12 @@ on:
     paths: &paths
       - install.sh
       - install/**
+      - bootstrap/**
+      - scripts/**
       - home/**
       - tests/**
       - Makefile
+      - .shellcheckrc
       - .github/workflows/macos.yml
   pull_request:
     paths: *paths
@@ -24,6 +27,7 @@ concurrency:
 jobs:
   test:
     runs-on: macos-26
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # /bin/bash is 3.2; bash from PATH may be a newer Homebrew one.

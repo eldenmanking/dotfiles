@@ -87,11 +87,7 @@ with_install_loaded() {
   (
     set +u
     INSTALL_DIR="$REPO_ROOT/install"
-    for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
-      "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh "$INSTALL_DIR"/oti/*.sh; do
-      # shellcheck source=/dev/null
-      source "$f"
-    done
+    load_install_tree
     "$@"
   )
 }

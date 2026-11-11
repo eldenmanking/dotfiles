@@ -78,3 +78,14 @@ have_or_skip() {
   warn "$1 not found; skipping $2"
   return 1
 }
+
+# Load install/ the way install.sh does, so tests can call its functions. The caller sets the globals the files read at
+# load time (INSTALL_DIR, DOTFILES_ROOT, ...) first.
+load_install_tree() {
+  local install_dir="$REPO_ROOT/install" file
+  for file in "$install_dir"/lib/*.sh "$install_dir"/features/*.sh "$install_dir"/features/*/*.sh \
+    "$install_dir"/os/*.sh "$install_dir"/profiles/*.sh "$install_dir"/variants/*.sh "$install_dir"/oti/*.sh; do
+    # shellcheck source=/dev/null
+    source "$file"
+  done
+}

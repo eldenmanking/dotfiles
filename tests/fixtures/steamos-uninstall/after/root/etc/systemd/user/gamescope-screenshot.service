@@ -1,0 +1,18 @@
+[Unit]
+Description=Take a Gaming Mode screenshot on Print Screen or Shift+Meta+4
+# Installed to /etc/systemd/user and enabled globally by the gamescope_screenshot feature of ~/dotfiles/install.sh, so
+# the user manager sees it from boot even with an encrypted home. Runs only in the Gaming Mode session: it starts and
+# stops with gamescope-session.target, which needs Steam in the home and so comes up after the unlock.
+PartOf=gamescope-session.target
+After=gamescope-session.service
+
+[Service]
+ExecStart=%h/.local/bin/gamescope-screenshot --watch
+# GAMESCOPE_WAYLAND_DISPLAY and the rest of the session's environment, as SteamOS's own gamescope units use.
+EnvironmentFile=-%t/gamescope-environment
+# The watch exits when a keyboard goes away; starting again picks up the keyboards connected then.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=gamescope-session.target

@@ -1,9 +1,10 @@
 kept    /etc/atomic-update.conf.d d 755 root:root
-new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 61a172c55facab86
+new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 583fa3fbcafa991b
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
-new     /etc/dotfiles/bin/orei-switch f 755 root:root 53ab745ba7965ccc
-new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root b0fd815e55bf5a37
-new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 3a45f82ce67017c3
+new     /etc/dotfiles/bin/light-sleep f 755 root:root 6aa1dedd3b2715cd
+new     /etc/dotfiles/bin/orei-switch f 755 root:root 2b557b37b495a303
+new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root 3b3111dd183ed5cc
+new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 1f708c32bbc3f993
 removed /etc/dummy.conf f 644 root:root ab7814129600d3fa
 new     /etc/previous d 755 root:root
 new     /etc/previous/dummy.conf f 644 root:root ab7814129600d3fa
@@ -23,6 +24,8 @@ new     /etc/systemd/system/poweroff.target.wants/orei-switch-poweroff.service l
 new     /etc/systemd/system/sleep.target.wants/orei-switch.service l 777 root:root -> /etc/systemd/system/orei-switch.service
 new     /etc/systemd/system/suspend-then-hibernate.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
 new     /etc/systemd/system/suspend.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
+new     /etc/systemd/system/systemd-suspend.service.d d 755 root:root
+new     /etc/systemd/system/systemd-suspend.service.d/light-sleep.conf f 644 root:root 0f2a8f889164a8c1
 kept    /etc/systemd/user d 755 root:root
 new     /etc/systemd/user/gamescope-screenshot.service f 644 root:root eccaf6fa2414876c
 new     /etc/systemd/user/gamescope-session.target.wants d 755 root:root
