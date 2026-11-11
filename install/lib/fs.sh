@@ -449,3 +449,31 @@ confirmsed() {
     warn "Neither '$pattern' nor '$replace' were found in $file."
   fi
 }
+
+# Make a temporary directory, run "$@" with it appended as the last argument, and remove it afterwards, even when the
+# command fails or calls error. Its status is with_tmpdir's. The command runs in a subshell, so it can't set the caller's variables.
+# Usage: with_tmpdir cmd [args...]   (cmd is called as: cmd args... tmpdir)
+with_tmpdir() {
+  local tmp
+  tmp="$(mktemp -d)" || return 1
+  # The subshell's EXIT trap removes the directory however the command ends, and keeps set -e in force inside it.
+  (
+    trap 'rm -rf "$tmp"' EXIT
+    "$@" "$tmp"
+  )
+}
+
+# Check out commit $2 of the git repository $1 into $3 (cloning it first if needed) and check that HEAD is that
+# commit, so a moved tag or a hijacked remote can't change what runs afterwards. $2 must be a full commit hash.
+clone_pinned() {
+  local url="$1" commit="$2" dest="$3" head
+  [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || error "clone_pinned: '$commit' is not a full commit hash"
+  [[ -d "$dest/.git" ]] || git init -q "$dest"
+  head="$(git -C "$dest" rev-parse HEAD 2>/dev/null || true)"
+  if [[ "$head" != "$commit" ]]; then
+    git -C "$dest" fetch -q --depth 1 "$url" "$commit" || error "could not fetch $commit from $url"
+    git -C "$dest" checkout -q --detach FETCH_HEAD
+    head="$(git -C "$dest" rev-parse HEAD)"
+  fi
+  [[ "$head" == "$commit" ]] || error "$url: expected commit $commit but got $head"
+}
