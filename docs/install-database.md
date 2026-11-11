@@ -17,8 +17,8 @@ undo what a feature no longer does and an uninstall can restore what was there b
 - Change the format without losing what older installs recorded: major and minor versions, with a bridge release
   for each major version.
 
-Not in scope for now: transaction-level hooks (one `daemon-reload` for the whole run), and a conflict pre-check
-before any feature runs (see Follow-ups).
+Features declare their changes through hooks (see Hooks), so the runner sees every change before making any: that
+gives one `daemon-reload` for the whole run and a conflict pre-check before anything is changed.
 
 ## Layout
 The database lives in the checkout, ignored by git, next to everything else `install.sh` owns:
@@ -145,6 +145,116 @@ feature's list, or a feature undone under `--all`.
 - A package the user declines, or any package when there is no terminal to ask on, is kept and reported. Its entry
   stays in the manifest, so a later run asks again. `--dry-run` reports what it would ask.
 
+## Hooks
+Features declare what they want instead of making changes themselves. The runner collects every feature's
+declarations into one plan, checks it, applies it, and records it in the manifest. That makes a feature mostly data,
+like a pacman package, and gives `--dry-run`, the conflict pre-check and the manifest diff the same input: the plan.
+
+### Phases
+For one run of `install.sh`:
+
+1. **Declare.** For each selected feature, in `_features` order, call `declare_<name>`. It calls `hook_*`
+   functions and changes nothing. It may read the disk (which Steam users exist, whether `kwriteconfig6` is present),
+   but never write it. Each hook call adds an entry, tagged with the declaring feature, to the plan.
+2. **Plan.** Compare the plan with the manifest and the disk:
+   - a key declared by two features, or owned in the manifest by a feature not being reinstalled, is an error;
+   - a target that exists and isn't what an entry would write gets its `prior` recorded (and is backed up on apply);
+   - manifest entries of the selected features that the plan no longer has are marked for undo.
+
+   `--dry-run` prints the plan (entries to apply, entries to undo, triggers that would fire) and stops here.
+3. **Apply.** Apply entries by kind, then by feature order within a kind: `package`, `file` (copies and
+   downloads), `link`, `block`, `setting`, `unit`. Packages come first because they provide the tools later kinds use;
+   units last because they reference files. Then undo the entries marked in step 2, newest first.
+4. **Triggers.** Run each trigger whose paths any applied or undone entry touched, once (see below).
+5. **Post.** For each feature, in `_features` order, call `post_<name>` if it exists: steps that need the changes
+   made and loaded, like checking that webterm answers.
+6. **Record.** Write the manifest, as in Recording.
+
+A feature that fails in apply stops the run. As in Install and reinstall, its old entries plus the ones applied so far
+are written and nothing is undone. A failing `post_<name>` marks its feature as failed but leaves its entries applied
+and recorded.
+
+### Hook functions
+
+| Hook | Kind | Replaces |
+|---|---|---|
+| `hook_link <repo path>...` | `link` | `_link_paths` / `LINK_*_PATHS`, `make_symlink` |
+| `hook_file <src dir> <dest dir> <glob>` | `file` | `copy_system_file(s)` |
+| `hook_download <dest> <url> <sha256> [--mode m]` | `file` | `download_verified`, `install_ttyd` |
+| `hook_block <file> <name> <content> [--before <line>]` | `block` | `upsert_block` |
+| `hook_sources <file> <name> <repo path>...` | `block` | `upsert_sources` |
+| `hook_unit system\|user\|global <src dir> <unit>... [--start\|--no-start] [--restart-on-change]` | `unit` | `install_*_units`, hand-written `restart`/`try-restart` |
+| `hook_package <manager> <name>...` | `package` | `pacman -S`, `yay -S`, `flatpak install` |
+| `hook_setting <tool> <key> <value>` | `setting` | `kwriteconfig`, `dconf`, `xdg-mime` |
+| `hook_note <text>` | none | `info` lines meant for the end ("restart the browser"), printed together after Post |
+
+The block name defaults to the feature name, so `shell`, `starship` and `zsh` each own their own block in `.zshrc`,
+and the runner writes each file once with all its blocks in feature order.
+
+`hook_package` installs one batch per manager (`pacman -S --needed a b c`), and records `prior` as whether each package
+was installed before.
+
+### Triggers
+A trigger maps paths to an action that runs once per run, after apply and undo, like an ALPM hook:
+
+| Paths | Action |
+|---|---|
+| `/etc/systemd/system/*` | `sudo systemctl daemon-reload` |
+| `/etc/systemd/user/*` | `systemctl --user daemon-reload` (if there is a user session) |
+| `/etc/udev/rules.d/*` | `sudo udevadm control --reload`, then `udevadm trigger` |
+| `/etc/tmpfiles.d/*` | `sudo systemd-tmpfiles --create <changed files>` |
+| `/etc/systemd/logind.conf.d/*` | `sudo systemctl reload systemd-logind` |
+| `~/.local/share/fonts/*` | `fc-cache -f` |
+| `~/.local/share/applications/*` | `update-desktop-database` |
+
+Units are enabled, started and restarted after the reloads, as their `hook_unit` flags say.
+
+The SteamOS keep list is not a hook features call. The runner derives it from every `file` and `unit` entry under
+`/etc` that the default keep list doesn't cover (`unit_keep_paths`), and writes `dotfiles.conf` once. No feature can
+forget it, and `keep_across_steamos_updates` goes away.
+
+### Examples
+`udev` today copies, adds to the keep list and reloads by hand. Declared:
+
+```bash
+declare_udev() {
+  hook_file "$UDEV_RULES_SRC" /etc/udev/rules.d '*.rules'
+}
+```
+
+`webterm` declares its own links (from `LINK_WEBTERM_PATHS`), so it no longer needs `@requires link`:
+
+```bash
+declare_webterm() {
+  hook_link home/.config/webterm home/.local/bin/webterm-{index,shell,ttyd} home/.local/share/webterm
+  hook_download "$TTYD_BIN" "$(ttyd_url)" "$(ttyd_sha256)" --mode 755
+  hook_unit global "$WEBTERM_UNITS_SRC" webterm.socket --start
+  hook_unit global "$WEBTERM_UNITS_SRC" webterm.service webterm-ttyd.service --no-start --restart-on-change
+}
+
+post_webterm() {
+  run "$LOCAL_BIN/webterm-index" || warn "could not build the webterm page; ttyd will serve its stock page"
+  save_token "$(webterm_token)"
+  check_socket_activation "$(webterm_url "$(webterm_token)")"
+}
+```
+
+`link` disappears as a feature once every path is declared by the feature it belongs to; paths that belong to no
+other feature (`home/.vimrc`, `home/.config/alacritty`, ...) move to a `dotfiles` feature per profile.
+
+### Migrating
+`feature_<name>` keeps working, so features move one at a time. A feature with `feature_<name>` and no
+`declare_<name>` runs in apply, in feature order, after the declared entries of its kind are applied; its helpers
+record entries and queue paths for the triggers as they run. It can't take part in the conflict pre-check, which
+reports it as unchecked. When the last feature is converted, the imperative path is removed.
+
+### Open questions
+- `hook_setting` needs the per-tool accessors in Follow-ups (`vdf`, `dconf` per key, ...). Until a tool has one,
+  its feature keeps writing it from `post_<name>`, with no manifest entries.
+- Trigger arguments: `udev` triggers only the `i2c` subsystem today. Either triggers take arguments from the entries
+  that fired them, or the trigger re-applies every subsystem.
+- Distrobox features run inside a container. They stay imperative (`post_<name>`) until there's a kind for them.
+
 ## Versioning the format
 The manifest's first line holds its format version, `<major>.<minor>`, starting at `1.0`. The code has a version too,
 the one it writes.
@@ -214,6 +324,3 @@ From an audit of what the current features change that the kinds above don't yet
 - Helpers for what features now do directly: enabling a unit dotfiles didn't install (`unit` with `prior`
   `installed`, undone by disabling only), `git clone`, `cp` and `sudo install`. A check in `tests/lint/` then
   flags direct writes in `install/features/`, so new code can't bypass the manifest.
-- Conflict pre-check: plan every selected feature (a dry run that records entries) and check the keys against the
-  disk and other features' manifests before changing anything.
-- Transaction-level hooks.
