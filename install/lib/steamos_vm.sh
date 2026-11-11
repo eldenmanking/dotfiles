@@ -246,8 +246,9 @@ EOF
 # install SteamOS, then writes what the VM needs into /etc of both A/B slots (SteamOS boots B first), through the
 # overlay upper directories on their var partitions:
 # - a serial console login on ttyS0, which steamos-vm console and debugging use;
-# - steamos-vm-agent.service, which answers ping and runs poweroff or reboot from the host over virtio-serial (Game
-#   Mode treats the ACPI power button as suspend, so virsh shutdown can't stop the VM);
+# - steamos-vm-agent.service, which answers ping, runs poweroff or reboot, and runs scripts (exec) from the host over
+#   virtio-serial (Game Mode treats the ACPI power button as suspend, so virsh shutdown can't stop the VM; steamos-vm
+#   run and sync use exec);
 # - a systemd-suspend.service drop-in that makes suspend a no-op: after a guest suspend (S3 or s2idle alike), the
 #   virtio-gpu native context loses its host-side state, so processes using the GPU hang in the kernel and the next
 #   shutdown takes minutes. It sorts after light-sleep's drop-in, so it wins in the VM.
@@ -274,12 +275,24 @@ for var in /dev/disk/by-partlabel/var-A /dev/disk/by-partlabel/var-B; do
   ln -sfn /usr/lib/systemd/system/serial-getty@.service "$etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
   cat > "$etc/systemd/system/steamos-vm-agent.service" <<'UNIT'
 [Unit]
-Description=Answer the steamos-vm host: ping, poweroff, reboot (virtio-serial)
+Description=Answer the steamos-vm host: ping, poweroff, reboot, exec (virtio-serial)
 StartLimitIntervalSec=0
 
 [Service]
-# read gets end-of-file at once while the host end isn't connected, so retry each second rather than exit.
-ExecStart=/usr/bin/bash -c 'exec 3<>/dev/virtio-ports/org.dotfiles.steamos-vm.0; while :; do read -r cmd <&3 || { sleep 1; continue; }; case $$cmd in ping) echo pong >&3 ;; poweroff|reboot) echo ok >&3; systemctl $$cmd ;; esac; done'
+# One command per line: ping, poweroff, reboot, or exec and a base64 script, which runs as root and answers with its
+# exit status and base64 output. read gets end-of-file at once while the host end isn't connected, so retry each
+# second rather than exit. ($$ and %% are systemd's escapes for $ and %.)
+ExecStart=/usr/bin/bash -c '\
+  exec 3<>/dev/virtio-ports/org.dotfiles.steamos-vm.0; \
+  while :; do \
+    read -r cmd arg <&3 || { sleep 1; continue; }; \
+    case $$cmd in \
+      ping) echo pong >&3 ;; \
+      poweroff|reboot) echo ok >&3; systemctl $$cmd ;; \
+      exec) out=$$(base64 -d <<< "$$arg" | bash 2>&1); rc=$$?; \
+        printf "%%s %%s\\n" "$$rc" "$$(printf "%%s" "$$out" | base64 -w0)" >&3 ;; \
+    esac; \
+  done'
 Restart=always
 RestartSec=2
 
