@@ -6,18 +6,18 @@
 
 # Print the function that runs one-time install $1.
 oti_function() {
-  printf 'oti_%s' "${1//-/_}"
+  fn_name oti_ "$1"
 }
 
 # Return 0 if one-time install $1 exists.
 oti_exists() {
-  [[ -n "$1" ]] && declare -F "$(oti_function "$1")" >/dev/null
+  [[ -n "$1" ]] && fn_defined "$(oti_function "$1")"
 }
 
 # Call oti_config_<name>, which returns description.
 oti_config() {
   oti_exists "$1" || error "Unknown one-time install '$1'"
-  "oti_config_${1//-/_}"
+  "$(fn_name oti_config_ "$1")"
 }
 
 # Run one-time install $1. It runs as a plain command, not in a condition, so set -e stops it at the first command that

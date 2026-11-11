@@ -34,3 +34,31 @@ copy_binary_from_distrobox() {
     warn "$binary is missing shared libraries on this host (see 'ldd $LOCAL_BIN/$binary')."
   fi
 }
+
+# Install $1 by copying it out of the distrobox (copy_binary_from_distrobox), unless the command is already available.
+# Skips with a warning if distrobox is missing.
+install_distrobox_binary() {
+  local binary="$1"
+
+  if command -v "$binary" &>/dev/null; then
+    info "$binary already available: $(command -v "$binary")"
+    return
+  fi
+  if ! command -v distrobox &>/dev/null; then
+    warn "distrobox command not found, skipping $binary setup."
+    return
+  fi
+
+  copy_binary_from_distrobox "$binary" "$DISTROBOX_NAME" "$binary"
+}
+
+# Remove the copy of $1 in $LOCAL_BIN. The distrobox is left alone.
+uninstall_distrobox_binary() {
+  local binary="$1"
+  if [[ ! -e "$LOCAL_BIN/$binary" ]]; then
+    info "$LOCAL_BIN/$binary does not exist"
+    return
+  fi
+  info "Removing $LOCAL_BIN/$binary..."
+  run rm -f "$LOCAL_BIN/$binary"
+}

@@ -11,10 +11,8 @@ LOGIND_DST="/etc/systemd/logind.conf.d"
 # @os linux
 # @gui any
 feature_logind() {
-  local targets changed
-  targets="$(system_file_targets "$DOTFILES_ROOT/$LOGIND_SRC" '*.conf' "$LOGIND_DST")"
-  keep_across_steamos_updates logind $targets
-  f_call copy_system_files changed -- "$DOTFILES_ROOT/$LOGIND_SRC" "$LOGIND_DST" '*.conf'
+  local changed
+  f_call install_system_dir changed -- logind "$DOTFILES_ROOT/$LOGIND_SRC" '*.conf' "$LOGIND_DST"
   [[ -n "$changed" ]] || return 0
 
   info "Reloading systemd-logind..."
@@ -23,13 +21,8 @@ feature_logind() {
 
 # Remove the drop-ins, stop keeping them across SteamOS updates, then reload systemd-logind.
 uninstall_feature_logind() {
-  local target removed=false
-  for target in $(system_file_targets "$DOTFILES_ROOT/$LOGIND_SRC" '*.conf' "$LOGIND_DST"); do
-    [[ -e "$target" || -L "$target" ]] || continue
-    remove_system_files "$target"
-    removed=true
-  done
-  forget_across_steamos_updates logind
-  $removed || return 0
+  local removed
+  f_call uninstall_system_dir removed -- logind "$DOTFILES_ROOT/$LOGIND_SRC" '*.conf' "$LOGIND_DST"
+  [[ -n "$removed" ]] || return 0
   run sudo systemctl reload systemd-logind
 }
