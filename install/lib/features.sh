@@ -116,6 +116,16 @@ gui_supported() {
     || { list_contains "$1" desktop && [[ "$2" != none ]]; }
 }
 
+# Feature lists the OSes' profiles share (install/os/*.sh), so that they stay in step. The order each profile runs
+# its features in is its own, so a profile lists these where its other features need them.
+# Hardware-specific system files copied into /etc (for laptops or the framework16 machine): --all skips them on
+# other machines.
+FEATURES_SYSTEM="udev tmpfiles logind hdmi_audio_fix"
+# The terminal tools the terminal setups share: tmux, the Claude config and the git config.
+FEATURES_TOOLS="tmux claude gitconfig"
+# What the portable profiles share before their last features.
+FEATURES_PORTABLE="binaries link zsh shell starship tmux"
+
 # Features that honor --dry-run; others are only announced.
 DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link desktop manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
 
