@@ -1,7 +1,7 @@
 kept    /etc/atomic-update.conf.d d 755 root:root
 new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 61a172c55facab86
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
-new     /etc/dotfiles/bin/orei-switch f 755 root:root 2b557b37b495a303
+new     /etc/dotfiles/bin/orei-switch f 755 root:root 1e0bae2a205e1ddb
 new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root 3b3111dd183ed5cc
 new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 1f708c32bbc3f993
 removed /etc/dummy.conf f 644 root:root ab7814129600d3fa
@@ -56,6 +56,7 @@ new     ~/.local d 755 user
 new     ~/.local/bin d 755 user
 new     ~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
 new     ~/.local/bin/gamescope-screenshot l 777 user -> ~/dotfiles/home/.local/bin/gamescope-screenshot
+new     ~/.local/bin/steamos-vm l 777 user -> ~/dotfiles/home/.local/bin/steamos-vm
 new     ~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
 new     ~/.local/bin/webterm-index l 777 user -> ~/dotfiles/home/.local/bin/webterm-index
 new     ~/.local/bin/webterm-shell l 777 user -> ~/dotfiles/home/.local/bin/webterm-shell
