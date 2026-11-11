@@ -14,7 +14,7 @@ undo what a feature no longer does and an uninstall can restore what was there b
   from a package. This replaces most `docs/migrations.md` entries.
 - Uninstall features that are no longer in the selection's feature list, or no longer in the repo.
 - Never destroy a change the user made after install without asking.
-- A fallback for anything the current code can't undo: the commit that installed it.
+- Keep format changes rare and simple: one manifest version, with `docs/migrations.md` for breaking changes.
 
 Not in scope for now: transaction-level hooks (one `daemon-reload` for the whole run), and a conflict pre-check
 before any feature runs (see Follow-ups).
@@ -26,12 +26,12 @@ The database lives in the checkout, ignored by git, next to everything else `ins
 ~/dotfiles/.state/
 ├── manifest                   --- every feature's entries, as of each feature's last run
 ├── backups/<feature>/<path>   --- files and links an entry replaced, at their original path
-├── fallback                   --- present only while a commit fallback is in progress
+├── v<N>/                       --- the manifest and backups of an earlier format version, set aside by --all
 └── lock                       --- present while install.sh runs, so two runs can't interleave
 ```
 
 - `.state` goes in `.gitignore`. Old commits' `.gitignore` doesn't list it, but git leaves untracked paths alone on
-  checkout, so the commit fallback doesn't disturb it. The fallback's clean-tree check ignores untracked files.
+  checkout, so checking out an older commit doesn't disturb it.
 - Entries outside `$HOME` (system files, system units, packages) are recorded here too. That gives no new power to
   anyone who can write the checkout: they can already change the code `install.sh` runs with sudo.
 - Backups of files outside `$HOME` are written with sudo and keep their owner and mode, under a root-owned
@@ -42,21 +42,20 @@ The database lives in the checkout, ignored by git, next to everything else `ins
 
 ## Manifest format
 The manifest is one text file with one record per line and fields separated by tabs. bash 3.2 can read it with
-`IFS=$'\t' read -r`. Its first line names the manifest layout, then each installed feature has a header line followed
-by its entries:
+`IFS=$'\t' read -r`. Its first line is the format version (see Versioning the format), then each installed feature
+has a header line followed by its entries:
 
 ```
-manifest	1
-feature	<name>	<version>	<sha of the checkout its last run used>	<os>	<profile>	<machine>
+version	1
+feature	<name>	<sha of the checkout its last run used>	<os>	<profile>	<machine>
 <name>	<kind>	<key...>	<written>	<prior>
 ...
 ```
 
-The layout, which is this first line, the `feature` header and an entry's first two and last two fields, never
-changes. Everything inside a section is versioned per feature by `<version>` (see Versioning the format), so sections
-written by different commits can sit in one manifest. Each feature also keeps its own commit, since runs can install
-a subset of features (`--tmux`) or fail partway. A feature's entries appear in the order they were made, and are
-undone in reverse. A path containing a tab or newline is an error.
+Each feature keeps its own commit, since runs can install a subset of features (`--tmux`) or fail partway, and
+`refs/dotfiles/installed/<feature>` points at it so git never garbage-collects it (e.g. after a squash merge removes
+the branch it was on). The commit is there for diagnosis and for migration steps that need the old code. A feature's
+entries appear in the order they were made, and are undone in reverse. A path containing a tab or newline is an error.
 
 | Kind | Made by | Key | `written` | `prior` |
 |---|---|---|---|---|
@@ -86,8 +85,8 @@ tree it loads into first.
 
 ## Install and reinstall
 For each selected feature, in `_features` order:
-1. Read the feature's section. If its `version` isn't the current one, or it holds a kind this code doesn't know,
-   take the commit fallback (below) for this feature before going on. Never undo part of a feature's entries.
+1. Read the feature's section. A manifest of another version is dealt with before any feature runs (see Versioning
+   the format).
 2. Run the feature, recording entries.
 3. If it succeeded, undo the old entries whose keys weren't recorded this run, newest first, and write the new
    manifest. If it failed, write the old entries plus the new ones and undo nothing, so the next run can still clean up.
@@ -132,7 +131,8 @@ Each kind has one generic undo:
 `--uninstall` undoes every entry of a feature, newest first, then removes its section and its backups. Entries the
 user declines to remove (a package, or a file they changed) stay in the section, and the section goes once they are
 gone. `uninstall_feature_<name>` still runs first for anything entries can't express, and becomes rare. For a feature
-deleted from the repo, that code is gone too, so its entries that need it take the commit fallback.
+deleted from the repo, that code is gone too: its generic entries are still undone, and the rest are reported with
+the feature's recorded commit, whose code can remove them.
 
 ### Packages
 A package is never removed without asking, whichever path undoes it: `--uninstall`, a package dropped from a
@@ -146,47 +146,22 @@ feature's list, or a feature undone under `--all`.
   stays in the manifest, so a later run asks again. `--dry-run` reports what it would ask.
 
 ## Versioning the format
-The format of a section has one integer version, recorded in each feature's header. Bump it on any change a reader
-must understand: removing or renaming a kind, changing what a field means, or adding a kind, since older code can't
-undo it. Fields a reader may ignore can be added without a bump. Readers accept only their own version. A mismatch is
-never converted in code. It takes the commit fallback, which runs the code that wrote the section and so understands
-it. Dropping a kind therefore needs no compatibility code: each feature takes the fallback once, the next time a run
-touches it.
+The manifest has one integer version, on its first line. Bump it on any change a reader must understand: removing or
+renaming a kind, changing what a field means, or adding a kind, since older code can't undo it. Fields a reader may
+ignore can be added without a bump. Code only reads a manifest of its own version: it never converts an older one,
+and never tries to read a newer one.
 
-### Partial installs across versions
-Runs that select only some features (`--tmux`), or check out different commits between runs, leave sections of
-different versions in one manifest. That is expected:
-- A run reads and rewrites only the sections of the features it touches: the ones it installs, uninstalls, or undoes
-  under `--all`. Every other section is copied through byte for byte, and read only through the fixed layout (for
-  the ownership check below), so a run never needs to understand a section it doesn't touch, and never takes the
-  fallback for one.
-- Touching a feature whose section has another version, older or newer, takes the commit fallback for that feature
-  only: uninstall it with the code that wrote it, then, if this run installs it, install it with this code. Running
-  an older commit against a newer section works the same way, since `refs/dotfiles/installed/<feature>` keeps the
-  newer commit. So the fallback and the layout must already be in place in the first version, and never change.
-- The ownership check compares (kind, key) against every section, whatever its version, using only the fixed layout.
-  Against a section of another version it can miss a conflict, if a kind was renamed between them (e.g. `file` to
-  `dir`). The conflict pre-check in Follow-ups, which also checks the disk, closes that gap.
-- Each run that touches a feature rewrites its whole section at the current version, so a feature's sections
-  converge to the current version as it is reinstalled, and versions don't pile up.
+When the manifest's version differs from the code's, older or newer:
+- Partial runs are refused: named features, `--uninstall` and `--reinstall`. The error names both versions and points
+  to `docs/migrations.md`.
+- `--all` is allowed, and starts over. It moves the manifest and backups to `.state/v<N>/`, installs every selected
+  feature with a fresh manifest at the code's version, and skips stale undo for this run, since it can't read what the
+  old manifest held. The `prior` it records is whatever is there now, which may be an earlier install's output.
+- Every bump comes with a `docs/migrations.md` entry (written with the `update-migrations` skill) for what the new
+  version doesn't clean up by itself: what the old version installed that the new one doesn't, and, if wanted, how to
+  restore the state before dotfiles from `.state/v<N>/`, whose manifest the old commits recorded in it can read.
 
-## Commit fallback
-Each feature's header records the commit that wrote its entries, and `refs/dotfiles/installed/<feature>` points at it so git never
-garbage-collects it (e.g. after a squash merge removes the branch it was on). To undo a feature the current code can't:
-
-1. Refuse if `~/dotfiles` has uncommitted changes to tracked files.
-2. Write `.state/fallback` with the current branch or commit and the features being undone.
-3. Group the features by recorded commit. For each commit: `git checkout --detach <commit>`, then
-   `./install.sh --uninstall --os <os> --profile <profile> --machine <machine> --<feature>...`. Before the database existed, this runs the old
-   `uninstall_feature_<name>`; after, the old code's own generic undo.
-4. Check out the branch or commit from step 2 again, remove `.state/fallback`, and continue the install.
-
-A run that finds `.state/fallback` was interrupted. It restores the checkout before doing anything else. The checkout
-happens in place because `install.sh` only runs from `~/dotfiles`, and linked config points into it.
-
-Because old commits are invoked this way,
-`./install.sh --uninstall --os <os> --profile <profile> --machine <machine> --<feature>` is a compatibility contract:
-later versions must keep accepting it.
+So bumps should be rare, and grouped with other breaking changes where possible.
 
 ## Relation to existing pieces
 - `BACKUPS_ROOT` (`~/dotfiles/.backup`) is replaced by `.state/backups`. Backups recorded in `prior` are restorable,
@@ -194,7 +169,8 @@ later versions must keep accepting it.
 - The fixtures leave `~/dotfiles` out of the files they compare, except `.backup`. They would include `.state` in its
   place, with the commit in the manifest normalized, so each case pins what its install records.
 - `uninstall_feature_<name>` stays for steps entries can't express.
-- `docs/migrations.md` stays for machines installed before the database, and for changes outside any entry.
+- `docs/migrations.md` stays for machines installed before the database, for changes outside any entry, and for
+  manifest version bumps.
 
 ## Follow-ups
 From an audit of what the current features change that the kinds above don't yet cover:
