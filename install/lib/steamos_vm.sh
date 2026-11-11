@@ -349,12 +349,18 @@ steamos_vm_current_xml() {
     "$(cat /sys/class/dmi/id/product_name 2>/dev/null)"
 }
 
-# Write the VM's domain XML for this host (steamos_vm_current_xml) and define it, replacing an earlier definition (its
-# UEFI variables are kept). Takes effect on the next start.
+# Define the VM with its domain XML for this host (steamos_vm_current_xml), replacing an earlier definition.
+# The XML has no UUID, so libvirt would refuse it as a second domain of the same name: undefine the old one first,
+# keeping its UEFI variables. Takes effect on the next start.
 steamos_vm_define() {
+  local new="$STEAMOS_VM_XML.new"
   run mkdir -p "$STEAMOS_VM_CACHE"
-  steamos_vm_current_xml | write_file "$STEAMOS_VM_XML"
-  run steamos_vm_virsh define "$STEAMOS_VM_XML" >/dev/null
+  steamos_vm_current_xml | write_file "$new"
+  if steamos_vm_defined; then
+    run steamos_vm_virsh undefine --keep-nvram "$STEAMOS_VM_NAME" >/dev/null || return 1
+  fi
+  # Saved only once defined, since steamos-vm compares it with what the VM should be.
+  run steamos_vm_virsh define "$new" >/dev/null && run mv "$new" "$STEAMOS_VM_XML"
 }
 
 # Print the render node the defined VM uses, from libvirt's saved definition.
