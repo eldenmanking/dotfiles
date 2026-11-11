@@ -1,0 +1,211 @@
+#!/usr/bin/env bash
+
+# Starts, stops and repairs the SteamOS test VM that the steamos_vm feature of ~/dotfiles/install.sh installs.
+# Usage: steamos-vm [start|stop|restart|status|view|console] [--no-view] [--force]
+#   start     start the VM, or bring back a running one that is suspended, paused or not answering, then open its
+#             window (default)
+#   stop      power it off through its agent, or force it off when that doesn't answer (--force: at once)
+#   restart   stop, then start: a full power cycle, which clears more than a reboot inside the guest
+#   status    print the VM's state, whether its agent answers and the GPU it renders on
+#   view      open the VM's window in virt-manager
+#   console   attach to its serial console (log in as deck; Ctrl+] leaves)
+# See SteamOS test VM in ~/dotfiles/README.md.
+
+LIB_DIR="$HOME/dotfiles/install/lib"
+# shellcheck source=../../../install/lib/output.sh
+source "$LIB_DIR/output.sh"
+# shellcheck source=../../../install/lib/exec.sh
+source "$LIB_DIR/exec.sh"
+# shellcheck source=../../../install/lib/fs.sh
+source "$LIB_DIR/fs.sh"
+# shellcheck source=../../../install/lib/steamos_vm.sh
+source "$LIB_DIR/steamos_vm.sh"
+
+DRY_RUN=false
+# How long a booting guest gets for its agent to answer, and a stopping one to power off, in seconds.
+BOOT_TIMEOUT=120
+STOP_TIMEOUT=60
+
+# Send a command to the guest agent and print its one-line reply, or nothing when it doesn't answer.
+#   $1: command (ping, poweroff, reboot)
+agent() {
+  [[ -S "$STEAMOS_VM_AGENT" ]] || return
+  # shut-none: QEMU takes socat's half-close at the end of its input as a disconnect, before the reply comes back.
+  printf '%s\n' "$1" | steamos_vm_flatpak socat -t 3 - "UNIX-CONNECT:$STEAMOS_VM_AGENT,shut-none" 2>/dev/null | head -1
+}
+
+# Return 0 once the guest agent answers ping, giving up after $1 seconds.
+#   $1: seconds
+wait_for_agent() {
+  local seconds="$1" waited=0
+  until [[ "$(agent ping)" == pong ]]; do
+    (( waited >= seconds )) && return 1
+    sleep 3
+    waited=$(( waited + 3 ))
+  done
+}
+
+# Return 0 once the VM is off (or gone), giving up after $1 seconds.
+#   $1: seconds
+wait_for_off() {
+  local seconds="$1" waited=0 state
+  while state="$(steamos_vm_state "$STEAMOS_VM_NAME")"; [[ -n "$state" && "$state" != "shut off" ]]; do
+    (( waited >= seconds )) && return 1
+    sleep 2
+    waited=$(( waited + 2 ))
+  done
+}
+
+# Exit unless the VM is installed and no install is running.
+require_vm() {
+  [[ -z "$(steamos_vm_state "$STEAMOS_VM_INSTALLER")" ]] \
+    || error "SteamOS is being installed into the VM; wait for ~/dotfiles/install.sh to finish."
+  steamos_vm_defined || error "No SteamOS VM; install it with: ~/dotfiles/install.sh --steamos_vm"
+}
+
+# Redefine the VM when the render node it should use (see steamos_vm_render_node) isn't the one it is defined with,
+# e.g. after the eGPU was connected or disconnected.
+match_render_node() {
+  local want have
+  want="$(steamos_vm_render_node)"
+  [[ -n "$want" ]] || error "No AMD GPU render node for the VM's GPU acceleration."
+  have="$(steamos_vm_defined_render_node)"
+  if [[ "$want" != "$have" ]]; then
+    info "The guest's GPU work runs on $want, so its display moves there too (was ${have:-unset})."
+    steamos_vm_define "$want"
+  fi
+}
+
+# Start the VM from off. libvirt can still hold the last run's serial log for a moment after it stops ("Device or
+# resource busy"), so retry briefly.
+boot() {
+  local tries=0 out
+  match_render_node
+  until out="$(steamos_vm_virsh start "$STEAMOS_VM_NAME" 2>&1)"; do
+    tries=$(( tries + 1 ))
+    if (( tries >= 10 )) || ! grep -q -i -E 'busy|in use|already' <<< "$out"; then
+      error "Could not start the VM: $out"
+    fi
+    sleep 2
+  done
+  info "Started; waiting for SteamOS to answer..."
+  if wait_for_agent "$BOOT_TIMEOUT"; then
+    info "SteamOS is up."
+  else
+    warn "SteamOS hasn't answered yet; see: steamos-vm console"
+  fi
+}
+
+# Force the VM off.
+force_off() {
+  steamos_vm_virsh destroy "$STEAMOS_VM_NAME" &>/dev/null
+  wait_for_off 30 || error "The VM won't stop."
+}
+
+# Bring the VM to running and answering, from whatever state it is in.
+start_vm() {
+  local state
+  require_vm
+  state="$(steamos_vm_state "$STEAMOS_VM_NAME")"
+  case "$state" in
+    running)
+      if wait_for_agent 5; then
+        info "Already running."
+        return
+      fi
+      info "Running, but SteamOS isn't answering; waiting up to ${BOOT_TIMEOUT}s in case it is still booting..."
+      if wait_for_agent "$BOOT_TIMEOUT"; then
+        info "SteamOS is up."
+        return
+      fi
+      warn "SteamOS isn't answering; restarting the VM."
+      force_off
+      ;;
+    pmsuspended)
+      # The guest suspended itself (installs older than its suspend drop-in). Its GPU doesn't survive that, so
+      # waking it isn't enough: power cycle it.
+      warn "The VM is suspended, which breaks its GPU; restarting it."
+      force_off
+      ;;
+    paused)
+      info "Resuming the paused VM..."
+      steamos_vm_virsh resume "$STEAMOS_VM_NAME" >/dev/null || error "Could not resume the VM."
+      return
+      ;;
+    "shut off") ;;
+    *)
+      info "The VM is '$state'; forcing it off before starting."
+      force_off
+      ;;
+  esac
+  boot
+}
+
+# Power the VM off through its agent; force it off when the agent doesn't answer, it doesn't stop in time, or force
+# is true.
+#   $1: force (true/false)
+stop_vm() {
+  local force="$1" state
+  require_vm
+  state="$(steamos_vm_state "$STEAMOS_VM_NAME")"
+  if [[ "$state" == "shut off" ]]; then
+    info "Already off."
+    return
+  fi
+  # The agent checks for commands each second, so give it a second chance before forcing.
+  if ! $force && [[ "$state" == running ]] && [[ "$(agent poweroff)" == ok || "$(agent poweroff)" == ok ]]; then
+    info "Powering off..."
+    wait_for_off "$STOP_TIMEOUT" && { info "Off."; return; }
+    warn "SteamOS didn't power off within ${STOP_TIMEOUT}s; forcing it off."
+  elif ! $force; then
+    warn "SteamOS isn't answering; forcing the VM off."
+  fi
+  force_off
+  info "Off."
+}
+
+# Print the VM's state, whether its agent answers and the render node it uses.
+status_vm() {
+  local state reply
+  require_vm
+  state="$(steamos_vm_state "$STEAMOS_VM_NAME")"
+  echo "state:  $state"
+  if [[ "$state" == running ]]; then
+    reply="$(agent ping)"
+    echo "agent:  ${reply:-not answering}"
+  fi
+  echo "gpu:    $(steamos_vm_defined_render_node) (should be $(steamos_vm_render_node))"
+}
+
+# Open the VM's window in virt-manager, detached, when there is a display to open it on.
+view_vm() {
+  if [[ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]]; then
+    info "No display to open the VM's window on; open virt-manager there, or use: steamos-vm console"
+    return
+  fi
+  setsid flatpak run "$STEAMOS_VM_APP" --connect "$STEAMOS_VM_URI" --show-domain-console "$STEAMOS_VM_NAME" \
+    &>/dev/null < /dev/null &
+}
+
+main() {
+  local cmd="start" view=true force=false arg
+  for arg in "$@"; do
+    case "$arg" in
+      start|stop|restart|status|view|console) cmd="$arg" ;;
+      --no-view) view=false ;;
+      --force) force=true ;;
+      -h|--help) sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; return ;;
+      *) error "Unknown argument '$arg'; see steamos-vm --help" ;;
+    esac
+  done
+  case "$cmd" in
+    start) start_vm; ! $view || view_vm ;;
+    stop) stop_vm "$force" ;;
+    restart) stop_vm "$force"; start_vm; ! $view || view_vm ;;
+    status) status_vm ;;
+    view) require_vm; view_vm ;;
+    console) require_vm; exec flatpak run --user --command=virsh "$STEAMOS_VM_APP" -c "$STEAMOS_VM_URI" console "$STEAMOS_VM_NAME" ;;
+  esac
+}
+
+main "$@"

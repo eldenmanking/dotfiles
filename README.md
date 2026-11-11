@@ -91,6 +91,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   ├── clip                 ---
 │   │   │   ├── gamescope-screenshot --- saves a Gaming Mode screenshot to ~/Pictures/Screenshots; --watch takes one on Print Screen or Shift+Meta+4 (linked on steamos)
 │   │   │   ├── squidpdf             --- pdf splitter for Squid notes
+│   │   │   ├── steamos-vm           --- starts, stops and repairs the SteamOS test VM (linked on steamos)
 │   │   │   ├── vis                  --- resume or start an obsession session in cwd
 │   │   │   ├── vm-usb               ---
 │   │   │   ├── webterm-index        --- builds ttyd's page with the tab-key script appended
@@ -282,7 +283,7 @@ Features copy the systemd units they install, never link them, with the helpers 
 | `orei_switch`, `light_sleep` | framework16 | steamos | any | |
 | `steamos_xclip` | any | steamos | desktop | |
 | `steamos_make` | any | steamos | any | |
-| `steamos_arch_vm` | any | steamos | desktop | `flatpak` |
+| `steamos_arch_vm`, `steamos_vm` | any | steamos | desktop | `flatpak` |
 | `webterm` | any | linux | any | `link` |
 | `steam` | any | steamos | any | |
 | `gamescope_screenshot` | any | steamos | any | `link` |
@@ -506,6 +507,21 @@ The optional `--steamos_arch_vm` feature (on the `steamos` desktop profile; `--a
 - `arch-install-target.qcow2` in Boxes' image directory (`~/.var/app/org.gnome.Boxes/data/gnome-boxes/images`), a blank thin-provisioned 40G disk on virtio (`/dev/vda` in the guest) to install onto.
 
 The VM is UEFI (OVMF) with Secure Boot off, since the Arch ISO isn't signed, with 8 vCPUs and 6 GiB of RAM. The disks have the serials `ARCHMEDIUM` and `ARCHTARGET`, so `/dev/disk/by-id` tells them apart. The feature runs `virsh` and `qemu-img` from inside the Boxes Flatpak, so the domain XML (`arch_vm_domain_xml` in `install/features/steamos_arch_vm.sh`) is written under the Flatpak's cache directory, since its sandbox can't see `/tmp`. Each step is skipped when its result exists. `--uninstall` removes the VM, its UEFI variables and the target disk after asking, and keeps the ISO, so `--reinstall` resets the VM to a blank target without downloading anything. The sizes, memory and vCPUs are the `ARCH_VM_*` constants at the top of the file.
+
+#### SteamOS test VM
+The optional `--steamos_vm` feature (on the `steamos` desktop profile; `--all` skips it) installs SteamOS into a VM named `steamos`, for trying out dotfiles and SteamOS changes without touching the machine; `steamos-vm` (linked into `~/.local/bin`) starts and stops it. It runs under the virt-manager Flatpak's session libvirt with the Flatpak's QEMU extension, which the feature installs: GNOME Boxes' bundled QEMU is too old for DRM native context, which gives the guest the host's real AMD driver (RADV and radeonsi), so Game Mode's gamescope gets Vulkan. Its code is in `install/lib/steamos_vm.sh`, shared by the feature and the script.
+
+**Install.** The feature decompresses the newest `~/Downloads/steamdeck-*repair*.img.bz2` (Valve's recovery image, downloaded if there is none) to `recovery.img` in `~/.var/app/org.virt_manager.virt-manager/data/steamos-vm`, and copies its kernel and initramfs out of its root partition with `btrfs restore`, which needs no root. It then boots the image once as a transient domain, `steamos-install`, straight into that kernel: the image's GRUB draws only on screen, with no timeout to interrupt, so booting the kernel directly is what gives it a serial console and lets it run a command. The kernel arguments are GRUB's, plus `steamos.efi=PARTUUID=<efi-A>` (which GRUB's `steamenv` module adds) and `systemd.run=`, which runs a setup script from a small raw disk and powers off. The script runs Valve's `repair_device.sh all`, which wipes `/dev/nvme0n1` and installs SteamOS (so the VM's disk is NVMe, as on a Steam Deck), then writes into `/etc` of both A/B slots (SteamOS boots B first):
+
+- a serial console login on ttyS0 (`steamos-vm console`);
+- `steamos-vm-agent.service`, which answers `ping` and runs `poweroff` or `reboot` sent over a virtio-serial port. `virsh shutdown` presses the ACPI power button, which Game Mode treats as suspend;
+- a `systemd-suspend.service` drop-in that makes suspend a no-op. After a guest suspend, the virtio-gpu native context loses its host-side state: processes using the GPU hang in the kernel, the serial console can die, and the next shutdown takes minutes. Steam's idle suspend still runs the sleep hooks (e.g. `orei-switch`) and "wakes" at once.
+
+Units, their links and `.service` drop-ins in `/etc` survive SteamOS updates. The install takes about a minute and logs to `install.log` in the Flatpak's cache directory (`~/.var/app/org.virt_manager.virt-manager/cache/steamos-vm`); the disk is kept only when the script's done marker shows up. The user `deck` has no password until you set one with `passwd` in the VM. The feature also saves virt-manager's `qemu:///session` connection, without which it says "Could not detect a default hypervisor".
+
+**The VM.** UEFI without Secure Boot, 8 vCPUs, 6 GiB of RAM in shared `memfd` memory (which virtio-gpu's blob resources need), the 64G thin qcow2 disk `disk.qcow2` on NVMe, user networking, and virtio-gpu with `blob`, `drm_native_context` and 4 GiB `hostmem`, which the XML can only set in a `<qemu:override>` block. The guest's GPU work runs on whichever amdgpu render node libdrm finds first (virglrenderer opens its device with `drmOpenWithType("amdgpu")`, which tries `renderD128` upward; QEMU's `rendernode` only picks the GPU SPICE draws with). With the eGPU connected at boot that is the eGPU, so `steamos-vm start` points SPICE at the same node, redefining the VM when it changed, rather than have every frame cross between GPUs.
+
+**`steamos-vm`.** `start` (the default) starts the VM and waits for its agent; on a running VM it waits for the agent, and force-restarts the VM when it doesn't answer within 2 minutes. It power cycles a suspended VM (one installed before the suspend drop-in), resumes a paused one, retries while libvirt still holds the last run's serial log, then opens its window in virt-manager (`--no-view` skips that). `stop` asks the agent to power off and forces the VM off when it doesn't answer or stop within a minute (`--force` at once). `restart` is a full power cycle. `status` prints the state, whether the agent answers and the render node; `console` attaches to the serial console. `--uninstall` stops and removes the VM, its UEFI variables and its disk after asking, and keeps virt-manager and `recovery.img`, so `--reinstall` installs a fresh SteamOS in about a minute; delete `recovery.img` to use a newer image.
 
 ## Testing
 Checks come in three kinds, each with a make target; `make check` runs all three. Fixtures (`make fixtures`) are a fourth, kept out of `make check` since they need docker or podman and network access.
