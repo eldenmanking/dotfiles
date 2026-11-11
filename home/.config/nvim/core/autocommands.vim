@@ -1,9 +1,10 @@
 " Yank to system clipboard with y register
 " Use WSL clipboard if applicable
-if system('uname -r') =~ "Microsoft"
+let s:osrelease = filereadable('/proc/sys/kernel/osrelease') ? join(readfile('/proc/sys/kernel/osrelease', '', 1)) : ''
+if has('wsl') || s:osrelease =~? 'microsoft'
   augroup wsl_yank
     au!
-    autocmd TextYankPost * if v:event.regname ==# 'y' | :call system('/mnt/c/windows/system32/clip.exe ',@")
+    autocmd TextYankPost * if v:event.regname ==# 'y' | :call system('/mnt/c/windows/system32/clip.exe ',@") | endif
   augroup END
 else
   augroup system_yank
