@@ -35,7 +35,9 @@ check() {
   if "$@"; then pass "$description"; else fail "$description"; fi
 }
 
-# Outputs: home, a new scratch home holding a dotfiles symlink to this checkout, as install.sh requires.
+# Make a new scratch home holding a dotfiles symlink to this checkout, as install.sh requires.
+# Usage: f_call new_home home
+# Returns: home
 new_home() {
   local home
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
@@ -92,8 +94,10 @@ print_setup_info() {
   printf '%s\n%s\n%s\n' "$features" "$link_paths" "$DRY_RUN_FEATURES"
 }
 
-# Outputs: features and link_paths of setup $1 (os/profile), read from its definition the same way install.sh does,
-# and dry_run_features, the features that honor --dry-run (install.sh only announces the others).
+# Read the features and link paths of setup <os>/<profile> from its definition the same way install.sh does.
+# Usage: f_call setup_info features link_paths dry_run_features -- <os>/<profile>
+# Returns: features link_paths dry_run_features
+#   dry_run_features: the features that honor --dry-run (install.sh only announces the others)
 setup_info() {
   local out
   out="$(with_install_loaded print_setup_info "${1%/*}" "${1#*/}")"

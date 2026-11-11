@@ -19,6 +19,13 @@ This repo is public and edited from work machines. Never commit company, team or
 ## Shell conventions
 Write functions in a functional style:
 - Pass inputs as arguments. Return values by name, not by setting globals or parsing stdout: the function ends with `f_return out1 out2="$b"` (a bare name returns the variable of that name, so `out1` is `out1="$out1"`), and callers read them like `read` with `f_call fn out1 [name=out2] -- args...`, which sets their `local out1` (and `name`) and errors if `fn` didn't return one. Values travel in `_`-prefixed variables local to each `f_call` (`install/lib/fn.sh`), so never read or assign `_`-prefixed variables directly. A function with a single result may print it instead, for the caller to capture with `$(...)` (e.g. `feature_function`, `explain_checkout_problem`).
+- A function that calls `f_return` has a doc comment ending in a `Usage:` line and a `Returns:` line, each optionally followed by `  <key>: text` entries for some of its arguments or returned names (continuations indented two more spaces). Refer to arguments by their `<name>` in the description. `make lint` (`tests/lint/function_docs.py`) checks that both lines list exactly the names its `f_return` calls return:
+  ```bash
+  # Copy each file in <src_dir> matching <glob> into <dst_dir> with sudo, replacing any old symlink.
+  # Usage: f_call copy_system_files changed -- <src_dir> <dst_dir> <glob>
+  # Returns: changed
+  #   changed: the space-separated targets that were copied (empty if all were up to date)
+  ```
 - Globals are UPPER_CASE constants set at file load time; never mutate them from functions. Declare everything else `local`.
 - Keep pure logic (parsing, resolving config) separate from side effects, and route side effects through `run`/`run_tty` so `--dry-run` works.
 - A feature that writes into `/etc` must keep working on SteamOS, whose updates drop every `/etc` change no keep list names: name its files with `keep_across_steamos_updates` (`install/lib/fs.sh`). The default list keeps only users, network and system units (`.service`, `.socket`, `.mount`, their drop-ins and links; not timers); see `tests/images/steamos/atomic-update-keep.conf`. The `steamos-update` fixture checks this.

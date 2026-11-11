@@ -14,9 +14,11 @@ source "$LIB_DIR/exec.sh"
 
 VIRSH="flatpak run --command=virsh org.gnome.Boxes"
 
-# Reads the positional arguments into pattern and vm, falling back to defaults.
-#   $1: text to match in lsusb output (case-insensitive), default "logitech"
-#   $2: libvirt VM name, default "win11"; list with: flatpak run --command=virsh org.gnome.Boxes list --all
+# Reads the positional arguments, falling back to defaults.
+# Usage: f_call parse_args pattern vm -- [<pattern>] [<vm>]
+#   <pattern>: text to match in lsusb output (case-insensitive), default "logitech"
+#   <vm>: libvirt VM name, default "win11"; list with: flatpak run --command=virsh org.gnome.Boxes list --all
+# Returns: pattern vm
 parse_args() {
   f_return pattern="${1:-logitech}" vm="${2:-win11}"
 }
@@ -55,9 +57,13 @@ xml() {
     "$((10#$bus))" "$((10#$dev))"
 }
 
-# Splits devices into those already attached to the VM (attached) and those still to attach (pending).
-#   $1: VM name
-#   $2: space-separated "bus:dev" ids
+# Splits devices into those already attached to the VM and those still to attach.
+# Usage: f_call partition_devices attached pending -- <vm> <ids>
+#   <vm>: VM name
+#   <ids>: space-separated "bus:dev" ids
+# Returns: attached pending
+#   attached: the space-separated ids already attached
+#   pending: the space-separated ids still to attach
 partition_devices() {
   local vm="$1" ids="$2" live id attached="" pending=""
   live="$($VIRSH dumpxml "$vm")"

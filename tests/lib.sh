@@ -22,7 +22,9 @@ sha256_of() {
   fi
 }
 
-# Outputs: url and sha256 of the release archive of pinned tool $1 (shellcheck or actionlint) for os $2, arch $3.
+# Look up the release archive of pinned tool <tool> (shellcheck or actionlint) for <os> and <arch>.
+# Usage: f_call tool_release url sha256 -- <tool> <os> <arch>
+# Returns: url sha256
 tool_release() {
   local tool="$1" os="$2" arch="$3" version sha_var sc_os sc_arch al_arch url sha256
   case "$os" in linux) sc_os=linux ;; macos) sc_os=darwin ;; esac
@@ -45,7 +47,9 @@ tool_release() {
   f_return url sha256
 }
 
-# Outputs: path, the pinned tool $1, downloaded and checksummed into TOOLS_CACHE on first use.
+# Get pinned tool <tool>, downloaded and checksummed into TOOLS_CACHE on first use.
+# Usage: f_call pinned_tool path -- <tool>
+# Returns: path
 pinned_tool() {
   local tool="$1" version_var dir bin tmp os arch url sha256
   version_var="$(printf '%s' "$tool" | tr '[:lower:]' '[:upper:]')_VERSION"

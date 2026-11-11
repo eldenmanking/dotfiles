@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Lint the code: shell, zsh, Python and TOML syntax, shellcheck and actionlint. Run via `make lint`.
+# Lint the code: shell, zsh, Python and TOML syntax, the doc comments of functions that call f_return, shellcheck
+# and actionlint. Run via `make lint`.
 
 set -euo pipefail
 
@@ -12,8 +13,11 @@ tracked_files() {
   git ls-files -s -- "$@" | awk -F '\t' '$1 !~ /^120000 / { print $2 }'
 }
 
-# Outputs: sh, bash, sourced, zsh and python, newline-separated tracked files of each language. Files under
-# install/ without a shebang are sourced by install.sh, and fixtures' case.sh by tests/fixtures.sh, so they are bash.
+# Sort the tracked files by language, as newline-separated lists. Files under install/ without a shebang are
+# sourced by install.sh, and fixtures' case.sh by tests/fixtures.sh, so they are bash.
+# Usage: f_call classify_files sh bash sourced zsh python
+# Returns: sh bash sourced zsh python
+#   sourced: bash files without a shebang
 classify_files() {
   local sh="" bash="" sourced="" zsh="" python="" file first
   while IFS= read -r file; do
@@ -116,6 +120,11 @@ main() {
   if have_or_skip python3 "Python and TOML syntax checks"; then
     each_file "$python" python_syntax || failed=1
     each_file "$(tracked_files '*.toml')" toml_syntax || failed=1
+  fi
+
+  info "Doc comments of functions that return values with f_return (Usage and Returns lines)"
+  if have_or_skip python3 "the f_return doc comment check"; then
+    python3 tests/lint/function_docs.py $(printf '%s' "$sh$bash$sourced") || failed=1
   fi
 
   info "shellcheck $SHELLCHECK_VERSION"

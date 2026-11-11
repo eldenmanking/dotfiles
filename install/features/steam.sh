@@ -25,9 +25,11 @@ steam_vdf_replace() {
   '
 }
 
-# Outputs: content, localconfig.vdf $1 with every STEAM_SETTINGS value replaced, and missing, the space-separated
-# keys it lacks.
+# Apply STEAM_SETTINGS to localconfig.vdf <file>, without writing it.
 # Usage: f_call steam_apply_settings content missing -- <file>
+# Returns: content missing
+#   content: <file>'s contents with every STEAM_SETTINGS value replaced
+#   missing: the space-separated keys it lacks
 steam_apply_settings() {
   local file="$1" content entry key value missing=""
   content="$(cat "$file")"

@@ -16,7 +16,10 @@ WEBTERM_PROXYD=/usr/lib/systemd/systemd-socket-proxyd
 TTYD_VERSION=1.7.7
 TTYD_BIN="$LOCAL_BIN/ttyd"
 
-# Pinned static ttyd release asset and its SHA-256 for this machine.
+# Look up the pinned static ttyd release asset for this machine.
+# Usage: f_call ttyd_asset asset sha256
+# Returns: asset sha256
+#   asset: the release asset's file name
 ttyd_asset() {
   case "$(uname -m)" in
     x86_64)  f_return asset=ttyd.x86_64  sha256=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55 ;;

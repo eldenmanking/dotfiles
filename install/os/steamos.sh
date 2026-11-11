@@ -1,4 +1,6 @@
 # SteamOS.
+# Usage: f_call os_steamos description platforms machines
+# Returns: description platforms machines
 os_steamos() {
   f_return description="SteamOS: per-user installs for the read-only rootfs"
   f_return platforms="steamos"
@@ -6,6 +8,8 @@ os_steamos() {
 }
 
 # SteamOS desktop (KDE and Game Mode), plus webterm.
+# Usage: f_call os_steamos_desktop features gui optional link_paths
+# Returns: features gui optional link_paths
 os_steamos_desktop() {
   # distrobox is near the end since it leaves you in the new container's shell; steamos_xclip and
   # steamos_make follow it to reuse that container instead of downloading another image.
@@ -18,6 +22,8 @@ os_steamos_desktop() {
 }
 
 # SteamOS terminal setup, with the shell startup files linked.
+# Usage: f_call os_steamos_minimal features gui optional link_paths
+# Returns: features gui optional link_paths
 os_steamos_minimal() {
   f_return features="link neovim starship tmux claude gitconfig udev tmpfiles logind hdmi_audio_fix orei_switch light_sleep"
   f_return gui="none"

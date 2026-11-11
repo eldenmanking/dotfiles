@@ -36,7 +36,9 @@ CONTAINER_CMD="$(command -v docker || command -v podman || true)"
 # shellcheck disable=SC2088 # manifest paths, not ones to expand
 UNPINNED_FILES="~/.claude/settings.json ~/git/.claude/CLAUDE.md"
 
-# Outputs: image, args, files, root_files, after_install and run_with of fixture $1, read from its case.sh.
+# Read the config of fixture <fixture> from its case.sh.
+# Usage: f_call case_config image args files root_files after_install run_with -- <fixture>
+# Returns: image args files root_files after_install run_with
 case_config() {
   local out image args files root_files after_install run_with
   out="$(

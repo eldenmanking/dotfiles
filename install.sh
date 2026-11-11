@@ -178,6 +178,12 @@ usage_error() {
   exit 1
 }
 
+# Parse install.sh's command line, exiting with usage on a bad one.
+# Usage: f_call parse_args variant os profile machine infer flags mode all dry_run help oti -- [<arg>...]
+# Returns: variant os profile machine infer flags mode all dry_run help oti
+#   infer: true with --infer; all, dry_run and help likewise for --all, --dry-run and --help
+#   flags: the feature options given, without their --, as a space-separated list starting and ending with a space
+#   mode: install, reinstall or uninstall
 parse_args() {
   local variant="" os="" profile="" machine="" infer=false flags=" " mode=install all=false dry_run=false help=false
   local oti=""
@@ -218,9 +224,12 @@ parse_args() {
   f_return variant os profile machine infer flags mode all dry_run help oti
 }
 
-# Outputs: default_variant, default_os, default_profile, default_machine and default_features, from
-# DOTFILES_VARIANT, DOTFILES_OS, DOTFILES_PROFILE, DOTFILES_MACHINE and DOTFILES_FEATURES in the environment or, for
-# each one unset there, in config file $1. The file is sourced in a subshell so it can't change this shell's state.
+# Read the install defaults from DOTFILES_VARIANT, DOTFILES_OS, DOTFILES_PROFILE, DOTFILES_MACHINE and
+# DOTFILES_FEATURES in the environment or, for each one unset there, in config file <conf>. The file is sourced in a
+# subshell so it can't change this shell's state.
+# Usage: f_call load_install_defaults default_variant default_os default_profile default_machine default_features -- \
+#   <conf>
+# Returns: default_variant default_os default_profile default_machine default_features
 load_install_defaults() {
   local conf="$1" file_variant="" file_os="" file_profile="" file_machine="" file_features=""
   if [[ -f "$conf" ]]; then
@@ -241,7 +250,9 @@ load_install_defaults() {
     default_features="${DOTFILES_FEATURES:-$file_features}"
 }
 
-# Outputs: os and profile, OS $2 and profile $3, with each one left empty filled in from variant $1 (if given).
+# Fill in OS <os> and profile <profile>, each one left empty, from variant <variant> (if given).
+# Usage: f_call variant_dimensions os profile -- <variant> <os> <profile>
+# Returns: os profile
 variant_dimensions() {
   local variant="$1" os="$2" profile="$3" variant_os variant_profile
   if [[ -n "$variant" ]]; then
@@ -254,9 +265,12 @@ variant_dimensions() {
   f_return os profile
 }
 
-# Outputs: flags and all, flags $1 and --all $2 with default features $4 (feature names, and all for --all) added
-# when the command line selects none, unless mode $3 is uninstall or the OS and profile to install for ($5, $6) aren't
-# the ones the defaults name ($7, $8; both empty when the defaults name none).
+# Add default features <default_features> (feature names, and all for --all) to <flags> and <all> when the command
+# line selects none, unless <mode> is uninstall or the OS and profile to install for (<os>, <profile>) aren't the
+# ones the defaults name (<default_os>, <default_profile>; both empty when the defaults name none).
+# Usage: f_call apply_default_features flags all -- <flags> <all> <mode> <default_features> <os> <profile> \
+#   <default_os> <default_profile>
+# Returns: flags all
 apply_default_features() {
   local flags="$1" all="$2" mode="$3" default_features="$4" os="$5" profile="$6" default_os="$7"
   local default_profile="$8" word
@@ -270,11 +284,13 @@ apply_default_features() {
   f_return flags all
 }
 
-# Outputs: os, profile and machine to install for: OS $1, profile $2 and machine $3 as given (by options or
-# defaults), with each one left empty inferred from this system when $4 (--infer) is true, to suit the given ones:
-# an OS that lacks the given profile becomes portable if that has it (portable runs anywhere), and a machine the OS
-# doesn't support becomes generic. Without --infer, an empty machine is generic and an empty OS or profile stays
-# empty, for exit_with_usage_unless_runnable to report.
+# Resolve the OS, profile and machine to install for: <os>, <profile> and <machine> as given (by options or
+# defaults), with each one left empty inferred from this system when <infer> (--infer) is true, to suit the given
+# ones: an OS that lacks the given profile becomes portable if that has it (portable runs anywhere), and a machine
+# the OS doesn't support becomes generic. Without --infer, an empty machine is generic and an empty OS or profile
+# stays empty, for exit_with_usage_unless_runnable to report.
+# Usage: f_call resolve_dimensions os profile machine -- <os> <profile> <machine> <infer>
+# Returns: os profile machine
 resolve_dimensions() {
   local os="$1" profile="$2" machine="$3" infer="$4" inferred="" system_os system_machine coder reason os_machines
   if $infer && [[ -z "$os" || -z "$profile" || -z "$machine" ]]; then
@@ -331,9 +347,13 @@ exit_with_usage_unless_runnable() {
   fi
 }
 
-# Outputs: enabled, the selected features of OS $1 with profile $2 on machine $6. --all leaves out optional features
-# and those whose @machine doesn't suit $6; named features run either way (with a warning for the latter). Under
-# --uninstall, features without an uninstall function are dropped (with a warning if named).
+# Select the features of OS <os> with profile <profile> on machine <machine> to run, from feature options <flags>
+# and --all <all>. --all leaves out optional features and those whose @machine doesn't suit <machine>; named
+# features run either way (with a warning for the latter). Under --uninstall (<mode>), features without an uninstall
+# function are dropped (with a warning if named).
+# Usage: f_call resolve_features enabled -- <os> <profile> <flags> <all> <mode> <machine>
+# Returns: enabled
+#   enabled: the selected features, in the order they run
 resolve_features() {
   local os="$1" profile="$2" flags="$3" all="$4" mode="$5" machine="$6" features optional enabled=" " k default
   local feature_machine

@@ -63,11 +63,11 @@ remove_system_files() {
   done
 }
 
-# Copy each file in $src_dir matching $glob into $dst_dir with sudo, replacing
-# any old symlink. For system files read at boot, before an encrypted home is
-# mounted, where a symlink into ~ would dangle. Outputs: changed, the
-# space-separated targets that were copied (empty if all were up to date).
+# Copy each file in <src_dir> matching <glob> into <dst_dir> with sudo, replacing any old symlink. For system files
+# read at boot, before an encrypted home is mounted, where a symlink into ~ would dangle.
 # Usage: f_call copy_system_files changed -- <src_dir> <dst_dir> <glob>
+# Returns: changed
+#   changed: the space-separated targets that were copied (empty if all were up to date)
 copy_system_files() {
   local src_dir="$1" dst_dir="$2" glob="$3" file target changed=""
   for file in "$src_dir"/$glob; do

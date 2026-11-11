@@ -37,7 +37,10 @@ ARCH_CHROOT_ZONEINFO=/usr/share/zoneinfo
 ARCH_CHROOT_LOCALES=/usr/share/i18n/SUPPORTED
 ARCH_CHROOT_KEYMAPS=/usr/share/kbd/keymaps
 
-# Returns description for --help.
+# The config of this one-time install.
+# Usage: f_call oti_config_arch_chroot description
+# Returns: description
+#   description: for --help
 oti_config_arch_chroot() {
   f_return \
     description="install Arch Linux from the live ISO onto a blank disk (btrfs, GRUB), asking everything up front"
@@ -204,10 +207,17 @@ arch_chroot_laid_out() {
     && "$(probe blkid -o value -s TYPE "$(arch_chroot_partition "$disk" 2)" || true)" == btrfs ]]
 }
 
-# Outputs what an earlier run left in $ARCH_CHROOT_ROOT, each empty when it isn't there: root_part and esp (the
-# partitions mounted at it and at its /efi), swap_part and swap_size (the swap partition, or none, and the swap
-# file's size in GiB, 0 for none; settled once its fstab is written), timezone, locale, keymap, hostname and user
-# (uid 1000); and root_password and user_password, true when set.
+# Read what an earlier run left in $ARCH_CHROOT_ROOT, each empty when it isn't there.
+# Usage: f_call arch_chroot_installed root_part esp swap_part swap_size timezone locale keymap hostname user \
+#   root_password user_password
+# Returns: root_part esp swap_part swap_size timezone locale keymap hostname user root_password user_password
+#   root_part: the partition mounted at $ARCH_CHROOT_ROOT
+#   esp: the partition mounted at its /efi
+#   swap_part: the swap partition, or none (settled once its fstab is written)
+#   swap_size: the swap file's size in GiB, 0 for none (settled once its fstab is written)
+#   user: the user with uid 1000
+#   root_password: true when set
+#   user_password: true when set
 arch_chroot_installed() {
   local root="$ARCH_CHROOT_ROOT" root_part="" esp="" swap_part="" swap_size="" swap_uuid tz="" user="" root_pw=false
   local user_pw=false

@@ -26,7 +26,9 @@ for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/fea
   source "$f"
 done
 
-# Outputs: features, every feature with a feature_<name> function in install/features.
+# Find every feature with a feature_<name> function in install/features.
+# Usage: f_call scan_features features
+# Returns: features
 scan_features() {
   local features
   features="$(sed -n 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
@@ -43,9 +45,12 @@ feature_dir() {
   [[ "$file" != */* ]] || printf '%s' "${file%%/*}"
 }
 
-# Outputs: problems, a line if feature $1, for machines $2 and OSes $3, isn't where its tags put it: features for any
+# Check that feature <feature>, for machines <machine> and OSes <os>, is where its tags put it: features for any
 # machine at the top of install/features, the others in a subdirectory named <os>_<machine> after their single
 # @os and @machine values.
+# Usage: f_call check_feature_dir problems -- <feature> <machine> <os>
+# Returns: problems
+#   problems: a line if it isn't
 check_feature_dir() {
   local feature="$1" machine="$2" os="$3" dir problems=""
   dir="$(feature_dir "$feature")"
@@ -59,7 +64,10 @@ check_feature_dir() {
   f_return problems
 }
 
-# Outputs: problems, one line per problem with value list $3 of tag @$2 on feature $1, given allowed values $4.
+# Check value list <values> of tag @<tag> on feature <feature> against allowed values <allowed>.
+# Usage: f_call check_tag problems -- <feature> <tag> <values> <allowed>
+# Returns: problems
+#   problems: one line per problem
 check_tag() {
   local feature="$1" tag="$2" values="$3" allowed="$4" nl=$'\n' problems="" v
   [[ -n "$values" ]] || problems+="--$feature: missing @$tag tag above $(feature_function "$feature")$nl"
@@ -69,8 +77,10 @@ check_tag() {
   f_return problems
 }
 
-# Outputs: problems, one line per problem with the layout of doc $2 of feature $1: description lines, a bare '#'
-# line, then only tags.
+# Check the layout of doc <doc> of feature <feature>: description lines, a bare '#' line, then only tags.
+# Usage: f_call check_doc_layout problems -- <feature> <doc>
+# Returns: problems
+#   problems: one line per problem
 check_doc_layout() {
   local feature="$1" doc="$2" nl=$'\n' problems="" line state=start
   while IFS= read -r line; do
@@ -92,7 +102,11 @@ check_doc_layout() {
   f_return problems
 }
 
-# Outputs: problems, one line per problem with the documentation of feature $1. $2 is every known feature.
+# Check the documentation of feature <feature>.
+# Usage: f_call check_feature_docs problems -- <feature> <known>
+#   <known>: every known feature
+# Returns: problems
+#   problems: one line per problem
 check_feature_docs() {
   local feature="$1" known="$2" problems="" dep doc found machine os gui requires
   [[ -n "$(feature_description "$feature")" ]] \
@@ -120,8 +134,12 @@ check_feature_docs() {
   f_return problems
 }
 
-# Outputs: problems, one line per problem with feature $2 in OS and profile $1 (as os/profile), which target
-# platforms $3, GUI $4 and machines $5. $6 is the features that run before this one.
+# Check feature <feature> in OS and profile <setup> (as os/profile), which target platforms <platforms>, GUI <gui>
+# and machines <machines>.
+# Usage: f_call check_feature problems -- <setup> <feature> <platforms> <gui> <machines> <earlier>
+#   <earlier>: the features that run before this one
+# Returns: problems
+#   problems: one line per problem
 check_feature() {
   local setup="$1" feature="$2" platforms="$3" gui="$4" os_machines="$5" earlier="$6" nl=$'\n' problems="" v dep suited
   local machine os feature_gui requires
@@ -155,7 +173,10 @@ check_feature() {
   f_return problems
 }
 
-# Outputs: problems, one line per problem with OS $1 with profile $2.
+# Check OS <os> with profile <profile>.
+# Usage: f_call check_setup problems -- <os> <profile>
+# Returns: problems
+#   problems: one line per problem
 check_setup() {
   local os="$1" profile="$2" setup="$1/$2" problems="" earlier=" " feature k path found
   # shellcheck disable=SC2034 # git_fsmonitor isn't read: asking for it checks every OS and profile returns it
@@ -183,8 +204,10 @@ check_setup() {
   f_return problems
 }
 
-# Outputs: problems, one line per problem with OS $1: its platforms and machines must be known values, and it must
-# support some profile.
+# Check OS <os>: its platforms and machines must be known values, and it must support some profile.
+# Usage: f_call check_os problems -- <os>
+# Returns: problems
+#   problems: one line per problem
 check_os() {
   local os="$1" problems="" v platforms os_machines
   f_call os_config platforms os_machines=machines -- "$os"
@@ -200,7 +223,10 @@ check_os() {
   f_return problems
 }
 
-# Outputs: problems, a line if variant $1 doesn't name an OS and profile that go together.
+# Check that variant <variant> names an OS and profile that go together.
+# Usage: f_call check_variant problems -- <variant>
+# Returns: problems
+#   problems: a line if it doesn't
 check_variant() {
   local os profile problems=""
   f_call variant_config os profile -- "$1"
@@ -209,8 +235,11 @@ check_variant() {
   f_return problems
 }
 
-# Outputs: problems, what is wrong with one-time install $1 (install/oti/$1.sh): it must define oti_<name> and
-# oti_config_<name> (which returns a description), and no uninstall functions, since one-time installs can't be undone.
+# Check one-time install <oti> (install/oti/<oti>.sh): it must define oti_<name> and oti_config_<name> (which
+# returns a description), and no uninstall functions, since one-time installs can't be undone.
+# Usage: f_call check_oti problems -- <oti>
+# Returns: problems
+#   problems: one line per problem
 check_oti() {
   local oti="$1" fn file="$INSTALL_DIR/oti/$1.sh" problems="" description
   fn="$(oti_function "$oti")"

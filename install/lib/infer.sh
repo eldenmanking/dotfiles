@@ -49,8 +49,10 @@ machine_for_dmi() {
   esac
 }
 
-# Outputs: id and id_like, the ID and ID_LIKE fields of os-release file $1, unquoted (empty if missing). The file is
-# parsed rather than sourced, so it can't run anything.
+# Read the ID and ID_LIKE fields of os-release file <file>, unquoted (empty if missing). The file is parsed rather
+# than sourced, so it can't run anything.
+# Usage: f_call read_os_release id id_like -- <file>
+# Returns: id id_like
 read_os_release() {
   local file="$1" line key value id="" id_like=""
   if [[ -r "$file" ]]; then
@@ -68,9 +70,13 @@ read_os_release() {
   f_return id id_like
 }
 
-# Outputs: os and machine, what this system looks like (os is empty if no OS fits), coder, true inside a Coder
-# workspace (for profile_for_system), and reason, what they were inferred from, for messages. Reads uname,
-# OS_RELEASE_FILE, DMI_ID_DIR and the CODER variable that Coder sets in its workspaces.
+# Infer what this system looks like from uname, OS_RELEASE_FILE, DMI_ID_DIR and the CODER variable that Coder sets
+# in its workspaces.
+# Usage: f_call infer_system os machine coder reason
+# Returns: os machine coder reason
+#   os: empty if no OS fits
+#   coder: true inside a Coder workspace (for profile_for_system)
+#   reason: what they were inferred from, for messages
 infer_system() {
   local kernel vendor="" product="" coder=false id id_like reason
   kernel="$(uname -s)"
