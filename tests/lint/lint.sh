@@ -71,9 +71,12 @@ bare_returns() {
   ' "$1"
 }
 
-# Report the unused variables (shellcheck $1's SC2034) in the file that ends the remaining args, but UPPER_CASE
-# globals, which other files read (shellcheck checks one file at a time), and variables an f_return returns bare.
-# .shellcheckrc turns SC2034 off for those reasons, so this pass ignores it (--norc); disable comments still apply.
+# Report unused variables (shellcheck's SC2034) in a file, leaving out two kinds that only look unused:
+#  - UPPER_CASE globals, which other files read (shellcheck checks one file at a time).
+#  - Variables an f_return returns by bare name (f_return name reads $name, which shellcheck can't see).
+# .shellcheckrc turns SC2034 off for those reasons, so this runs shellcheck with --norc to turn it back on;
+# "# shellcheck disable=SC2034" comments in the file still apply.
+# Usage: unused_variables <shellcheck> [shellcheck options...] <file>
 unused_variables() {
   local shellcheck="$1" file="${*: -1}" found="" line name returned
   shift
