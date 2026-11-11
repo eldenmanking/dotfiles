@@ -1,11 +1,28 @@
 # Feature: KDE Plasma settings (steamos desktop mode). KDE rewrites its config files, which would break symlinks, so
 # each file listed here is merged into its ~/.config counterpart key by key with kwriteconfig, leaving other keys alone.
+# --capture writes each file back from its ~/.config counterpart, keeping the keys KDE_CAPTURE selects.
 
-# Partial KDE config files, home/-relative like the link paths. Nested groups ([A][B]) are supported.
+# Partial KDE config files, home/-relative like the link paths. Nested groups ([A][B]) are supported. --capture rewrites
+# them, so keep notes about their settings here, not in comments in them:
+# - kcminputrc sets the keyboard repeat (300 ms delay; GNOME on Arch uses 200 ms, in dump/dconf/arch.dconf).
+# - kxkbrc sets no XKB options: the Keychron's firmware swaps Caps Lock and Escape, so Plasma mustn't remap them too.
+# - powerdevilrc makes closing the lid on external power do nothing (LidAction=0 is "do nothing"). PowerDevil holds the
+#   lid switch away from logind, so the logind feature's lid.conf doesn't reach Desktop Mode, and PowerDevil's default
+#   (sleep) re-suspends the laptop right after a wake with the lid closed, while the projector's output is still coming
+#   back. Closing it on battery still suspends. PowerDevil reads this when it starts, so it applies from the next login.
 KDE_CONFIG_FILES=(
   home/.config/kcminputrc
   home/.config/kxkbrc
   home/.config/powerdevilrc
+)
+
+# The KDE settings the files in KDE_CONFIG_FILES keep: --capture --kde writes the keys of each ~/.config file that these
+# select, as <file>/<group>/<key> (see capture_filter): an entry ending in / selects a whole group, any other a single
+# key, and an entry starting with ! leaves out what it names.
+KDE_CAPTURE=(
+  kcminputrc/Keyboard/
+  kxkbrc/Layout/Options
+  'powerdevilrc/AC][SuspendAndShutdown/LidAction'
 )
 
 # Resolve the kwriteconfig/kreadconfig pair for the installed Plasma (6, else 5), or empty when neither exists.
@@ -77,5 +94,33 @@ feature_kde() {
       # --notify lets running Plasma/KWin pick up the change; otherwise it applies at the next login.
       run "$writer" --notify --file "$file" "${group_args[@]}" --key "$key" "$value"
     done <<< "$entries"
+  done
+}
+
+# For --capture: write each file in KDE_CONFIG_FILES from its ~/.config counterpart, keeping only the keys KDE_CAPTURE
+# selects for it, e.g. after changing them in System Settings. A file with none of them set is left alone.
+capture_feature_kde() {
+  local rel name live entry entries text
+  for rel in "${KDE_CONFIG_FILES[@]}"; do
+    name="${rel##*/}"
+    live="$HOME/${rel#home/}"
+    entries=()
+    for entry in "${KDE_CAPTURE[@]}"; do
+      case "$entry" in
+        "$name"/*)  entries+=("${entry#"$name"/}") ;;
+        "!$name"/*) entries+=("!${entry#"!$name"/}") ;;
+      esac
+    done
+    if [[ ${#entries[@]} -eq 0 ]]; then
+      warn "KDE_CAPTURE selects nothing in $name; leaving it as it is"
+      continue
+    fi
+    text=""
+    [[ ! -f "$live" ]] || text="$(capture_filter "${entries[@]}" < "$live")"
+    if [[ -z "$text" ]]; then
+      warn "None of the settings KDE_CAPTURE selects in $name are set on this system; leaving it as it is"
+      continue
+    fi
+    write_captured "$DOTFILES_ROOT/$rel" "$text"
   done
 }

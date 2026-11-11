@@ -44,11 +44,13 @@ new_home() {
 }
 
 # Run install.sh with home $1 and the remaining args, in a clean environment with no terminal. Its output goes to
-# LOG. Returns install.sh's status.
+# LOG. Returns install.sh's status. XDG_RUNTIME_DIR is set as in a login session, since without one dconf (read by
+# --capture --dconf) keeps its runtime state in ~/.cache instead.
 run_install() {
   local home="$1"
   shift
-  env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$home/dotfiles/install.sh" "$@" </dev/null >"$LOG" 2>&1
+  mkdir -p "$SCRATCH/runtime"
+  env -i HOME="$home" PATH="$PATH" TERM=dumb XDG_RUNTIME_DIR="$SCRATCH/runtime" "$INSTALL_BASH" "$home/dotfiles/install.sh" "$@" </dev/null >"$LOG" 2>&1
 }
 
 # Run install.sh like run_install and report it as a check that it succeeds, showing its output if not.
@@ -411,7 +413,7 @@ test_checkout_location() {
     "with ~/dotfiles linked to a checkout named not-dotfiles"
 }
 
-# --dry-run must succeed and leave the home untouched, for install, reinstall and uninstall.
+# --dry-run must succeed and leave the home untouched, for install, reinstall, uninstall and capture.
 test_dry_run() {
   local setup="$1" flags=() feature mode before skipped="" announced="" features honor_dry_run
   f_call setup_info features honor_dry_run=dry_run_features -- "$setup"
@@ -428,7 +430,7 @@ test_dry_run() {
   local home
   f_call new_home home
   before="$(snapshot "$home")"
-  for mode in "" --reinstall --uninstall; do
+  for mode in "" --reinstall --uninstall --capture; do
     install_ok "$home" --os "${setup%/*}" --profile "${setup#*/}" --dry-run ${mode:+"$mode"} "${flags[@]}" || true
   done
   check_unchanged "home unchanged" "$before" "$(snapshot "$home")"
@@ -801,6 +803,65 @@ test_f_call() {
     'f() { f_return "=1"; }; ! (f_call f a) && f() { f_return _a; } && ! (f_call f a)'
 }
 
+# --capture --dconf writes the keys DCONF_CAPTURE selects from dconf into dump/dconf/arch.dconf, with paths under the home
+# directory written as ${HOME}/...: here one selected key, one left out with ! and one in a directory it doesn't select.
+test_capture_dconf() {
+  local home saved="$SCRATCH/arch.dconf.saved" file="$REPO_ROOT/dump/dconf/arch.dconf" expected
+  info "capture: dconf writes the selected keys into dump/dconf/arch.dconf"
+  f_call new_home home
+  mkdir -p "$home/keyfile" "$home/.config/dconf"
+  printf '%s\n' '[org/gnome/desktop/peripherals/keyboard]' 'delay=uint32 123' '' \
+    '[org/gnome/desktop/input-sources]' "mru-sources=[('xkb', 'us')]" '' \
+    '[org/gnome/desktop/screensaver]' "picture-uri='file://$home/wallpaper.jpg'" '' \
+    '[org/gnome/desktop/notifications]' "application-children=['app']" > "$home/keyfile/settings"
+  # Compiled straight into the user database, so no session bus is needed.
+  dconf compile "$home/.config/dconf/user" "$home/keyfile"
+  expected="$(printf '%s\n' '[org/gnome/desktop/peripherals/keyboard]' 'delay=uint32 123' '' \
+    '[org/gnome/desktop/screensaver]' "picture-uri='file://\${HOME}/wallpaper.jpg'")"
+  cp "$file" "$saved"
+  install_ok "$home" --variant arch --capture --dconf --dry-run \
+    && check "  ...--dry-run leaves arch.dconf alone" cmp -s "$saved" "$file"
+  install_ok "$home" --variant arch --capture --dconf \
+    && check "  ...arch.dconf holds just the selected keys, with \${HOME}" [ "$(cat "$file")" = "$expected" ]
+  cp "$saved" "$file"
+}
+
+# --capture --kde writes home/.config/kcminputrc from ~/.config/kcminputrc, keeping the groups KDE_CAPTURE selects:
+# here [Keyboard], and not [Mouse]. Needs no KDE tools, so it runs everywhere.
+test_capture_kde() {
+  local dir="$SCRATCH/kde.saved" file="$REPO_ROOT/home/.config/kcminputrc" nested="$REPO_ROOT/home/.config/powerdevilrc"
+  local home expected expected_nested
+  info "capture: kde writes the selected keys of ~/.config files into home/.config, nested groups included"
+  f_call new_home home
+  mkdir -p "$home/.config" "$dir"
+  printf '%s\n' '[Keyboard]' 'NumLock=0' 'RepeatDelay=123' '' '[Mouse]' 'X11LibInputXAccelProfileFlat=true' \
+    > "$home/.config/kcminputrc"
+  printf '%s\n' '[AC][SuspendAndShutdown]' 'LidAction=64' 'PowerButtonAction=16' '' '[AC][Display]' 'DimDisplayWhenIdle=true' \
+    > "$home/.config/powerdevilrc"
+  expected="$(printf '%s\n' '[Keyboard]' 'NumLock=0' 'RepeatDelay=123')"
+  expected_nested="$(printf '%s\n' '[AC][SuspendAndShutdown]' 'LidAction=64')"
+  cp "$file" "$dir/kcminputrc"
+  cp "$nested" "$dir/powerdevilrc"
+  install_ok "$home" --variant steamos --capture --kde --dry-run \
+    && check "  ...--dry-run leaves the files alone" cmp -s "$dir/kcminputrc" "$file" \
+    && check "  ...--dry-run leaves the nested one alone" cmp -s "$dir/powerdevilrc" "$nested"
+  install_ok "$home" --variant steamos --capture --kde \
+    && check "  ...kcminputrc holds just the selected group" [ "$(cat "$file")" = "$expected" ] \
+    && check "  ...powerdevilrc holds just the selected key of the nested group" [ "$(cat "$nested")" = "$expected_nested" ]
+  cp "$dir/kcminputrc" "$file"
+  cp "$dir/powerdevilrc" "$nested"
+}
+
+# --capture copies settings from this system into the repo's files.
+test_capture() {
+  test_capture_kde
+  if command -v dconf >/dev/null; then
+    test_capture_dconf
+  else
+    warn "dconf not found; skipping the dconf capture test"
+  fi
+}
+
 # Run download_verified with DOWNLOAD_CACHE $1 and the remaining args (url, sha256, out) in a fresh bash, its output
 # going to LOG. Returns its status.
 download_with_cache() {
@@ -855,6 +916,7 @@ main() {
   test_oti
   test_machine
   test_steam
+  test_capture
   test_download_cache
   test_f_call
   test_env_sh
