@@ -4,7 +4,7 @@
 HISTFILE=~/.zhistory
 HISTSIZE=10000
 SAVEHIST=10000
-WORDCHARS=${WORDCHARS//\/[&.;]}                                 # Don't consider certain characters as words
+WORDCHARS=${WORDCHARS//[\/&.;]}                                 # Don't consider certain characters as words
 ZLE_RPROMPT_INDENT=0                                            # No space after right prompt
 typeset -U path                                                 # Remove duplicates in path/PATH
 
@@ -15,7 +15,6 @@ setopt rcexpandparam                                            # Array expensio
 setopt nocheckjobs                                              # Don't warn about running processes when exiting
 setopt numericglobsort                                          # Sort filenames numerically when it makes sense
 setopt nobeep                                                   # No beep
-setopt appendhistory                                            # Immediately append history instead of overwriting
 setopt histignorealldups                                        # If a new command is a duplicate, remove the older one
 setopt inc_append_history                                       # save commands are added to the history immediately, otherwise only when shell exits.
 setopt histignorespace                                          # Don't save commands that start with space
@@ -31,5 +30,12 @@ zstyle ':completion:*' use-cache on
 zstyle ':completion:*' cache-path ~/.zsh/cache
 
 autoload -Uz compinit colors                                    # Autoload these zsh functions when called
-compinit -d                                                     # Initialize zsh completion
+# Initialize zsh completion. Skip the security audit and cache check (-C) unless the dump is missing or over a day old
+zcompdump="$HOME/.zcompdump"
+if [[ -n $zcompdump(#qN.mh-24) ]]; then
+  compinit -C -d "$zcompdump"
+else
+  compinit -d "$zcompdump"
+fi
+unset zcompdump
 colors                                                          # Activate color-coding for completion
