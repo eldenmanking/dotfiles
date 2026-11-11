@@ -37,9 +37,10 @@ ARCH_CHROOT_ZONEINFO=/usr/share/zoneinfo
 ARCH_CHROOT_LOCALES=/usr/share/i18n/SUPPORTED
 ARCH_CHROOT_KEYMAPS=/usr/share/kbd/keymaps
 
-# Sets _description for --help.
+# Returns description for --help.
 oti_config_arch_chroot() {
-  _description="install Arch Linux from the live ISO onto a blank disk (btrfs, GRUB), asking everything up front"
+  f_return \
+    description="install Arch Linux from the live ISO onto a blank disk (btrfs, GRUB), asking everything up front"
 }
 
 # --- Pure helpers ---
@@ -203,10 +204,10 @@ arch_chroot_laid_out() {
     && "$(probe blkid -o value -s TYPE "$(arch_chroot_partition "$disk" 2)" || true)" == btrfs ]]
 }
 
-# Outputs what an earlier run left in $ARCH_CHROOT_ROOT, each empty when it isn't there: _root_part and _esp (the
-# partitions mounted at it and at its /efi), _swap_part and _swap_size (the swap partition, or none, and the swap
-# file's size in GiB, 0 for none; settled once its fstab is written), _timezone, _locale, _keymap, _hostname and _user
-# (uid 1000); and _root_password and _user_password, true when set.
+# Outputs what an earlier run left in $ARCH_CHROOT_ROOT, each empty when it isn't there: root_part and esp (the
+# partitions mounted at it and at its /efi), swap_part and swap_size (the swap partition, or none, and the swap
+# file's size in GiB, 0 for none; settled once its fstab is written), timezone, locale, keymap, hostname and user
+# (uid 1000); and root_password and user_password, true when set.
 arch_chroot_installed() {
   local root="$ARCH_CHROOT_ROOT" root_part="" esp="" swap_part="" swap_size="" swap_uuid tz="" user="" root_pw=false
   local user_pw=false
@@ -228,17 +229,18 @@ arch_chroot_installed() {
   user="$(awk -F: '$3 == 1000 { print $1; exit }' "$root/etc/passwd" 2>/dev/null || true)"
   ! arch_chroot_has_password "$root/etc/shadow" root || root_pw=true
   [[ -z "$user" ]] || ! arch_chroot_has_password "$root/etc/shadow" "$user" || user_pw=true
-  _root_part="$root_part"
-  _esp="$esp"
-  _swap_part="$swap_part"
-  _swap_size="$swap_size"
-  _timezone="$tz"
-  _locale="$(sed -n 's/^LANG=//p' "$root/etc/locale.conf" 2>/dev/null || true)"
-  _keymap="$(sed -n 's/^KEYMAP=//p' "$root/etc/vconsole.conf" 2>/dev/null || true)"
-  _hostname="$(cat "$root/etc/hostname" 2>/dev/null || true)"
-  _user="$user"
-  _root_password="$root_pw"
-  _user_password="$user_pw"
+  f_return \
+    root_part \
+    esp \
+    swap_part \
+    swap_size \
+    timezone="$tz" \
+    locale="$(sed -n 's/^LANG=//p' "$root/etc/locale.conf" 2>/dev/null || true)" \
+    keymap="$(sed -n 's/^KEYMAP=//p' "$root/etc/vconsole.conf" 2>/dev/null || true)" \
+    hostname="$(cat "$root/etc/hostname" 2>/dev/null || true)" \
+    user \
+    root_password="$root_pw" \
+    user_password="$user_pw"
 }
 
 # --- Asking ---
@@ -562,11 +564,8 @@ oti_arch_chroot() {
   arch_chroot_preflight || return 1
   live="$(arch_chroot_live_disk)"
 
-  f_write_args arch_chroot_installed _root_part _esp _swap_part _swap_size _timezone _locale _keymap _hostname _user \
-    _root_password _user_password
-  root_part="$_root_part" esp="$_esp" swap_part="$_swap_part" swap_size="$_swap_size" timezone="$_timezone"
-  locale="$_locale" keymap="$_keymap" hostname="$_hostname" user="$_user" root_has="$_root_password"
-  user_has="$_user_password"
+  f_call arch_chroot_installed root_part esp swap_part swap_size timezone locale keymap hostname user \
+    root_has=root_password user_has=user_password
 
   if [[ -n "$root_part" ]]; then
     # Resuming with the system mounted: it was a whole disk if that holds just the EFI system and root partitions.

@@ -11,11 +11,11 @@ UDEV_RULES_DST="/etc/udev/rules.d"
 # @os linux
 # @gui any
 feature_udev() {
-  local targets
+  local targets changed
   targets="$(system_file_targets "$DOTFILES_ROOT/$UDEV_RULES_SRC" '*.rules' "$UDEV_RULES_DST")"
   keep_across_steamos_updates udev $targets
-  f_write_args copy_system_files _changed -- "$DOTFILES_ROOT/$UDEV_RULES_SRC" "$UDEV_RULES_DST" '*.rules'
-  [[ -n "$_changed" ]] || return 0
+  f_call copy_system_files changed -- "$DOTFILES_ROOT/$UDEV_RULES_SRC" "$UDEV_RULES_DST" '*.rules'
+  [[ -n "$changed" ]] || return 0
 
   info "Reloading udev rules..."
   run sudo udevadm control --reload

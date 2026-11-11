@@ -18,16 +18,17 @@ GAMESCOPE_SCREENSHOT_ENABLED=(gamescope-screenshot.service keyboard-rescan.path)
 # @gui any
 # @requires link
 feature_gamescope_screenshot() {
+  local changed
   keep_across_steamos_updates gamescope_screenshot $(unit_keep_paths "$USER_UNITS_DIR" \
     "$GAMESCOPE_SCREENSHOT_UNITS_SRC" "${GAMESCOPE_SCREENSHOT_UNITS[@]}")
-  f_write_args install_user_units _changed -- --global "$GAMESCOPE_SCREENSHOT_UNITS_SRC" \
+  f_call install_user_units changed -- --global "$GAMESCOPE_SCREENSHOT_UNITS_SRC" \
     "${GAMESCOPE_SCREENSHOT_UNITS[@]}"
 
   if ! systemctl --user is-active --quiet gamescope-session.target 2>/dev/null; then
     info "gamescope-screenshot.service starts with Gaming Mode."
     return
   fi
-  if [[ -n "$_changed" ]]; then
+  if [[ -n "$changed" ]]; then
     run systemctl --user restart "${GAMESCOPE_SCREENSHOT_ENABLED[@]}"
   else
     run systemctl --user start "${GAMESCOPE_SCREENSHOT_ENABLED[@]}"
@@ -38,6 +39,6 @@ feature_gamescope_screenshot() {
 
 # Stop the screenshot watch and remove its units and their enablement links. Screenshots already taken are kept.
 uninstall_feature_gamescope_screenshot() {
-  f_write_args uninstall_user_units _removed -- --global "${GAMESCOPE_SCREENSHOT_UNITS[@]}"
+  uninstall_user_units --global "${GAMESCOPE_SCREENSHOT_UNITS[@]}"
   forget_across_steamos_updates gamescope_screenshot
 }

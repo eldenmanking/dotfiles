@@ -19,16 +19,16 @@ TTYD_BIN="$LOCAL_BIN/ttyd"
 # Pinned static ttyd release asset and its SHA-256 for this machine.
 ttyd_asset() {
   case "$(uname -m)" in
-    x86_64)  _asset=ttyd.x86_64  _sha256=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55 ;;
-    aarch64) _asset=ttyd.aarch64 _sha256=b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165 ;;
+    x86_64)  f_return asset=ttyd.x86_64  sha256=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55 ;;
+    aarch64) f_return asset=ttyd.aarch64 sha256=b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165 ;;
     *)       error "no ttyd build pinned for $(uname -m)" ;;
   esac
 }
 
 # Download the pinned ttyd to ~/.local/bin/ttyd, next to the linked webterm scripts, unless it is already there.
 install_ttyd() {
-  f_write_args ttyd_asset _asset _sha256
-  local asset="$_asset" sha256="$_sha256"
+  local asset sha256
+  f_call ttyd_asset asset sha256
 
   if [[ -x "$TTYD_BIN" ]] && sha256_matches "$TTYD_BIN" "$sha256"; then
     info "ttyd $TTYD_VERSION already present: $TTYD_BIN"
@@ -92,7 +92,7 @@ check_socket_activation() {
 # @gui any
 # @requires link
 feature_webterm() {
-  local token url
+  local token url changed
   require_commands curl sha256sum systemctl
   has_user_session || error "no systemd user session (log in graphically or via ssh, not su/sudo)"
   [[ -x "$WEBTERM_PROXYD" ]] || error "$WEBTERM_PROXYD not found"
@@ -104,11 +104,11 @@ feature_webterm() {
   token="$(webterm_token)"
   save_token "$token"
   keep_across_steamos_updates webterm $(unit_keep_paths "$USER_UNITS_DIR" "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}")
-  f_write_args install_user_units _changed -- --global "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
+  f_call install_user_units changed -- --global "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
 
   # A socket that is already listening keeps its old address until restarted. Restarting it stops the services too
   # (they require it); the next visit starts them again.
-  if [[ " $_changed " == *" webterm.socket "* ]]; then
+  if [[ " $changed " == *" webterm.socket "* ]]; then
     run systemctl --user restart webterm.socket
   else
     run systemctl --user start webterm.socket
@@ -125,7 +125,7 @@ feature_webterm() {
 
 # Stop webterm and remove its units, their enable links, ttyd and the page it built. The URL token is kept.
 uninstall_feature_webterm() {
-  f_write_args uninstall_user_units _removed -- --global "${WEBTERM_UNITS[@]}"
+  uninstall_user_units --global "${WEBTERM_UNITS[@]}"
   forget_across_steamos_updates webterm
   if [[ -e "$TTYD_BIN" ]]; then
     run rm -f "$TTYD_BIN"

@@ -11,11 +11,11 @@ LOGIND_DST="/etc/systemd/logind.conf.d"
 # @os linux
 # @gui any
 feature_logind() {
-  local targets
+  local targets changed
   targets="$(system_file_targets "$DOTFILES_ROOT/$LOGIND_SRC" '*.conf' "$LOGIND_DST")"
   keep_across_steamos_updates logind $targets
-  f_write_args copy_system_files _changed -- "$DOTFILES_ROOT/$LOGIND_SRC" "$LOGIND_DST" '*.conf'
-  [[ -n "$_changed" ]] || return 0
+  f_call copy_system_files changed -- "$DOTFILES_ROOT/$LOGIND_SRC" "$LOGIND_DST" '*.conf'
+  [[ -n "$changed" ]] || return 0
 
   info "Reloading systemd-logind..."
   run sudo systemctl reload systemd-logind

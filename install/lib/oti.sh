@@ -14,7 +14,7 @@ oti_exists() {
   [[ -n "$1" ]] && declare -F "$(oti_function "$1")" >/dev/null
 }
 
-# Call oti_config_<name>, which sets _description.
+# Call oti_config_<name>, which returns description.
 oti_config() {
   oti_exists "$1" || error "Unknown one-time install '$1'"
   "oti_config_${1//-/_}"
