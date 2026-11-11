@@ -116,7 +116,7 @@ extract_steamos_vm_boot() {
 # script (steamos_vm_setup_script) and powers off, then check its serial log for the done marker. Takes about a minute;
 # the log is $STEAMOS_VM_INSTALL_LOG.
 install_steamos_vm_disk() {
-  local waited=0 size
+  local end size
   if [[ -f "$STEAMOS_VM_DISK" ]]; then
     info "$STEAMOS_VM_DISK already exists (use --reinstall to recreate it)"
     return
@@ -148,13 +148,13 @@ install_steamos_vm_disk() {
     rm -f "$STEAMOS_VM_DISK" "$STEAMOS_VM_OVERLAY" "$STEAMOS_VM_SETUP"
     return 1
   fi
+  end=$(( SECONDS + STEAMOS_VM_INSTALL_TIMEOUT ))
   while [[ -n "$(steamos_vm_state "$STEAMOS_VM_INSTALLER")" ]]; do
-    if (( waited >= STEAMOS_VM_INSTALL_TIMEOUT )); then
+    if (( SECONDS >= end )); then
       steamos_vm_virsh destroy "$STEAMOS_VM_INSTALLER" &>/dev/null
       break
     fi
     sleep 5
-    waited=$(( waited + 5 ))
   done
   # The installer's UEFI variables, kept by libvirt, would carry its boot entries into the next install.
   rm -f "$STEAMOS_VM_OVERLAY" "$STEAMOS_VM_SETUP" "$STEAMOS_VM_INSTALLER_NVRAM"
