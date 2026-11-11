@@ -10,7 +10,7 @@
 ## Fix 1 (disable I2C wake)
 > **Possibly redundant, candidate for removal.** The wake blamed on the touchpad (IRQ 7, GPIO) may really have been embedded controller wakes delivered through a GPIO pin, which [Fix 2](#fix-2-disable-embedded-controller-wake) now stops. Keep this rule until a sleep test with it removed (see [Undo fix 1](#undo-fix-1)) confirms sleep stays fixed, then delete it.
 
-The rule disables wake for every I2C device that has it enabled. On this laptop that is only the touchpad: the built-in and external keyboards are USB, so they are unaffected.
+The rule disables wake for the touchpad's I2C device (`PIXA3854:*`). It was the only I2C device with wake enabled; the built-in and external keyboards are USB, so they are unaffected.
 
 Rule file: `root/etc/udev/rules.d/90-touchpad-nowake.rules`, installed to `/etc/udev/rules.d/` with:
 ```sh

@@ -6,12 +6,14 @@
 #              clipboard. Prefers native clipboard tools (pbcopy / wl-copy /
 #              xclip / xsel) and falls back to OSC 52 escape sequences with
 #              tmux DCS passthrough when none are available.
-# Location: /usr/local/bin/clip
+# Location: ~/.local/bin/clip
 ################################################################################
 
 set -euo pipefail
+umask 077
 
-CLIP_FILE="/tmp/clip.50eb42db-6835-4960-89dd-3813a9adeec3"
+# Private to the user: the runtime dir is mode 700 (macOS TMPDIR is per-user too), and umask 077 makes the file 600.
+CLIP_FILE="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/clip.$(id -u)"
 CLIP_HOST_FILE="$HOME/.cache/clip.last_host"
 
 # Print a message on stderr, tagged [clip].
@@ -31,7 +33,7 @@ $CLIP_FILE so the payload is recoverable (e.g. for clip -r from
 another machine).
 
 Options:
-  -r [HOST]   Pull HOST:$CLIP_FILE into the local clipboard via scp.
+  -r [HOST]   Pull HOST's clip file into the local clipboard via ssh.
               HOST defaults to the last -r host (remembered in
               $CLIP_HOST_FILE).
   -h          Show this help.
@@ -56,10 +58,16 @@ copy_to_clipboard() {
         wl-copy < "$CLIP_FILE"
     elif command -v xclip >/dev/null 2>&1; then
         log "using xclip"
+        local copied=0 s
         for s in /tmp/.X11-unix/X*; do
             [ -S "$s" ] || continue
             DISPLAY=":${s##*/X}" xclip -selection clipboard -in < "$CLIP_FILE"
+            copied=1
         done
+        if [ "$copied" = 0 ]; then
+            log "no X server found, using OSC 52"
+            copy_via_osc52
+        fi
     elif command -v xsel >/dev/null 2>&1; then
         log "using xsel"
         xsel --clipboard --input < "$CLIP_FILE"
@@ -103,13 +111,11 @@ remote_pull() {
         printf '%s\n' "$host" > "$CLIP_HOST_FILE"
     fi
     log "pulling clip from $host"
-    mkdir -p "$(dirname "$CLIP_FILE")"
-    scp -q "$host:$CLIP_FILE" "$CLIP_FILE"
+    # The remote shell works out the remote path (its runtime dir and uid may differ from ours).
+    ssh -- "$host" 'cat "${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/clip.$(id -u)"' > "$CLIP_FILE"
     log "received $(wc -c < "$CLIP_FILE") bytes"
     copy_to_clipboard
 }
-
-mkdir -p "$(dirname "$CLIP_FILE")"
 
 case "${1:-}" in
     -h|--help)

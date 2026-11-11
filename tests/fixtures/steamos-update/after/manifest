@@ -17,9 +17,9 @@ new     /etc/systemd/system/hibernate.target.wants/hdmi-audio-fix.service l 777 
 new     /etc/systemd/system/hybrid-sleep.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
 new     /etc/systemd/system/multi-user.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
 new     /etc/systemd/system/multi-user.target.wants/orei-switch-boot.service l 777 root:root -> /etc/systemd/system/orei-switch-boot.service
-new     /etc/systemd/system/orei-switch-boot.service f 644 root:root 3511f52781077efd
-new     /etc/systemd/system/orei-switch-poweroff.service f 644 root:root c601bc26ae6abf27
-new     /etc/systemd/system/orei-switch.service f 644 root:root 730ffcbd84068139
+new     /etc/systemd/system/orei-switch-boot.service f 644 root:root c0ae9a8636ddfb33
+new     /etc/systemd/system/orei-switch-poweroff.service f 644 root:root d4263c84c011eefe
+new     /etc/systemd/system/orei-switch.service f 644 root:root c30aa1ac2d9091f4
 new     /etc/systemd/system/poweroff.target.wants/orei-switch-poweroff.service l 777 root:root -> /etc/systemd/system/orei-switch-poweroff.service
 new     /etc/systemd/system/sleep.target.wants/orei-switch.service l 777 root:root -> /etc/systemd/system/orei-switch.service
 new     /etc/systemd/system/suspend-then-hibernate.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
@@ -34,10 +34,10 @@ new     /etc/systemd/user/gamescope-session.target.wants/keyboard-rescan.path l 
 new     /etc/systemd/user/keyboard-rescan.path f 644 root:root d5b9b372265f7eb8
 new     /etc/systemd/user/keyboard-rescan.service f 644 root:root 56caf1ae2044bfea
 kept    /etc/tmpfiles.d d 755 root:root
-new     /etc/tmpfiles.d/ec-no-wakeup.conf f 644 root:root 118538e1b5e90f59
+new     /etc/tmpfiles.d/ec-no-wakeup.conf f 644 root:root bf8bd7cf2478b78e
 kept    /etc/udev/rules.d d 755 root:root
 new     /etc/udev/rules.d/90-egpu-no-runpm.rules f 644 root:root 480368f152b8ae33
-new     /etc/udev/rules.d/90-touchpad-nowake.rules f 644 root:root 326d5ab0b866125c
+new     /etc/udev/rules.d/90-touchpad-nowake.rules f 644 root:root 4a8469761065f928
 kept    ~ d 700 user
 new     ~/.bash_profile l 777 user -> ~/dotfiles/home/.bash_profile
 changed ~/.bashrc l 777 user -> ~/dotfiles/home/.bashrc (was f 644 user 5fa7909bc6221303)
