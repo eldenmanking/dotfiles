@@ -100,26 +100,15 @@ steamos_vm_render_node() {
   done
 }
 
-# Print a string escaped for XML text and attribute values.
-steamos_vm_xml_escape() {
-  local s="$1"
-  s="${s//&/&amp;}"
-  s="${s//</&lt;}"
-  s="${s//>/&gt;}"
-  s="${s//\'/&apos;}"
-  printf '%s' "$s"
-}
-
 # Print the libvirt domain XML of the VM: UEFI without Secure Boot, the disk on NVMe as on a Steam Deck (SteamOS's
 # installer and tools expect /dev/nvme0n1), virtio-gpu with DRM native context on the given render node, a serial
-# console and the guest agent's virtio-serial port. Its SMBIOS system vendor and product are the host's, so DMI checks
-# in the guest (install.sh --infer's machine, the machine features) see the machine the VM stands in for. No CPU
-# topology: 2 threads per core would need the topoext CPU feature, which QEMU warns AMD hosts don't pass through.
-#   $1: render node, $2: DMI system vendor, $3: DMI product name
+# console and the guest agent's virtio-serial port. It keeps QEMU's own DMI identity rather than the host's: with the
+# Framework's, framework_tool (orei_switch) polls for an embedded controller the VM doesn't have, and the boot waits on
+# it. No CPU topology: 2 threads per core would need the topoext CPU feature, which QEMU warns AMD hosts don't pass
+# through.
+#   $1: render node
 steamos_vm_domain_xml() {
-  local render="$1" vendor product
-  vendor="$(steamos_vm_xml_escape "$2")"
-  product="$(steamos_vm_xml_escape "$3")"
+  local render="$1"
   cat <<EOF
 <domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
   <name>$STEAMOS_VM_NAME</name>
@@ -134,14 +123,7 @@ steamos_vm_domain_xml() {
       <feature enabled='no' name='secure-boot'/>
     </firmware>
     <bootmenu enable='yes'/>
-    <smbios mode='sysinfo'/>
   </os>
-  <sysinfo type='smbios'>
-    <system>
-      <entry name='manufacturer'>$vendor</entry>
-      <entry name='product'>$product</entry>
-    </system>
-  </sysinfo>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough' check='none'/>
   <clock offset='utc'/>
@@ -344,10 +326,9 @@ steamos_vm_rootfs_extent() {
   sfdisk -d "$1" | sed -n 's/.*start= *\([0-9]*\), size= *\([0-9]*\),.*name="rootfs-A".*/\1 \2/p'
 }
 
-# Print the VM's domain XML for this host as it is now: its render node (see steamos_vm_render_node) and DMI identity.
+# Print the VM's domain XML for this host as it is now, with its render node (see steamos_vm_render_node).
 steamos_vm_current_xml() {
-  steamos_vm_domain_xml "$(steamos_vm_render_node)" "$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null)" \
-    "$(cat /sys/class/dmi/id/product_name 2>/dev/null)"
+  steamos_vm_domain_xml "$(steamos_vm_render_node)"
 }
 
 # Define the VM with its domain XML for this host (steamos_vm_current_xml), replacing an earlier definition.
