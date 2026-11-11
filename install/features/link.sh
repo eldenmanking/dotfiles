@@ -22,7 +22,6 @@ LINK_SHELL_PATHS=(
 
 # Extra paths linked on steamos.
 LINK_STEAMOS_PATHS=(
-  home/.local/bin/gamescope-screenshot
   home/.local/bin/steamos-vm
   home/.local/bin/vm-usb
 )

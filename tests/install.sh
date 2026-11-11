@@ -551,6 +551,42 @@ test_install() {
   check_unchanged "nothing was written into the checkout" "$repo_before" "$(repo_status)"
 }
 
+# Run bash snippet $1 under INSTALL_BASH with the install/lib helpers hooks.sh uses loaded, from checkout $2, in
+# scratch home $3, under --dry-run. Its output goes to LOG.
+hooks_snippet() {
+  env -i HOME="$3" PATH="$PATH" "$INSTALL_BASH" -c 'set -euo pipefail
+    DOTFILES_ROOT="$0" DRY_RUN=true BACKUPS_ROOT="$0/.backup"
+    for f in output fn exec fs systemd hooks; do source "$0/install/lib/$f.sh"; done
+    '"$1" "$2" >"$LOG" 2>&1
+}
+
+# Declared features (install/lib/hooks.sh): the plan keeps what features declare, refuses two features installing the
+# same path, and --uninstall undoes what an install did.
+test_hooks() {
+  local home
+  info "hooks: declared features"
+  f_call new_home home
+  check "a block keeps backslashes, tabs and newlines" hooks_snippet '
+    content=$'"'"'a\\b\tc\nd'"'"'
+    declare_t() { hook_block "$HOME/f" "$content"; }
+    IFS=$'"'"'\t'"'"' read -r feature kind file encoded <<< "$(collect_plan t x y z)"
+    [[ "$feature $kind $file" == "t block $HOME/f" && "$(printf "%b" "$encoded")" == "$content" ]]' "$REPO_ROOT" "$home"
+  check "two features installing the same path are refused" hooks_snippet '
+    declare_a() { hook_link home/.tmux.conf; }
+    declare_b() { hook_link home/.tmux.conf; }
+    plan="$(collect_plan "a b" x y z)"
+    ! out="$( (check_plan "$plan") 2>&1)" && [[ "$out" == *"/.tmux.conf (a, b)"* ]]' "$REPO_ROOT" "$home"
+  check "hooks refuse to run outside a declare_ function" hooks_snippet '
+    ! out="$( (hook_link home/.tmux.conf) 2>&1)" && [[ "$out" == *"outside a declare_"* ]]' "$REPO_ROOT" "$home"
+
+  printf '# user line\n' > "$home/.bashrc"
+  install_ok "$home" --variant portable --shell || return
+  check "  ...wrote the shell block" grep -qxF "## feature shell" "$home/.bashrc"
+  install_ok "$home" --variant portable --uninstall --shell || return
+  check "  ...removed the shell block" sh -c '! grep -qxF "## feature shell" "$1"' sh "$home/.bashrc"
+  check "  ...kept the user's lines" grep -qxF "# user line" "$home/.bashrc"
+}
+
 # env.sh must be POSIX and safe to source more than once: a second source leaves PATH as it was.
 test_env_sh() {
   local shell env_sh="$REPO_ROOT/home/.config/sh/env.sh"
@@ -1074,6 +1110,7 @@ main() {
   test_lib_helpers
   test_tmpdir_and_pinned_clone
   test_f_call
+  test_hooks
   test_env_sh
   test_vm_usb
 

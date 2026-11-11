@@ -448,8 +448,11 @@ reverse_words() {
 # Run the enabled features ($3, already in the order of OS $1 with profile $2): install runs feature_<name> in order,
 # uninstall runs uninstall_feature_<name> (where defined) in reverse order, and reinstall does the uninstalls then
 # the installs. capture runs capture_feature_<name> instead. Each gets the OS, the profile and the enabled features.
+# Declared features (see install/lib/hooks.sh) are planned first, then undone or applied in their turn, and their
+# triggers, units and post steps run once at the end.
 run_features() {
-  local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" feature
+  local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" feature plan="" entries
+  local changed units removed triggered all_changed="" all_units="" posts="" nl=$'\n' tab=$'\t'
 
   info "Beginning dotfiles $mode (os: $os, profile: $profile, machine: $machine)..."
   if [[ "$mode" == capture ]]; then
@@ -457,16 +460,34 @@ run_features() {
       info "Capturing feature: $feature"
       "$(capture_function "$feature")" "$os" "$profile" "$enabled"
     done
+  else
+    plan="$(collect_plan "$enabled" "$os" "$profile" "$enabled")"
+    check_plan "$plan"
   fi
   if [[ "$mode" == uninstall || "$mode" == reinstall ]]; then
     for feature in $(reverse_words "$enabled"); do
       feature_uninstallable "$feature" || continue
       info "Uninstalling feature: $feature"
-      "$(uninstall_function "$feature")" "$os" "$profile" "$enabled"
+      if feature_declared "$feature"; then
+        f_call undo_entries removed triggered -- "$feature" "$(plan_entries "$feature" "$plan")"
+        [[ -z "$triggered" ]] || all_changed+="$triggered$nl"
+        run_post uninstall "$feature" "$os" "$profile" "$enabled" "${removed//$nl/ }"
+      else
+        "$(uninstall_function "$feature")" "$os" "$profile" "$enabled"
+      fi
     done
   fi
   if [[ "$mode" == install || "$mode" == reinstall ]]; then
     for feature in $enabled; do
+      if feature_declared "$feature"; then
+        info "Installing feature: $feature"
+        entries="$(plan_entries "$feature" "$plan")"
+        f_call apply_entries changed units -- "$feature" "$entries"
+        [[ -z "$changed" ]] || all_changed+="$changed$nl"
+        [[ -z "$units" ]] || all_units+="$units$nl"
+        posts+="$feature$tab${changed//$nl/ }$nl"
+        continue
+      fi
       if $DRY_RUN && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
         info "[dry-run] would run feature: $feature"
         continue
@@ -474,6 +495,11 @@ run_features() {
       "$(feature_function "$feature")" "$os" "$profile" "$enabled"
     done
   fi
+  run_triggers "$all_changed"
+  activate_units "$all_units"
+  while IFS="$tab" read -r feature changed <&4; do
+    [[ -z "$feature" ]] || run_post install "$feature" "$os" "$profile" "$enabled" "$changed"
+  done 4<<< "$posts"
   info "dotfiles $mode complete."
 }
 

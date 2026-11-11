@@ -36,7 +36,7 @@ feature_description() {
     steam)       echo "write Steam settings (game mode menu hotkeys) into localconfig.vdf, while Steam is closed" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units into /etc (browser shell on localhost)" ;;
     hdmi_audio_fix) echo "install hdmi-audio-fix.service into /etc (sudo): a socclk floor on the Framework 16 780M, for HDMI audio" ;;
-    gamescope_screenshot) echo "install systemd user units into /etc (sudo) that save a Gaming Mode screenshot on Print Screen or Shift+Meta+4" ;;
+    gamescope_screenshot) echo "link gamescope-screenshot and install systemd user units into /etc (sudo) that save a Gaming Mode screenshot on Print Screen or Shift+Meta+4" ;;
     kde)         echo "merge partial KDE config files (e.g. home/.config/kcminputrc) into ~/.config with kwriteconfig" ;;
     light_sleep) echo "install light-sleep into /etc (sudo): idle with the displays off instead of suspending while an eGPU is on the expansion bay" ;;
     orei_switch) echo "download framework_tool and install the OREI HDMI switch sleep/wake handoff into /etc (sudo)" ;;
@@ -50,8 +50,9 @@ FEATURE_MACHINES="any laptop framework16"
 FEATURE_OSES="any linux macos arch steamos"
 FEATURE_GUIS="any desktop gnome kde"
 
-# Outputs: doc, the comment block directly above feature $1's feature_<name> function in install/features, with
-# each line's leading '#' and one space removed. A feature's doc is a description, a bare '#' line, then its tags:
+# Outputs: doc, the comment block directly above feature $1's feature_<name> (or declare_<name>) function in
+# install/features, with each line's leading '#' and one space removed. A feature's doc is a description, a bare '#'
+# line, then its tags:
 #   # Install the thing for x.
 #   #
 #   # @machine any
@@ -59,7 +60,7 @@ FEATURE_GUIS="any desktop gnome kde"
 #   # @gui gnome
 feature_doc() {
   local fn line doc="" nl=$'\n' first=true
-  fn="$(feature_function "$1")"
+  fn="${1//-/_}"
   while IFS= read -r line; do
     line="${line#\#}"
     $first || doc+="$nl"
@@ -68,7 +69,7 @@ feature_doc() {
   done < <(awk -v fn="$fn" '
     FNR == 1 { block = "" }
     /^#/ { block = block $0 "\n"; next }
-    index($0, fn "()") == 1 { printf "%s", block; exit }
+    index($0, "feature_" fn "()") == 1 || index($0, "declare_" fn "()") == 1 { printf "%s", block; exit }
     { block = "" }
   ' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
   f_return doc
@@ -139,9 +140,10 @@ uninstall_function() {
   fn_name uninstall_feature_ "$1"
 }
 
-# Return 0 if feature $1 defines an uninstall function.
+# Return 0 if feature $1 can be uninstalled: it declares its changes (see install/lib/hooks.sh), which --uninstall
+# undoes, or defines an uninstall function.
 feature_uninstallable() {
-  fn_defined "$(uninstall_function "$1")"
+  fn_defined "$(fn_name declare_ "$1")" || fn_defined "$(uninstall_function "$1")"
 }
 
 # Features can define capture_feature_<name>, run by --capture to copy settings changed on this system (e.g. in a settings app)

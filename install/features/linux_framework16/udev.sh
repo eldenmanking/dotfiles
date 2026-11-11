@@ -4,18 +4,18 @@
 UDEV_RULES_SRC="root/etc/udev/rules.d"
 UDEV_RULES_DST="/etc/udev/rules.d"
 
-# Copy changed rules (replacing any old symlink), keep them across SteamOS updates, then reload udev and re-apply rules
-# to i2c devices.
+# Copy the udev rules into /etc (needs sudo), which reloads udev, then re-apply rules to i2c devices.
 #
 # @machine framework16
 # @os linux
 # @gui any
-feature_udev() {
-  local changed
-  f_call install_system_dir changed -- udev "$DOTFILES_ROOT/$UDEV_RULES_SRC" '*.rules' "$UDEV_RULES_DST"
-  [[ -n "$changed" ]] || return 0
+declare_udev() {
+  hook_files 644 "$UDEV_RULES_SRC" "$UDEV_RULES_DST" '*.rules'
+}
 
-  info "Reloading udev rules..."
-  run sudo udevadm control --reload
+# Re-apply the rules to i2c devices if any changed.
+post_udev() {
+  local changed="$4"
+  [[ -n "$changed" ]] || return 0
   run sudo udevadm trigger --subsystem-match=i2c
 }
