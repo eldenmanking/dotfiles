@@ -49,7 +49,7 @@ machine_for_dmi() {
   esac
 }
 
-# Outputs: _id and _id_like, the ID and ID_LIKE fields of os-release file $1, unquoted (empty if missing). The file is
+# Outputs: id and id_like, the ID and ID_LIKE fields of os-release file $1, unquoted (empty if missing). The file is
 # parsed rather than sourced, so it can't run anything.
 read_os_release() {
   local file="$1" line key value id="" id_like=""
@@ -65,29 +65,30 @@ read_os_release() {
       esac
     done < "$file"
   fi
-  _id="$id"
-  _id_like="$id_like"
+  f_return id id_like
 }
 
-# Outputs: _os and _machine, what this system looks like (_os is empty if no OS fits), _coder, true inside a Coder
-# workspace (for profile_for_system), and _reason, what they were inferred from, for messages. Reads uname,
+# Outputs: os and machine, what this system looks like (os is empty if no OS fits), coder, true inside a Coder
+# workspace (for profile_for_system), and reason, what they were inferred from, for messages. Reads uname,
 # OS_RELEASE_FILE, DMI_ID_DIR and the CODER variable that Coder sets in its workspaces.
 infer_system() {
-  local kernel vendor="" product="" coder=false
+  local kernel vendor="" product="" coder=false id id_like reason
   kernel="$(uname -s)"
   [[ "${CODER:-}" != true ]] || coder=true
-  f_write_args read_os_release _id _id_like -- "$OS_RELEASE_FILE"
+  f_call read_os_release id id_like -- "$OS_RELEASE_FILE"
   if [[ -r "$DMI_ID_DIR/sys_vendor" ]]; then
     vendor="$(cat "$DMI_ID_DIR/sys_vendor")"
     product="$(cat "$DMI_ID_DIR/product_name" 2>/dev/null || true)"
   fi
-  _os="$(os_for_system "$kernel" "$_id" "$_id_like" "$coder")"
-  _machine="$(machine_for_dmi "$vendor" "$product")"
-  _coder="$coder"
   if $coder; then
-    _reason="Coder workspace"
+    reason="Coder workspace"
   else
-    _reason="$kernel${_id:+ $_id}"
+    reason="$kernel${id:+ $id}"
   fi
-  _reason+="${vendor:+, $vendor${product:+ $product}}"
+  reason+="${vendor:+, $vendor${product:+ $product}}"
+  f_return \
+    os="$(os_for_system "$kernel" "$id" "$id_like" "$coder")" \
+    machine="$(machine_for_dmi "$vendor" "$product")" \
+    coder \
+    reason
 }

@@ -1,5 +1,5 @@
 # The arch OS with the desktop profile.
 variant_arch() {
-  _os="arch"
-  _profile="desktop"
+  f_return os="arch"
+  f_return profile="desktop"
 }

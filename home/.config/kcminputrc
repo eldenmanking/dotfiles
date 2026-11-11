@@ -1,5 +1,3 @@
-# Merged into ~/.config/kcminputrc key by key by the kde feature (not linked, since KDE rewrites the file).
-# Keyboard repeat: 300 ms delay, 10 ms interval (GNOME on Arch uses 200 ms, in dump/dconf/arch.dconf).
 [Keyboard]
 KeyRepeat=repeat
 RepeatDelay=300

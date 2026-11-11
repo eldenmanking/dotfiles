@@ -74,15 +74,17 @@ load_install_deps() {
 
 # Print feature $1's --help line, with the machines it is for and the features it requires.
 usage_feature() {
-  f_write_args feature_requirements _machine _os _gui _requires -- "$1"
-  [[ "$_machine" != any ]] || _machine=""
-  printf '  --%-14s %s%s%s\n' "$1" "$(feature_description "$1")" "${_machine:+ (machine: $_machine)}" \
-    "${_requires:+ (requires: --${_requires// / --})}"
+  local machine requires
+  f_call feature_requirements machine requires -- "$1"
+  [[ "$machine" != any ]] || machine=""
+  printf '  --%-14s %s%s%s\n' "$1" "$(feature_description "$1")" "${machine:+ (machine: $machine)}" \
+    "${requires:+ (requires: --${requires// / --})}"
 }
 
 # Print the variants, OSes and profiles, then the options of OS $1 with profile $2 on machine $3 if they can run.
 usage() {
-  local os="$1" profile="$2" machine="${3:-generic}" v features optional other="" uninstallable=""
+  local os="$1" profile="$2" machine="${3:-generic}" v features optional other="" uninstallable="" capturable=""
+  local variant_os variant_profile description os_machines feature_machine
   cat <<EOF
 Usage: $(basename "$0") [--variant NAME | --os NAME --profile NAME] [--machine NAME] [--infer] [OPTIONS]
        $(basename "$0") --oti NAME [--dry-run]
@@ -103,29 +105,27 @@ See README.md for more information.
 Variants:
 EOF
   for v in $(available_names variants); do
-    f_write_args variant_config _os _profile -- "$v"
-    printf '  %-10s --os %s --profile %s\n' "$v" "$_os" "$_profile"
+    f_call variant_config variant_os=os variant_profile=profile -- "$v"
+    printf '  %-10s --os %s --profile %s\n' "$v" "$variant_os" "$variant_profile"
   done
   printf '\nOSes (profiles; machines):\n'
   for v in $(available_names os); do
-    f_write_args os_config _description _machines -- "$v"
-    printf '  %-10s %s (%s; %s)\n' "$v" "$_description" "$(os_profiles "$v")" "$_machines"
+    f_call os_config description os_machines=machines -- "$v"
+    printf '  %-10s %s (%s; %s)\n' "$v" "$description" "$(os_profiles "$v")" "$os_machines"
   done
   printf '\nProfiles:\n'
   for v in $(available_names profiles); do
-    f_write_args profile_config _description -- "$v"
-    printf '  %-10s %s\n' "$v" "$_description"
+    f_call profile_config description -- "$v"
+    printf '  %-10s %s\n' "$v" "$description"
   done
   printf '\nOne-time installs (--oti NAME):\n'
   for v in $(available_names oti); do
-    f_write_args oti_config _description -- "$v"
-    printf '  %-12s %s\n' "$v" "$_description"
+    f_call oti_config description -- "$v"
+    printf '  %-12s %s\n' "$v" "$description"
   done
   os_supports_profile "$os" "$profile" || return 0
 
-  f_write_args os_profile_config _features _optional -- "$os" "$profile"
-  features="$_features"
-  optional="$_optional"
+  f_call os_profile_config features optional -- "$os" "$profile"
   cat <<EOF
 
 Options for OS '$os' with profile '$profile' on machine '$machine':
@@ -138,10 +138,11 @@ Options for OS '$os' with profile '$profile' on machine '$machine':
 EOF
   for v in $features; do
     feature_uninstallable "$v" && uninstallable+="${uninstallable:+ }$v"
-    f_write_args feature_requirements _machine _os _gui _requires -- "$v"
+    feature_capturable "$v" && capturable+="${capturable:+ }$v"
+    f_call feature_requirements feature_machine=machine -- "$v"
     if list_contains "$optional" "$v"; then
       continue
-    elif machine_supported "$_machine" "$machine"; then
+    elif machine_supported "$feature_machine" "$machine"; then
       usage_feature "$v"
     else
       other+="${other:+ }$v"
@@ -163,6 +164,9 @@ EOF
   if [[ -n "$uninstallable" ]]; then
     printf '  --%-14s %s (%s)\n' reinstall "uninstall the selected options, then install them" "$uninstallable"
     printf '  --%-14s %s (%s)\n' uninstall "uninstall the selected options" "$uninstallable"
+  fi
+  if [[ -n "$capturable" ]]; then
+    printf '  --%-14s %s (%s)\n' capture "capture the selected options' settings from this system into the repo" "$capturable"
   fi
   cat <<EOF
   --dry-run        print what would happen without making changes
@@ -203,9 +207,9 @@ parse_args() {
       --infer)     infer=true; shift ;;
       --all)       all=true; shift ;;
       --dry-run)   dry_run=true; shift ;;
-      --reinstall|--uninstall)
+      --reinstall|--uninstall|--capture)
         [[ "$mode" == install || "$mode" == "${1#--}" ]] \
-          || usage_error "--reinstall and --uninstall are mutually exclusive"
+          || usage_error "--reinstall, --uninstall and --capture are mutually exclusive"
         mode="${1#--}"
         shift
         ;;
@@ -215,20 +219,10 @@ parse_args() {
     esac
   done
 
-  _variant="$variant"
-  _os="$os"
-  _profile="$profile"
-  _machine="$machine"
-  _infer="$infer"
-  _flags="$flags"
-  _mode="$mode"
-  _all="$all"
-  _dry_run="$dry_run"
-  _help="$help"
-  _oti="$oti"
+  f_return variant os profile machine infer flags mode all dry_run help oti
 }
 
-# Outputs: _default_variant, _default_os, _default_profile, _default_machine and _default_features, from
+# Outputs: default_variant, default_os, default_profile, default_machine and default_features, from
 # DOTFILES_VARIANT, DOTFILES_OS, DOTFILES_PROFILE, DOTFILES_MACHINE and DOTFILES_FEATURES in the environment or, for
 # each one unset there, in config file $1. The file is sourced in a subshell so it can't change this shell's state.
 load_install_defaults() {
@@ -243,28 +237,28 @@ load_install_defaults() {
         "${DOTFILES_MACHINE:-}" "${DOTFILES_FEATURES:-}"
     ) || error "Could not read $conf"
   fi
-  _default_variant="${DOTFILES_VARIANT:-$file_variant}"
-  _default_os="${DOTFILES_OS:-$file_os}"
-  _default_profile="${DOTFILES_PROFILE:-$file_profile}"
-  _default_machine="${DOTFILES_MACHINE:-$file_machine}"
-  _default_features="${DOTFILES_FEATURES:-$file_features}"
+  f_return \
+    default_variant="${DOTFILES_VARIANT:-$file_variant}" \
+    default_os="${DOTFILES_OS:-$file_os}" \
+    default_profile="${DOTFILES_PROFILE:-$file_profile}" \
+    default_machine="${DOTFILES_MACHINE:-$file_machine}" \
+    default_features="${DOTFILES_FEATURES:-$file_features}"
 }
 
-# Outputs: _os and _profile, OS $2 and profile $3, with each one left empty filled in from variant $1 (if given).
+# Outputs: os and profile, OS $2 and profile $3, with each one left empty filled in from variant $1 (if given).
 variant_dimensions() {
-  local variant="$1" os="$2" profile="$3"
+  local variant="$1" os="$2" profile="$3" variant_os variant_profile
   if [[ -n "$variant" ]]; then
     variant_exists "$variant" \
       || usage_error "Unknown variant '$variant'. Available variants: $(available_names variants)"
-    f_write_args variant_config _os _profile -- "$variant"
-    [[ -n "$os" ]] || os="$_os"
-    [[ -n "$profile" ]] || profile="$_profile"
+    f_call variant_config variant_os=os variant_profile=profile -- "$variant"
+    [[ -n "$os" ]] || os="$variant_os"
+    [[ -n "$profile" ]] || profile="$variant_profile"
   fi
-  _os="$os"
-  _profile="$profile"
+  f_return os profile
 }
 
-# Outputs: _flags and _all, flags $1 and --all $2 with default features $4 (feature names, and all for --all) added
+# Outputs: flags and all, flags $1 and --all $2 with default features $4 (feature names, and all for --all) added
 # when the command line selects none, unless mode $3 is uninstall or the OS and profile to install for ($5, $6) aren't
 # the ones the defaults name ($7, $8; both empty when the defaults name none).
 apply_default_features() {
@@ -277,51 +271,48 @@ apply_default_features() {
       if [[ "$word" == all ]]; then all=true; else flags+="$word "; fi
     done
   fi
-  _flags="$flags"
-  _all="$all"
+  f_return flags all
 }
 
-# Outputs: _os, _profile and _machine to install for: OS $1, profile $2 and machine $3 as given (by options or
+# Outputs: os, profile and machine to install for: OS $1, profile $2 and machine $3 as given (by options or
 # defaults), with each one left empty inferred from this system when $4 (--infer) is true, to suit the given ones:
 # an OS that lacks the given profile becomes portable if that has it (portable runs anywhere), and a machine the OS
 # doesn't support becomes generic. Without --infer, an empty machine is generic and an empty OS or profile stays
 # empty, for exit_with_usage_unless_runnable to report.
 resolve_dimensions() {
-  local os="$1" profile="$2" machine="$3" infer="$4" inferred=""
+  local os="$1" profile="$2" machine="$3" infer="$4" inferred="" system_os system_machine coder reason os_machines
   if $infer && [[ -z "$os" || -z "$profile" || -z "$machine" ]]; then
-    f_write_args infer_system _os _machine _coder _reason
+    f_call infer_system system_os=os system_machine=machine coder reason
     if [[ -z "$os" ]]; then
-      [[ -n "$_os" ]] || error "Could not infer an OS for this system ($_reason); pass --os or --variant"
-      os="$_os"
+      [[ -n "$system_os" ]] || error "Could not infer an OS for this system ($reason); pass --os or --variant"
+      os="$system_os"
       if [[ -n "$profile" ]] && ! os_supports_profile "$os" "$profile" && os_supports_profile portable "$profile"; then
         os=portable
       fi
       inferred+="OS '$os'"
     fi
     if [[ -z "$profile" ]]; then
-      profile="$(profile_for_system "$os" "$_coder")"
+      profile="$(profile_for_system "$os" "$coder")"
       inferred+="${inferred:+, }profile '$profile'"
     fi
     if [[ -z "$machine" ]]; then
-      machine="$_machine"
+      machine="$system_machine"
       if os_exists "$os"; then
-        f_write_args os_config _machines -- "$os"
-        list_contains "$_machines" "$machine" || machine=generic
+        f_call os_config os_machines=machines -- "$os"
+        list_contains "$os_machines" "$machine" || machine=generic
       fi
       inferred+="${inferred:+, }machine '$machine'"
     fi
-    info "Inferred $inferred from: $_reason"
+    info "Inferred $inferred from: $reason"
   fi
-  _os="$os"
-  _profile="$profile"
-  _machine="${machine:-generic}"
+  f_return os profile machine="${machine:-generic}"
 }
 
 # Print usage and exit unless OS $5 with profile $6 can run on machine $7: with no OS and profile, or with no
 # features selected ($1 flags, $2 --all) or --help ($3). Without an OS and profile this is an error unless --help was
 # given or there were no arguments ($4), as is an OS, profile or machine that doesn't exist or doesn't go together.
 exit_with_usage_unless_runnable() {
-  local flags="$1" all="$2" help="$3" no_args="$4" os="$5" profile="$6" machine="$7"
+  local flags="$1" all="$2" help="$3" no_args="$4" os="$5" profile="$6" machine="$7" os_machines
   list_contains "$MACHINES" "$machine" || usage_error "Unknown machine '$machine'. Available machines: $MACHINES"
   if [[ -z "$os" && -z "$profile" ]]; then
     $help || $no_args || usage_error "--variant, or --os and --profile, is required (or --infer)"
@@ -335,39 +326,44 @@ exit_with_usage_unless_runnable() {
   [[ -n "$profile" ]] || usage_error "--os $os needs --profile, one of: $(os_profiles "$os") (or --infer)"
   os_supports_profile "$os" "$profile" \
     || usage_error "OS '$os' has no profile '$profile'; it has: $(os_profiles "$os")"
-  f_write_args os_config _machines -- "$os"
-  list_contains "$_machines" "$machine" \
-    || usage_error "OS '$os' doesn't support machine '$machine'; it supports: $_machines"
+  f_call os_config os_machines=machines -- "$os"
+  list_contains "$os_machines" "$machine" \
+    || usage_error "OS '$os' doesn't support machine '$machine'; it supports: $os_machines"
   if $help || { [[ "$flags" == " " ]] && ! $all; }; then
     usage "$os" "$profile" "$machine"
     exit 0
   fi
 }
 
-# Outputs: _enabled, the selected features of OS $1 with profile $2 on machine $6. --all leaves out optional features
+# Outputs: enabled, the selected features of OS $1 with profile $2 on machine $6. --all leaves out optional features
 # and those whose @machine doesn't suit $6; named features run either way (with a warning for the latter). Under
-# --uninstall, features without an uninstall function are dropped (with a warning if named).
+# --uninstall, features without an uninstall function are dropped (with a warning if named), and under --capture those
+# without a capture function.
 resolve_features() {
   local os="$1" profile="$2" flags="$3" all="$4" mode="$5" machine="$6" features optional enabled=" " k default
+  local feature_machine
 
-  f_write_args os_profile_config _features _optional -- "$os" "$profile"
-  features="$_features"
-  optional="$_optional"
+  f_call os_profile_config features optional -- "$os" "$profile"
 
   for k in $flags; do
     list_contains "$features" "$k" \
       || usage_error "Unknown option for OS '$os' with profile '$profile': --$k" "$os" "$profile" "$machine"
   done
   for k in $features; do
-    f_write_args feature_requirements _machine _os _gui _requires -- "$k"
+    f_call feature_requirements feature_machine=machine -- "$k"
     default=false
-    if ! list_contains "$optional" "$k" && machine_supported "$_machine" "$machine"; then
+    if ! list_contains "$optional" "$k" && machine_supported "$feature_machine" "$machine"; then
       default=true
     elif list_contains "$flags" "$k" && ! list_contains "$optional" "$k"; then
-      warn "--$k is for machine $_machine, not $machine; running it since it was named"
+      warn "--$k is for machine $feature_machine, not $machine; running it since it was named"
     fi
     if list_contains "$flags" "$k" || { $all && $default; }; then
-      if [[ "$mode" != install ]] && ! feature_uninstallable "$k"; then
+      if [[ "$mode" == capture ]]; then
+        if ! feature_capturable "$k"; then
+          list_contains "$flags" "$k" && warn "--$k has no capture step; skipping it"
+          continue
+        fi
+      elif [[ "$mode" != install ]] && ! feature_uninstallable "$k"; then
         if list_contains "$flags" "$k"; then
           if [[ "$mode" == uninstall ]]; then
             warn "--$k has no uninstall step; skipping it"
@@ -381,7 +377,7 @@ resolve_features() {
     fi
   done
 
-  _enabled="$enabled"
+  f_return enabled
 }
 
 # Run one-time install $1 and exit, after checking that nothing else was asked for: --oti can't be combined with a
@@ -437,12 +433,11 @@ reverse_words() {
 
 # Run the enabled features in the order of OS $1 with profile $2: install runs feature_<name>, reinstall runs
 # uninstall_feature_<name> (if defined) then feature_<name>, and uninstall runs uninstall_feature_<name> in reverse
-# order. Each gets the OS, the profile and the enabled features.
+# order. capture runs capture_feature_<name> instead. Each gets the OS, the profile and the enabled features.
 run_features() {
   local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" features feature
 
-  f_write_args os_profile_config _features -- "$os" "$profile"
-  features="$_features"
+  f_call os_profile_config features -- "$os" "$profile"
   if [[ "$mode" == uninstall ]]; then
     features="$(reverse_words "$features")"
   fi
@@ -450,6 +445,11 @@ run_features() {
   info "Beginning dotfiles $mode (os: $os, profile: $profile, machine: $machine)..."
   for feature in $features; do
     list_contains "$enabled" "$feature" || continue
+    if [[ "$mode" == capture ]]; then
+      info "Capturing feature: $feature"
+      "$(capture_function "$feature")" "$os" "$profile" "$enabled"
+      continue
+    fi
     if [[ "$mode" != install ]] && feature_uninstallable "$feature"; then
       info "Uninstalling feature: $feature"
       "$(uninstall_function "$feature")" "$os" "$profile" "$enabled"
@@ -468,42 +468,35 @@ main() {
   bootstrap "$@"
   load_install_deps
 
-  local os profile machine default_os default_profile
-  f_write_args parse_args _variant _os _profile _machine _infer _flags _mode _all _dry_run _help _oti -- "$@"
-  readonly DRY_RUN="$_dry_run"
-  if [[ -n "$_oti" ]]; then
-    run_oti_and_exit "$_oti" "${_variant:+ --variant}${_os:+ --os}${_profile:+ --profile}${_machine:+ --machine}$(
-      $_infer && echo ' --infer')" "$_flags" "$_all" "$_mode" "$_help"
+  local variant os profile machine infer flags mode all dry_run help oti enabled
+  local default_variant default_os default_profile default_machine default_features
+  f_call parse_args variant os profile machine infer flags mode all dry_run help oti -- "$@"
+  readonly DRY_RUN="$dry_run"
+  if [[ -n "$oti" ]]; then
+    run_oti_and_exit "$oti" "${variant:+ --variant}${os:+ --os}${profile:+ --profile}${machine:+ --machine}$(
+      $infer && echo ' --infer')" "$flags" "$all" "$mode" "$help"
   fi
-  f_write_args variant_dimensions _os _profile -- "$_variant" "$_os" "$_profile"
-  os="$_os"
-  profile="$_profile"
-  machine="$_machine"
+  f_call variant_dimensions os profile -- "$variant" "$os" "$profile"
 
   # Each dimension the command line leaves out comes from the defaults, where DOTFILES_OS and DOTFILES_PROFILE override
   # DOTFILES_VARIANT's.
-  f_write_args load_install_defaults _default_variant _default_os _default_profile _default_machine _default_features \
+  f_call load_install_defaults default_variant default_os default_profile default_machine default_features \
     -- "$INSTALL_CONFIG"
-  f_write_args variant_dimensions _os _profile -- "$_default_variant" "$_default_os" "$_default_profile"
-  default_os="$_os"
-  default_profile="$_profile"
+  f_call variant_dimensions default_os=os default_profile=profile -- \
+    "$default_variant" "$default_os" "$default_profile"
   os="${os:-$default_os}"
   profile="${profile:-$default_profile}"
-  machine="${machine:-$_default_machine}"
-  f_write_args apply_default_features _flags _all -- \
-    "$_flags" "$_all" "$_mode" "$_default_features" "$os" "$profile" "$default_os" "$default_profile"
+  machine="${machine:-$default_machine}"
+  f_call apply_default_features flags all -- \
+    "$flags" "$all" "$mode" "$default_features" "$os" "$profile" "$default_os" "$default_profile"
 
-  # Copied out of _os, _profile and _machine, which feature_requirements and infer_system write too.
-  f_write_args resolve_dimensions _os _profile _machine -- "$os" "$profile" "$machine" "$_infer"
-  os="$_os"
-  profile="$_profile"
-  machine="$_machine"
-  exit_with_usage_unless_runnable "$_flags" "$_all" "$_help" "$([[ $# -eq 0 ]] && echo true || echo false)" \
+  f_call resolve_dimensions os profile machine -- "$os" "$profile" "$machine" "$infer"
+  exit_with_usage_unless_runnable "$flags" "$all" "$help" "$([[ $# -eq 0 ]] && echo true || echo false)" \
     "$os" "$profile" "$machine"
 
-  f_write_args resolve_features _enabled -- "$os" "$profile" "$_flags" "$_all" "$_mode" "$machine"
+  f_call resolve_features enabled -- "$os" "$profile" "$flags" "$all" "$mode" "$machine"
   enter_dotfiles_root
-  run_features "$os" "$profile" "$_enabled" "$_mode" "$machine"
+  run_features "$os" "$profile" "$enabled" "$mode" "$machine"
 }
 
 main "$@"

@@ -14,12 +14,11 @@ source "$LIB_DIR/exec.sh"
 
 VIRSH="flatpak run --command=virsh org.gnome.Boxes"
 
-# Reads the positional arguments into _pattern and _vm, falling back to defaults.
+# Reads the positional arguments into pattern and vm, falling back to defaults.
 #   $1: text to match in lsusb output (case-insensitive), default "logitech"
 #   $2: libvirt VM name, default "win11"; list with: flatpak run --command=virsh org.gnome.Boxes list --all
 parse_args() {
-  _pattern="${1:-logitech}"
-  _vm="${2:-win11}"
+  f_return pattern="${1:-logitech}" vm="${2:-win11}"
 }
 
 # Exits unless the VM is running.
@@ -56,7 +55,7 @@ xml() {
     "$((10#$bus))" "$((10#$dev))"
 }
 
-# Splits devices into those already attached to the VM (_attached) and those still to attach (_pending).
+# Splits devices into those already attached to the VM (attached) and those still to attach (pending).
 #   $1: VM name
 #   $2: space-separated "bus:dev" ids
 partition_devices() {
@@ -69,8 +68,7 @@ partition_devices() {
       pending+="${pending:+ }$id"
     fi
   done
-  _attached="$attached"
-  _pending="$pending"
+  f_return attached pending
 }
 
 # Attaches a USB device to the VM, returning non-zero on failure. The device node is temporarily chowned to $USER so
@@ -108,20 +106,16 @@ detach_on_exit() {
 }
 
 main() {
-  local pattern vm ids attached id
-  f_write_args parse_args _pattern _vm -- "$@"
-  pattern="$_pattern"
-  vm="$_vm"
+  local pattern vm ids attached pending id
+  f_call parse_args pattern vm -- "$@"
 
   require_vm_running "$vm"
   ids="$(find_devices "$pattern")" || exit 1
-  f_write_args partition_devices _attached _pending -- "$vm" "$ids"
-
-  attached="$_attached"
+  f_call partition_devices attached pending -- "$vm" "$ids"
   detach_on_exit "$vm" "$attached"
   trap 'exit 130' INT TERM
 
-  if [[ -z "$_pending" ]]; then
+  if [[ -z "$pending" ]]; then
     echo "All matching devices are already attached to '$vm':"
     describe "$ids"
     exit 0
@@ -129,10 +123,10 @@ main() {
 
   [[ -n "$attached" ]] && echo "Already attached (will be detached at the end): $(wc -w <<<"$attached") device(s)"
   echo "To attach:"
-  describe "$_pending"
+  describe "$pending"
   confirm "Attach these to '$vm'?" || exit 0
 
-  for id in $_pending; do
+  for id in $pending; do
     if attach_device "$vm" "$id"; then
       attached+="${attached:+ }$id"
       detach_on_exit "$vm" "$attached"

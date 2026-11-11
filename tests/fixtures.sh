@@ -36,9 +36,9 @@ CONTAINER_CMD="$(command -v docker || command -v podman || true)"
 # shellcheck disable=SC2088 # manifest paths, not ones to expand
 UNPINNED_FILES="~/.claude/settings.json ~/git/.claude/CLAUDE.md"
 
-# Outputs: _image, _args, _files, _root_files, _after_install and _run_with of fixture $1, read from its case.sh.
+# Outputs: image, args, files, root_files, after_install and run_with of fixture $1, read from its case.sh.
 case_config() {
-  local out
+  local out image args files root_files after_install run_with
   out="$(
     IMAGE="" ARGS="" FILES="$DEFAULT_FILES" ROOT_FILES="" AFTER_INSTALL="" RUN_WITH=""
     # shellcheck source=/dev/null
@@ -48,15 +48,16 @@ case_config() {
       "$RUN_WITH" .
   )"
   {
-    IFS= read -r _image
-    IFS= read -r _args
-    IFS= read -r _files
-    IFS= read -r _root_files
-    IFS= read -r _after_install
-    IFS= read -r _run_with
+    IFS= read -r image
+    IFS= read -r args
+    IFS= read -r files
+    IFS= read -r root_files
+    IFS= read -r after_install
+    IFS= read -r run_with
   } <<< "$out"
-  [[ -n "$_image" && -d "$IMAGES_DIR/$_image" ]] || error "$1/case.sh: IMAGE must name a directory in tests/images"
-  [[ -n "$_args" ]] || error "$1/case.sh: ARGS is empty"
+  [[ -n "$image" && -d "$IMAGES_DIR/$image" ]] || error "$1/case.sh: IMAGE must name a directory in tests/images"
+  [[ -n "$args" ]] || error "$1/case.sh: ARGS is empty"
+  f_return image args files root_files after_install run_with
 }
 
 # Print the name of every fixture.
@@ -282,9 +283,9 @@ run_install() {
 # results of the first install with after/, or with $2 = true, write them to fd 3 as a tar archive. Refuses to run
 # outside a container, since it changes ~ and /.
 run_inside() {
-  local name="$1" update="$2" dir="$FIXTURES_DIR/$1" scratch
+  local name="$1" update="$2" dir="$FIXTURES_DIR/$1" scratch image args files root_files after_install run_with
   [[ -f /.dockerenv || -f /run/.containerenv ]] || error "--inside changes ~ and /, so it only runs in a container"
-  f_write_args case_config _image _args _files _root_files _after_install _run_with -- "$name"
+  f_call case_config image args files root_files after_install run_with -- "$name"
   [[ "$(ls -A "$HOME")" == dotfiles ]] || error "the home must start out empty but for ~/dotfiles; check the image"
   scratch="$(mktemp -d)"
   if [[ -d "$dir/before/home" ]]; then
@@ -294,18 +295,18 @@ run_inside() {
     sudo cp -RP --no-preserve=ownership "$dir/before/root/." /
   fi
   # What the install starts from, to mark what it did. A symlink that already dangles is the fixture's business.
-  write_manifest "$scratch/before" "$_root_files" || true
+  write_manifest "$scratch/before" "$root_files" || true
 
-  run_install "$_args" "$_run_with"
-  if [[ -n "$_after_install" ]]; then
-    info "\$ $_after_install"
-    bash -c "$_after_install" 2>&1 | sed 's/^/       | /' || error "AFTER_INSTALL failed"
+  run_install "$args" "$run_with"
+  if [[ -n "$after_install" ]]; then
+    info "\$ $after_install"
+    bash -c "$after_install" 2>&1 | sed 's/^/       | /' || error "AFTER_INSTALL failed"
   fi
-  collect "$scratch/first" "$_files" "$_root_files" "$scratch/before"
-  run_install "$_args" "$_run_with"
-  collect "$scratch/second" "$_files" "$_root_files" "$scratch/before"
+  collect "$scratch/first" "$files" "$root_files" "$scratch/before"
+  run_install "$args" "$run_with"
+  collect "$scratch/second" "$files" "$root_files" "$scratch/before"
   compare_trees "$scratch/first" "$scratch/second" \
-    || error "the second install changed the files above${_after_install:+ (if the first install was idempotent, '$_after_install' undid part of it)}"
+    || error "the second install changed the files above${after_install:+ (if the first install was idempotent, '$after_install' undid part of it)}"
 
   if $update; then
     tar -cf - -C "$scratch/first" . >&3
@@ -329,12 +330,12 @@ repo_archive() {
 # Run fixture $1 in a fresh container of its image, from a copy of the checkout at ~/dotfiles. With $2 = true, replace
 # its after/ with the results. Returns 1 if it fails.
 run_fixture() {
-  local name="$1" update="$2" dir="$FIXTURES_DIR/$1" archive
-  f_write_args case_config _image _args _files _root_files _after_install _run_with -- "$name"
+  local name="$1" update="$2" dir="$FIXTURES_DIR/$1" archive image
+  f_call case_config image -- "$name"
   archive="$(mktemp)"
   # The container's stdout carries the results archive, so its messages go to stderr.
   if ! repo_archive | "$CONTAINER_CMD" run --rm -i -v "$DOWNLOADS_DIR:$CONTAINER_DOWNLOADS_DIR" \
-    -e DOTFILES_DOWNLOAD_CACHE="$CONTAINER_DOWNLOADS_DIR" "$IMAGE_PREFIX$_image" bash -c \
+    -e DOTFILES_DOWNLOAD_CACHE="$CONTAINER_DOWNLOADS_DIR" "$IMAGE_PREFIX$image" bash -c \
     'mkdir ~/dotfiles && tar -xf - -C ~/dotfiles && exec ~/dotfiles/tests/fixtures.sh --inside "$@" 3>&1 1>&2' \
     _ "$name" "$update" > "$archive"; then
     rm -f "$archive"
@@ -349,7 +350,7 @@ run_fixture() {
 }
 
 main() {
-  local update=false names="" name images="" failed=""
+  local update=false names="" name image images="" failed=""
   if [[ "${1:-}" == --inside ]]; then
     run_inside "$2" "$3"
     return
@@ -366,8 +367,8 @@ main() {
   [[ -n "$CONTAINER_CMD" ]] || error "docker or podman is required to run the fixtures"
 
   for name in $names; do
-    f_write_args case_config _image _args _files _root_files _after_install _run_with -- "$name"
-    list_contains "$images" "$_image" || images+=" $_image"
+    f_call case_config image -- "$name"
+    list_contains "$images" "$image" || images+=" $image"
   done
   # Writable by the containers' users, whose ids needn't match this one's.
   mkdir -p "$DOWNLOADS_DIR"

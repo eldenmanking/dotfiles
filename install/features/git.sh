@@ -12,8 +12,7 @@ feature_gitconfig() {
     return
   fi
 
-  f_write_args os_profile_config _git_fsmonitor -- "$os" "$profile"
-  git_fsmonitor="$_git_fsmonitor"
+  f_call os_profile_config git_fsmonitor -- "$os" "$profile"
 
   info "Configuring global git settings..."
   run git config --global core.excludesFile "$DOTFILES_ROOT/home/.config/git/ignore"

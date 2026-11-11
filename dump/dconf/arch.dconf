@@ -41,6 +41,10 @@ apps=['nvim.desktop', 'org.kde.kid3.desktop', 'vim.desktop', 'lmms.desktop', 'lv
 name='Editors'
 translate=false
 
+[org/gnome/desktop/background]
+picture-uri='file://${HOME}/.local/share/backgrounds/GH2.jpg'
+picture-uri-dark='file://${HOME}/.local/share/backgrounds/GH2.jpg'
+
 [org/gnome/desktop/input-sources]
 sources=[('xkb', 'us')]
 xkb-options=['caps:escape']
@@ -55,57 +59,6 @@ font-hinting='slight'
 gtk-theme='Adw-dark'
 icon-theme='Papirus-Dark'
 show-battery-percentage=true
-
-[org/gnome/desktop/notifications]
-application-children=['org-gnome-nautilus', 'org-manjaro-pamac-manager', 'org-gnome-settings', 'google-chrome', 'gnome-power-panel', 'org-gnome-lollypop', 'org-gnome-cheese', 'org-gnome-evince', 'insync', 'de-haeckerfelix-fragments', 'discord', 'gnome-system-monitor', 'org-gnome-dejadup', 'xdg-desktop-portal-gnome', 'org-gnome-terminal', 'gnome-network-panel', 'org-gnome-evolution-alarm-notify', 'ca-desrt-dconf-editor', 'org-gnome-totem', 'org-gnome-baobab', 'solaar', 'org-kde-okular', 'zoom', 'alacritty', 'gnome-printers-panel', 'visual-studio-code', 'org-musescore-musescore', 'virtualbox']
-
-[org/gnome/desktop/notifications/application/alacritty]
-application-id='Alacritty.desktop'
-
-[org/gnome/desktop/notifications/application/discord]
-application-id='discord.desktop'
-
-[org/gnome/desktop/notifications/application/gnome-network-panel]
-application-id='gnome-network-panel.desktop'
-
-[org/gnome/desktop/notifications/application/gnome-power-panel]
-application-id='gnome-power-panel.desktop'
-
-[org/gnome/desktop/notifications/application/gnome-printers-panel]
-application-id='gnome-printers-panel.desktop'
-
-[org/gnome/desktop/notifications/application/google-chrome]
-application-id='google-chrome.desktop'
-
-[org/gnome/desktop/notifications/application/insync]
-application-id='insync.desktop'
-
-[org/gnome/desktop/notifications/application/org-gnome-baobab]
-application-id='org.gnome.baobab.desktop'
-
-[org/gnome/desktop/notifications/application/org-gnome-nautilus]
-application-id='org.gnome.Nautilus.desktop'
-
-[org/gnome/desktop/notifications/application/org-gnome-settings]
-application-id='org.gnome.Settings.desktop'
-
-[org/gnome/desktop/notifications/application/org-kde-okular]
-application-id='org.kde.okular.desktop'
-
-[org/gnome/desktop/notifications/application/solaar]
-application-id='solaar.desktop'
-
-[org/gnome/desktop/notifications/application/teams]
-application-id='teams.desktop'
-
-[org/gnome/desktop/notifications/application/visual-studio-code]
-application-id='visual-studio-code.desktop'
-
-[org/gnome/desktop/notifications/application/xdg-desktop-portal-gnome]
-application-id='xdg-desktop-portal-gnome.desktop'
-
-[org/gnome/desktop/notifications/application/zoom]
-application-id='Zoom.desktop'
 
 [org/gnome/desktop/peripherals/keyboard]
 delay=uint32 200
@@ -122,9 +75,10 @@ disable-microphone=false
 [org/gnome/desktop/screensaver]
 color-shading-type='solid'
 picture-options='zoom'
-picture-uri='file:///home/linstar/dotfiles/dump/wallpaper/GH2.jpg'
+picture-uri='file://${HOME}/.local/share/backgrounds/GH2.jpg'
 primary-color='#000000000000'
 secondary-color='#000000000000'
+
 [org/gnome/desktop/session]
 idle-delay=uint32 900
 
@@ -169,16 +123,6 @@ default-folder-viewer='list-view'
 search-filter-time-type='last_modified'
 search-view='list-view'
 
-[org/gnome/nautilus/window-state]
-maximized=false
-sidebar-width=230
-start-with-sidebar=true
-
-[org/gnome/settings-daemon/plugins/color]
-[org/gnome/portal/filechooser/org.gnome.Settings]
-last-folder-path='/home/linstar/dotfiles/dump/wallpaper'
-night-light-enabled=false
-
 [org/gnome/settings-daemon/plugins/color]
 night-light-enabled=false
 night-light-schedule-automatic=false
@@ -213,7 +157,6 @@ sleep-inactive-battery-timeout=900
 
 [org/gnome/shell]
 favorite-apps=['org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop']
-welcome-dialog-last-shown-version='41.5'
 
 [org/gnome/shell/app-switcher]
 current-workspace-only=true
@@ -235,5 +178,3 @@ text-blink-mode='always'
 use-system-font=false
 use-theme-colors=true
 visible-name='default'
-[org/gtk/gtk4/settings/file-chooser]
-show-hidden=true

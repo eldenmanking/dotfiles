@@ -11,11 +11,11 @@ TMPFILES_DST="/etc/tmpfiles.d"
 # @os linux
 # @gui any
 feature_tmpfiles() {
-  local target targets
+  local target targets changed
   targets="$(system_file_targets "$DOTFILES_ROOT/$TMPFILES_SRC" '*.conf' "$TMPFILES_DST")"
   keep_across_steamos_updates tmpfiles $targets
-  f_write_args copy_system_files _changed -- "$DOTFILES_ROOT/$TMPFILES_SRC" "$TMPFILES_DST" '*.conf'
-  for target in $_changed; do
+  f_call copy_system_files changed -- "$DOTFILES_ROOT/$TMPFILES_SRC" "$TMPFILES_DST" '*.conf'
+  for target in $changed; do
     info "Applying $target..."
     run sudo systemd-tmpfiles --create "$target"
   done

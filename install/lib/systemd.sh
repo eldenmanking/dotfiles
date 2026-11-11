@@ -51,13 +51,13 @@ unit_keep_paths() {
 # Copy system units $2... from $1 into /etc/systemd/system with sudo (copied, not linked: see copy_system_files),
 # then reload systemd and reenable and restart each unit that changed or isn't enabled yet, so a oneshot service
 # runs again. Units without an [Install] section are only copied. With --no-start, only reenable them: for units
-# whose start does something unwanted right away, like one wanted by sleep.target. Outputs: _changed, the
+# whose start does something unwanted right away, like one wanted by sleep.target. Outputs: changed, the
 # space-separated units that were copied or (re)enabled (empty if all were up to date).
 # On SteamOS, also name unit_keep_paths "$SYSTEM_UNITS_DIR" <src_dir> <unit>... on the keep list: timers and the like aren't
 # on the default one.
-# Usage: f_write_args install_system_units _changed -- [--no-start] <src_dir> <unit>...
+# Usage: f_call install_system_units changed -- [--no-start] <src_dir> <unit>...
 install_system_units() {
-  local start=true src_dir unit changed="" enable=""
+  local start=true src_dir unit copied changed="" enable=""
   if [[ "$1" == --no-start ]]; then
     start=false
     shift
@@ -66,13 +66,13 @@ install_system_units() {
   shift
   for unit in "$@"; do
     [[ -e "$src_dir/$unit" ]] || error "install_system_units: $src_dir/$unit does not exist"
-    f_write_args copy_system_files _changed -- "$src_dir" "$SYSTEM_UNITS_DIR" "$unit"
+    f_call copy_system_files copied=changed -- "$src_dir" "$SYSTEM_UNITS_DIR" "$unit"
     if _unit_has_install "$src_dir/$unit"; then
-      if [[ -n "$_changed" ]] || ! systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+      if [[ -n "$copied" ]] || ! systemctl is-enabled --quiet "$unit" 2>/dev/null; then
         enable+="${enable:+ }$unit"
       fi
     fi
-    if [[ -n "$_changed" || " $enable " == *" $unit "* ]]; then
+    if [[ -n "$copied" || " $enable " == *" $unit "* ]]; then
       changed+="${changed:+ }$unit"
     fi
   done
@@ -83,12 +83,12 @@ install_system_units() {
       ! $start || run sudo systemctl restart "$unit"
     done
   fi
-  _changed="$changed"
+  f_return changed
 }
 
 # Stop, disable and remove system units $1... from /etc/systemd/system with sudo, then reload systemd. Units that
-# aren't installed are skipped. Outputs: _removed, the space-separated units that were removed.
-# Usage: f_write_args uninstall_system_units _removed -- <unit>...
+# aren't installed are skipped. Outputs: removed, the space-separated units that were removed.
+# Usage: f_call uninstall_system_units removed -- <unit>...
 uninstall_system_units() {
   local unit removed=""
   for unit in "$@"; do
@@ -102,7 +102,7 @@ uninstall_system_units() {
     removed+="${removed:+ }$unit"
   done
   [[ -z "$removed" ]] || run sudo systemctl daemon-reload
-  _removed="$removed"
+  f_return removed
 }
 
 # Copy user units $3... from $2 into /etc/systemd/user with sudo, reload this user's manager if any changed and there
@@ -111,13 +111,13 @@ uninstall_system_units() {
 # needs a session). Units without an [Install] section are only copied. Starting them is left to the caller.
 # Every user manager sees the units from boot, even with an encrypted home, and with --global their links too, so
 # they start without waiting for the unlock. They are copied, not linked: systemd treats a symlinked unit file as a "linked" unit,
-# which enable and disable handle differently. Outputs: _changed, the space-separated units that were copied or
+# which enable and disable handle differently. Outputs: changed, the space-separated units that were copied or
 # (re)enabled (empty if all were up to date).
 # On SteamOS, also name unit_keep_paths "$USER_UNITS_DIR" <src_dir> <unit>... on the keep list: the default one keeps nothing
 # in /etc/systemd/user.
-# Usage: f_write_args install_user_units _changed -- --global|--user <src_dir> <unit>...
+# Usage: f_call install_user_units changed -- --global|--user <src_dir> <unit>...
 install_user_units() {
-  local scope="$1" src_dir="$2" unit changed="" enable=""
+  local scope="$1" src_dir="$2" unit copied changed="" enable=""
   shift 2
   case "$scope" in
     --global|--user) ;;
@@ -125,13 +125,13 @@ install_user_units() {
   esac
   for unit in "$@"; do
     [[ -e "$src_dir/$unit" ]] || error "install_user_units: $src_dir/$unit does not exist"
-    f_write_args copy_system_files _changed -- "$src_dir" "$USER_UNITS_DIR" "$unit"
+    f_call copy_system_files copied=changed -- "$src_dir" "$USER_UNITS_DIR" "$unit"
     if _unit_has_install "$src_dir/$unit"; then
-      if [[ -n "$_changed" ]] || ! systemctl "$scope" is-enabled --quiet "$unit" 2>/dev/null; then
+      if [[ -n "$copied" ]] || ! systemctl "$scope" is-enabled --quiet "$unit" 2>/dev/null; then
         enable+="${enable:+ }$unit"
       fi
     fi
-    if [[ -n "$_changed" || " $enable " == *" $unit "* ]]; then
+    if [[ -n "$copied" || " $enable " == *" $unit "* ]]; then
       changed+="${changed:+ }$unit"
     fi
   done
@@ -143,14 +143,14 @@ install_user_units() {
       run systemctl --user reenable "$unit"
     fi
   done
-  _changed="$changed"
+  f_return changed
 }
 
 # Stop user units $2... if there is a user session, remove their enablement links (--global: from /etc/systemd/user,
 # --user: from ~/.config/systemd/user) and then the units in /etc/systemd/user, with sudo, and reload this user's
 # manager. Units that aren't installed are skipped. Works without a session too, but running units then keep
-# running until the next login. Outputs: _removed, the space-separated units that were removed.
-# Usage: f_write_args uninstall_user_units _removed -- --global|--user <unit>...
+# running until the next login. Outputs: removed, the space-separated units that were removed.
+# Usage: f_call uninstall_user_units removed -- --global|--user <unit>...
 uninstall_user_units() {
   local scope="$1" unit link links_dir sudo_cmd="" installed="" session=false
   shift
@@ -168,7 +168,7 @@ uninstall_user_units() {
     fi
   done
   if [[ -z "$installed" ]]; then
-    _removed=""
+    f_return removed=""
     return 0
   fi
   # Stopping units that aren't loaded fails, so only those whose files are there.
@@ -186,5 +186,5 @@ uninstall_user_units() {
     run sudo rm -f "$USER_UNITS_DIR/$unit"
   done
   ! $session || run systemctl --user daemon-reload
-  _removed="$installed"
+  f_return removed="$installed"
 }

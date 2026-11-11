@@ -21,19 +21,21 @@ pci_devices_with_id() {
 # @os linux
 # @gui any
 feature_hdmi_audio_fix() {
+  local changed
   keep_across_steamos_updates hdmi_audio_fix \
     $(unit_keep_paths "$SYSTEM_UNITS_DIR" "$DOTFILES_ROOT/$HDMI_AUDIO_FIX_SRC" "$HDMI_AUDIO_FIX_UNIT")
-  f_write_args install_system_units _changed -- "$DOTFILES_ROOT/$HDMI_AUDIO_FIX_SRC" "$HDMI_AUDIO_FIX_UNIT"
-  [[ -n "$_changed" ]] || return 0
+  f_call install_system_units changed -- "$DOTFILES_ROOT/$HDMI_AUDIO_FIX_SRC" "$HDMI_AUDIO_FIX_UNIT"
+  [[ -n "$changed" ]] || return 0
   info "Check with: cat /sys/bus/pci/devices/*/pp_dpm_socclk (no level below 720 MHz should be active)"
 }
 
 # Remove hdmi-audio-fix.service, then reset the 780M's clock range and set it back to the auto performance level,
 # which also lifts the socclk floor.
 uninstall_feature_hdmi_audio_fix() {
-  f_write_args uninstall_system_units _removed -- "$HDMI_AUDIO_FIX_UNIT"
+  local removed
+  f_call uninstall_system_units removed -- "$HDMI_AUDIO_FIX_UNIT"
   forget_across_steamos_updates hdmi_audio_fix
-  [[ -n "$_removed" ]] || return 0
+  [[ -n "$removed" ]] || return 0
   local dev
   for dev in $(pci_devices_with_id "$HDMI_AUDIO_FIX_ID"); do
     run sudo sh -c "echo r > $dev/pp_od_clk_voltage; echo c > $dev/pp_od_clk_voltage
