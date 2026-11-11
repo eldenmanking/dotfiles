@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fixture tests: run install.sh in a container that starts out holding a fixture's before/ files, and check what it
-# leaves against the fixture's after/. Run via `make fixtures` (needs docker); `--update` rewrites after/ from the
+# leaves against the fixture's after/. Run via `make fixtures` (needs docker or podman); `--update` rewrites after/ from the
 # results instead, for review with git diff. Name fixtures to run only those. Each tests/fixtures/<name>/ holds:
 #   case.sh   IMAGE, the image to run in (a directory under tests/images), and ARGS, install.sh's arguments.
 #             Optionally: FILES, the paths under ~ whose regular files after/ holds in full (it starts out as the shell
@@ -28,6 +28,9 @@ DEFAULT_FILES=".bash_profile .bashrc .profile .zprofile .zshrc"
 IMAGE_PREFIX="dotfiles-fixtures-"
 DOWNLOADS_DIR="$TOOLS_CACHE/fixture-downloads"
 CONTAINER_DOWNLOADS_DIR=/var/cache/dotfiles-downloads
+# The container runtime: docker, or podman where docker isn't installed (empty if neither is, as inside a fixture's
+# container).
+CONTAINER_CMD="$(command -v docker || command -v podman || true)"
 # Files under ~ whose contents the manifest leaves out, since the claude feature builds them from the tools repos'
 # latest commits.
 # shellcheck disable=SC2088 # manifest paths, not ones to expand
@@ -331,7 +334,7 @@ run_fixture() {
   f_call case_config image -- "$name"
   archive="$(mktemp)"
   # The container's stdout carries the results archive, so its messages go to stderr.
-  if ! repo_archive | docker run --rm -i -v "$DOWNLOADS_DIR:$CONTAINER_DOWNLOADS_DIR" \
+  if ! repo_archive | "$CONTAINER_CMD" run --rm -i -v "$DOWNLOADS_DIR:$CONTAINER_DOWNLOADS_DIR" \
     -e DOTFILES_DOWNLOAD_CACHE="$CONTAINER_DOWNLOADS_DIR" "$IMAGE_PREFIX$image" bash -c \
     'mkdir ~/dotfiles && tar -xf - -C ~/dotfiles && exec ~/dotfiles/tests/fixtures.sh --inside "$@" 3>&1 1>&2' \
     _ "$name" "$update" > "$archive"; then
@@ -361,7 +364,7 @@ main() {
     shift
   done
   [[ -n "$names" ]] || names="$(all_fixtures)"
-  command -v docker >/dev/null || error "docker is required to run the fixtures"
+  [[ -n "$CONTAINER_CMD" ]] || error "docker or podman is required to run the fixtures"
 
   for name in $names; do
     f_call case_config image -- "$name"
@@ -372,7 +375,7 @@ main() {
   chmod a+rwx "$DOWNLOADS_DIR"
   for name in $images; do
     info "building image $IMAGE_PREFIX$name from tests/images/$name"
-    docker build --quiet -t "$IMAGE_PREFIX$name" "$IMAGES_DIR/$name" >/dev/null
+    "$CONTAINER_CMD" build --quiet -t "$IMAGE_PREFIX$name" "$IMAGES_DIR/$name" >/dev/null
   done
 
   for name in $names; do
