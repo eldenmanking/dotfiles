@@ -266,8 +266,9 @@ EOF
 # - a serial console login on ttyS0, which steamos-vm console and debugging use;
 # - steamos-vm-agent.service, which answers ping and runs poweroff or reboot from the host over virtio-serial (Game
 #   Mode treats the ACPI power button as suspend, so virsh shutdown can't stop the VM);
-# - a systemd-suspend.service drop-in that makes suspend a no-op: after a guest suspend, the virtio-gpu native context
-#   loses its host-side state, so processes using the GPU hang in the kernel and the next shutdown takes minutes.
+# - a systemd-suspend.service drop-in that makes suspend a no-op: after a guest suspend (S3 or s2idle alike), the
+#   virtio-gpu native context loses its host-side state, so processes using the GPU hang in the kernel and the next
+#   shutdown takes minutes. It sorts after light-sleep's drop-in, so it wins in the VM.
 #   Steam's idle suspend still runs the sleep hooks (e.g. orei-switch), and "wakes" at once;
 # - steamos-vm-wifi.service, which loads mac80211_hwsim for a virtual Wi-Fi radio: when Steam starts it sets the Wi-Fi
 #   backend through steamos-manager, which stops NetworkManager, creates wlan0 on phy0 with iw when it is missing, and
