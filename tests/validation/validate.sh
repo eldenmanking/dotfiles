@@ -68,6 +68,8 @@ main() {
   info "features suit their variants and run after the features they require"
   tests/validation/features.sh || failed=1
 
+  tests/validation/os_table.sh || failed=1
+
   [[ "$failed" == 0 ]] || error "validation failed"
   info "validation passed"
 }

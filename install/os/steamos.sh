@@ -5,6 +5,9 @@ os_steamos() {
   f_return machines="generic framework16"
 }
 
+# The machine-specific features in these lists (an @machine other than any, e.g. orei_switch) are left out by --all on
+# other machines (see machine_supported); naming one still runs it, with a warning.
+
 # SteamOS desktop (KDE and Game Mode), plus webterm.
 os_steamos_desktop() {
   # distrobox is near the end since it leaves you in the new container's shell; steamos_xclip and
@@ -19,7 +22,7 @@ os_steamos_desktop() {
 
 # SteamOS terminal setup, with the shell startup files linked.
 os_steamos_minimal() {
-  f_return features="link neovim starship tmux claude gitconfig udev tmpfiles logind hdmi_audio_fix orei_switch light_sleep"
+  f_return features="link neovim starship $FEATURES_TOOLS $FEATURES_SYSTEM orei_switch light_sleep"
   f_return gui="none"
   f_return optional=""
   f_return link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]}"

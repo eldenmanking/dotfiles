@@ -7,7 +7,7 @@ os_portable() {
 
 # Portable terminal setup, writing managed blocks into the shell startup files.
 os_portable_minimal() {
-  f_return features="binaries link zsh shell starship tmux gitconfig"
+  f_return features="$FEATURES_PORTABLE gitconfig"
   f_return gui="none"
   f_return optional=""
   f_return link_paths="${LINK_COMMON_PATHS[*]}"
@@ -15,7 +15,7 @@ os_portable_minimal() {
 
 # Coder workspaces, writing managed blocks into the shell startup files.
 os_portable_workspace() {
-  f_return features="binaries link zsh shell starship tmux gng tre claude gitconfig"
+  f_return features="$FEATURES_PORTABLE gng tre claude gitconfig"
   f_return gui="none"
   f_return optional=""
   f_return link_paths="${LINK_COMMON_PATHS[*]}"
