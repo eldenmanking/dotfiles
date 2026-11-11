@@ -198,7 +198,7 @@ and `~/.config/git` are no longer linked either: nothing read them from there. A
   directories that is now empty.
 - **Verify:** the check prints nothing; new shells still start, since the startup files source the checkout directly.
 
-## Claude skills and scripts links from older layouts
+## Claude skills and scripts links from older layouts (#106)
 The `claude` feature no longer replaces an old directory-level symlink at `~/.claude/scripts` or `~/.claude/skills`,
 and no longer removes broken links into `~/dotfiles/.claude/` or `~/.claude/commands`. Applies to machines that
 linked those directories to a tools repo, or from `~/dotfiles/.claude`, before per-entry links.
