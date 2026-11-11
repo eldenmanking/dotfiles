@@ -40,7 +40,7 @@ new_home() {
   local home
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
   ln -s "$REPO_ROOT" "$home/dotfiles"
-  f_return home="$home"
+  f_return home
 }
 
 # Run install.sh with home $1 and the remaining args, in a clean environment with no terminal. Its output goes to
@@ -791,8 +791,12 @@ test_f_call() {
     '! out="$( (f_call half a b) 2>&1)" && [[ "$out" == *"did not return '"'"'b'"'"'"* ]]'
   check "rejects a variable that starts with an underscore" f_call_snippet \
     '! (f_call pair _a) && ! (f_call pair a=_a)'
+  check "returns a bare name's variable" f_call_snippet \
+    'f() { local a="x=1 y" b=""; f_return a b c=3; }; g() { local a b c; f_call f a b c; [[ "$a|$b|$c" == "x=1 y||3" ]]; }; g'
+  check "fails on a bare name that isn't set" f_call_snippet \
+    'f() { local a; f_return a; }; ! out="$( (f_call f a) 2>&1)" && [[ "$out" == *"is not set"* ]]'
   check "rejects a return without a name" f_call_snippet \
-    'f() { f_return "=1"; }; ! (f_call f a) && ! (f_call f_return a -- a)'
+    'f() { f_return "=1"; }; ! (f_call f a) && f() { f_return _a; } && ! (f_call f a)'
 }
 
 # Run download_verified with DOWNLOAD_CACHE $1 and the remaining args (url, sha256, out) in a fresh bash, its output

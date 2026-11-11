@@ -70,7 +70,7 @@ feature_doc() {
     index($0, fn "()") == 1 { printf "%s", block; exit }
     { block = "" }
   ' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
-  f_return doc="$doc"
+  f_return doc
 }
 
 # Where feature $1 works and which features it needs, read from the tags in its doc (see feature_doc). Outputs
@@ -94,7 +94,7 @@ feature_requirements() {
       "@requires "*) requires="${line#@requires }" ;;
     esac
   done <<< "$doc"
-  f_return machine="$machine" os="$os" gui="$gui" requires="$requires"
+  f_return machine os gui requires
 }
 
 # Return 0 if a feature for OSes $1 works on platform $2 (one of an OS's platforms).

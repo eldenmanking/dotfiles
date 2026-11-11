@@ -54,8 +54,7 @@ case_config() {
   } <<< "$out"
   [[ -n "$image" && -d "$IMAGES_DIR/$image" ]] || error "$1/case.sh: IMAGE must name a directory in tests/images"
   [[ -n "$args" ]] || error "$1/case.sh: ARGS is empty"
-  f_return image="$image" args="$args" files="$files" root_files="$root_files" after_install="$after_install" \
-    run_with="$run_with"
+  f_return image args files root_files after_install run_with
 }
 
 # Print the name of every fixture.

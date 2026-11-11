@@ -230,15 +230,15 @@ arch_chroot_installed() {
   ! arch_chroot_has_password "$root/etc/shadow" root || root_pw=true
   [[ -z "$user" ]] || ! arch_chroot_has_password "$root/etc/shadow" "$user" || user_pw=true
   f_return \
-    root_part="$root_part" \
-    esp="$esp" \
-    swap_part="$swap_part" \
-    swap_size="$swap_size" \
+    root_part \
+    esp \
+    swap_part \
+    swap_size \
     timezone="$tz" \
     locale="$(sed -n 's/^LANG=//p' "$root/etc/locale.conf" 2>/dev/null || true)" \
     keymap="$(sed -n 's/^KEYMAP=//p' "$root/etc/vconsole.conf" 2>/dev/null || true)" \
     hostname="$(cat "$root/etc/hostname" 2>/dev/null || true)" \
-    user="$user" \
+    user \
     root_password="$root_pw" \
     user_password="$user_pw"
 }

@@ -42,7 +42,7 @@ tool_release() {
   esac
   sha256="${!sha_var:-}"
   [[ -n "$sha256" ]] || error "tool_release: no checksum for $tool on $os-$arch in tests/versions.env"
-  f_return url="$url" sha256="$sha256"
+  f_return url sha256
 }
 
 # Outputs: path, the pinned tool $1, downloaded and checksummed into TOOLS_CACHE on first use.

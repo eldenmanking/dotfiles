@@ -40,7 +40,7 @@ kde_parse_ini() {
         ;;
     esac
   done < "$file"
-  f_return entries="$entries"
+  f_return entries
 }
 
 # Merge each partial KDE config file in KDE_CONFIG_FILES into its ~/.config counterpart with kwriteconfig.

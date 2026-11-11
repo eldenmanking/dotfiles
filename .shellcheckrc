@@ -8,8 +8,9 @@ source-path=SCRIPTDIR/../..
 # Checks that mostly misfire in this repo, so they are off everywhere:
 #   SC2034: globals are set in one file and read in another, which shellcheck reports as unused: it checks one file at
 #     a time, and install.sh sources install/ through a glob it can't follow. tests/lint/lint.sh runs it in a second
-#     pass that ignores UPPER_CASE names, so unused locals still fail lint. (SC2154 stays on: it skips UPPER_CASE
-#     names, and callers declare the locals that f_call in install/lib/fn.sh fills.)
+#     pass that ignores UPPER_CASE names and variables an f_return returns bare, so unused locals still fail lint.
+#     (SC2154 stays on: it skips UPPER_CASE names, and callers declare the locals that f_call in install/lib/fn.sh
+#     fills.)
 #   SC2016: $ in single quotes, which is how scripts for another shell are written (sh -c '...').
 #   SC2064: trap strings in double quotes, which expand when the trap is set; done on purpose to capture arguments.
 #   SC1003: a backslash before a closing single quote, which printf escapes like '\033\\' end with.

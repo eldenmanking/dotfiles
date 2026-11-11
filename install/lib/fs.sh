@@ -82,7 +82,7 @@ copy_system_files() {
     run sudo install -Dvm 644 "$file" "$target"
     changed+="${changed:+ }$target"
   done
-  f_return changed="$changed"
+  f_return changed
 }
 
 # Print the paths that copy_system_files would copy each file in $1 matching $2 to in $3, one per line.

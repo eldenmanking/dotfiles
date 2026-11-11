@@ -65,7 +65,7 @@ read_os_release() {
       esac
     done < "$file"
   fi
-  f_return id="$id" id_like="$id_like"
+  f_return id id_like
 }
 
 # Outputs: os and machine, what this system looks like (os is empty if no OS fits), coder, true inside a Coder
@@ -89,6 +89,6 @@ infer_system() {
   f_return \
     os="$(os_for_system "$kernel" "$id" "$id_like" "$coder")" \
     machine="$(machine_for_dmi "$vendor" "$product")" \
-    coder="$coder" \
-    reason="$reason"
+    coder \
+    reason
 }

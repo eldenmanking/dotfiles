@@ -46,17 +46,23 @@ f_call() {
 }
 
 # Return each name=value to the nearest f_call that asked for name; one that no caller asked for is dropped, so a
-# caller that needs none of fn's values calls fn directly. Call it again to replace a value. Each argument splits at its first =, which a name can't contain, so the value can hold
-# anything, = signs and newlines included, as long as it is quoted as one word. Values are strings: return a list as
-# space-separated words, as the OS configs do. A value of exactly F_NULL reads as not returned.
-# Usage: f_return name=value...
+# caller that needs none of fn's values calls fn directly. A bare name returns the caller's variable of that name, so
+# `f_return os profile=default` is `f_return os="$os" profile=default`; it must be set. Call f_return again to replace
+# a value. Each name=value splits at its first =, which a name can't contain, so the value can hold anything, = signs
+# and newlines included, as long as it is quoted as one word. Values are strings: return a list as space-separated
+# words, as the OS configs do. A value of exactly F_NULL reads as not returned.
+# Usage: f_return name[=value]...
 f_return() {
-  local __f_arg __f_out
+  local __f_arg __f_name __f_out
   for __f_arg in "$@"; do
-    if [[ "$__f_arg" != *=* ]] || ! _f_is_name "${__f_arg%%=*}"; then
-      error "f_return: '$__f_arg' must be name=value, with a name that doesn't start with an underscore"
+    __f_name="${__f_arg%%=*}"
+    _f_is_name "$__f_name" \
+      || error "f_return: '$__f_arg' must be name or name=value, with a name that doesn't start with an underscore"
+    if [[ "$__f_arg" != *=* ]]; then
+      [[ -n "${!__f_name+x}" ]] || error "f_return: '$__f_name' is not set"
+      __f_arg="$__f_name=${!__f_name}"
     fi
-    __f_out="_${__f_arg%%=*}"
+    __f_out="_$__f_name"
     [[ -z "${!__f_out+x}" ]] || printf -v "$__f_out" '%s' "${__f_arg#*=}"
   done
 }

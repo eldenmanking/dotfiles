@@ -215,18 +215,7 @@ parse_args() {
     esac
   done
 
-  f_return \
-    variant="$variant" \
-    os="$os" \
-    profile="$profile" \
-    machine="$machine" \
-    infer="$infer" \
-    flags="$flags" \
-    mode="$mode" \
-    all="$all" \
-    dry_run="$dry_run" \
-    help="$help" \
-    oti="$oti"
+  f_return variant os profile machine infer flags mode all dry_run help oti
 }
 
 # Outputs: default_variant, default_os, default_profile, default_machine and default_features, from
@@ -262,7 +251,7 @@ variant_dimensions() {
     [[ -n "$os" ]] || os="$variant_os"
     [[ -n "$profile" ]] || profile="$variant_profile"
   fi
-  f_return os="$os" profile="$profile"
+  f_return os profile
 }
 
 # Outputs: flags and all, flags $1 and --all $2 with default features $4 (feature names, and all for --all) added
@@ -278,7 +267,7 @@ apply_default_features() {
       if [[ "$word" == all ]]; then all=true; else flags+="$word "; fi
     done
   fi
-  f_return flags="$flags" all="$all"
+  f_return flags all
 }
 
 # Outputs: os, profile and machine to install for: OS $1, profile $2 and machine $3 as given (by options or
@@ -312,7 +301,7 @@ resolve_dimensions() {
     fi
     info "Inferred $inferred from: $reason"
   fi
-  f_return os="$os" profile="$profile" machine="${machine:-generic}"
+  f_return os profile machine="${machine:-generic}"
 }
 
 # Print usage and exit unless OS $5 with profile $6 can run on machine $7: with no OS and profile, or with no
@@ -378,7 +367,7 @@ resolve_features() {
     fi
   done
 
-  f_return enabled="$enabled"
+  f_return enabled
 }
 
 # Run one-time install $1 and exit, after checking that nothing else was asked for: --oti can't be combined with a

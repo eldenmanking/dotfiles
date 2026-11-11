@@ -31,7 +31,7 @@ scan_features() {
   local features
   features="$(sed -n 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
     | tr '\n' ' ')"
-  f_return features="$features"
+  f_return features
 }
 
 # Print the directory under install/features holding feature $1's function: empty for the top level, else its
@@ -56,7 +56,7 @@ check_feature_dir() {
   elif [[ "$dir" != "${os}_$machine" ]]; then
     problems="--$feature: belongs in install/features/${os}_$machine/ (its @os and @machine), not ${dir:-the top level}"$'\n'
   fi
-  f_return problems="$problems"
+  f_return problems
 }
 
 # Outputs: problems, one line per problem with value list $3 of tag @$2 on feature $1, given allowed values $4.
@@ -66,7 +66,7 @@ check_tag() {
   for v in $values; do
     list_contains "$allowed" "$v" || problems+="--$feature: @$tag '$v' is not one of: $allowed$nl"
   done
-  f_return problems="$problems"
+  f_return problems
 }
 
 # Outputs: problems, one line per problem with the layout of doc $2 of feature $1: description lines, a bare '#'
@@ -89,7 +89,7 @@ check_doc_layout() {
     esac
   done <<< "$doc"
   [[ "$state" != start ]] || problems+="--$feature: no doc comment above $(feature_function "$feature")$nl"
-  f_return problems="$problems"
+  f_return problems
 }
 
 # Outputs: problems, one line per problem with the documentation of feature $1. $2 is every known feature.
@@ -117,7 +117,7 @@ check_feature_docs() {
     list_contains "$known" "$dep" || problems+="--$feature: @requires '$dep' is not a feature"$'\n'
   done
 
-  f_return problems="$problems"
+  f_return problems
 }
 
 # Outputs: problems, one line per problem with feature $2 in OS and profile $1 (as os/profile), which target
@@ -152,7 +152,7 @@ check_feature() {
     list_contains "$earlier" "$dep" || problems+="$setup: --$feature requires --$dep earlier in its features$nl"
   done
 
-  f_return problems="$problems"
+  f_return problems
 }
 
 # Outputs: problems, one line per problem with OS $1 with profile $2.
@@ -180,7 +180,7 @@ check_setup() {
     fi
   done
 
-  f_return problems="$problems"
+  f_return problems
 }
 
 # Outputs: problems, one line per problem with OS $1: its platforms and machines must be known values, and it must
@@ -197,7 +197,7 @@ check_os() {
     list_contains "$MACHINES" "$v" || problems+="os $os: machine '$v' is not one of: $MACHINES"$'\n'
   done
   [[ -n "$(os_profiles "$os")" ]] || problems+="os $os: defines no os_${os}_<profile> function"$'\n'
-  f_return problems="$problems"
+  f_return problems
 }
 
 # Outputs: problems, a line if variant $1 doesn't name an OS and profile that go together.
@@ -206,7 +206,7 @@ check_variant() {
   f_call variant_config os profile -- "$1"
   os_supports_profile "$os" "$profile" \
     || problems="variant $1: OS '$os' with profile '$profile' isn't defined (no os_${os}_$profile)"$'\n'
-  f_return problems="$problems"
+  f_return problems
 }
 
 # Outputs: problems, what is wrong with one-time install $1 (install/oti/$1.sh): it must define oti_<name> and
@@ -222,7 +222,7 @@ check_oti() {
     problems+="oti $oti: $file defines no oti_config_${fn#oti_}"$'\n'
   fi
   ! grep -q '^uninstall_' "$file" || problems+="oti $oti: can't be undone, so it defines no uninstall_ functions"$'\n'
-  f_return problems="$problems"
+  f_return problems
 }
 
 main() {

@@ -68,7 +68,7 @@ partition_devices() {
       pending+="${pending:+ }$id"
     fi
   done
-  f_return attached="$attached" pending="$pending"
+  f_return attached pending
 }
 
 # Attaches a USB device to the VM, returning non-zero on failure. The device node is temporarily chowned to $USER so

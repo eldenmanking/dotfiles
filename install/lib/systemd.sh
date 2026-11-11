@@ -83,7 +83,7 @@ install_system_units() {
       ! $start || run sudo systemctl restart "$unit"
     done
   fi
-  f_return changed="$changed"
+  f_return changed
 }
 
 # Stop, disable and remove system units $1... from /etc/systemd/system with sudo, then reload systemd. Units that
@@ -102,7 +102,7 @@ uninstall_system_units() {
     removed+="${removed:+ }$unit"
   done
   [[ -z "$removed" ]] || run sudo systemctl daemon-reload
-  f_return removed="$removed"
+  f_return removed
 }
 
 # Copy user units $3... from $2 into /etc/systemd/user with sudo, reload this user's manager if any changed and there
@@ -143,7 +143,7 @@ install_user_units() {
       run systemctl --user reenable "$unit"
     fi
   done
-  f_return changed="$changed"
+  f_return changed
 }
 
 # Stop user units $2... if there is a user session, remove their enablement links (--global: from /etc/systemd/user,

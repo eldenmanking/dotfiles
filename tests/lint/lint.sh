@@ -33,7 +33,7 @@ classify_files() {
         ;;
     esac
   done < <(cd "$REPO_ROOT" && tracked_files)
-  f_return sh="$sh" bash="$bash" sourced="$sourced" zsh="$zsh" python="$python"
+  f_return sh bash sourced zsh python
 }
 
 # Run "$@" <file> for each file in newline-separated list $1, reporting each failure. Returns 1 if any failed.
@@ -47,14 +47,41 @@ each_file() {
   return "$failed"
 }
 
+# Print the names that f_return statements in file $1 return bare (f_return name), one per line, joining lines continued
+# with a backslash. Each reads the variable of that name, which shellcheck doesn't see.
+bare_returns() {
+  awk '
+    { line = (cont ? cont " " : "") $0; cont = "" }
+    sub(/\\$/, "", line) { cont = line; next }
+    line ~ /f_return/ {
+      # Drop quoted values first, so that words in them are not taken for names, then split the commands apart.
+      gsub(/"([^"\\]|\\.)*"/, "\"\"", line)
+      gsub(/\047[^\047]*\047/, "", line)
+      n = split(line, commands, /;|&&|\|\||[|&]/)
+      for (c = 1; c <= n; c++) {
+        if (!sub(/^.*(^|[[:space:]{(])f_return[[:space:]]+/, "", commands[c])) continue
+        m = split(commands[c], words, /[[:space:]]+/)
+        for (i = 1; i <= m; i++) if (words[i] ~ /^[a-z][a-z0-9_]*$/) print words[i]
+      }
+    }
+  ' "$1"
+}
+
 # Report the unused variables (shellcheck $1's SC2034) in the file that ends the remaining args, but UPPER_CASE
-# globals: other files read those, which shellcheck can't see since it checks one file at a time. .shellcheckrc turns
-# SC2034 off for that reason, so this pass ignores it (--norc); disable comments in the file still apply.
+# globals, which other files read (shellcheck checks one file at a time), and variables an f_return returns bare.
+# .shellcheckrc turns SC2034 off for those reasons, so this pass ignores it (--norc); disable comments still apply.
 unused_variables() {
-  local shellcheck="$1" found
+  local shellcheck="$1" file="${*: -1}" found="" line name returned
   shift
-  found="$("$shellcheck" --norc -i SC2034 -f gcc "$@" | grep -vE ': [A-Z][A-Z0-9_]* appears unused\.' || true)"
-  [[ -z "$found" ]] || { printf '%s\n' "$found"; return 1; }
+  returned=" $(bare_returns "$file" | tr '\n' ' ')"
+  while IFS= read -r line; do
+    [[ "$line" =~ :\ warning:\ ([A-Za-z0-9_]+)\ appears\ unused ]] || continue
+    name="${BASH_REMATCH[1]}"
+    [[ "$name" == [A-Z]* && "$name" != *[a-z]* ]] && continue
+    [[ "$returned" == *" $name "* ]] && continue
+    found+="$line"$'\n'
+  done < <("$shellcheck" --norc -i SC2034 -f gcc "$@" || true)
+  [[ -z "$found" ]] || { printf '%s' "$found"; return 1; }
 }
 
 python_syntax() {
