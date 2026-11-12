@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Lint the code: shell, zsh, Python and TOML syntax, function doc comments, shellcheck and actionlint. Run via
-# `make lint`.
+# Lint the code: shell, zsh, Python and TOML syntax, function doc comments, shellcheck, one-time installs' bare
+# commands and actionlint. Run via `make lint`.
 
 set -euo pipefail
 
@@ -144,6 +144,8 @@ main() {
   info "shellcheck: unused variables (but UPPER_CASE globals)"
   each_file "$sh$bash" unused_variables "$shellcheck" || failed=1
   each_file "$sourced" unused_variables "$shellcheck" -s bash || failed=1
+
+  tests/lint/oti_commands.sh || failed=1
 
   if [[ -n "$(git ls-files .github/workflows)" ]]; then
     info "actionlint $ACTIONLINT_VERSION"

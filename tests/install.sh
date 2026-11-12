@@ -49,12 +49,14 @@ new_home() {
 }
 
 # Run install.sh with home $1 and the remaining args, in a clean environment with no terminal. Its output goes to
-# LOG. Returns install.sh's status.
+# LOG. Returns install.sh's status. XDG_RUNTIME_DIR is set as in a login session, since without one dconf (read by
+# --capture --dconf) keeps its runtime state in ~/.cache instead.
 # Usage: run_install <home> [<arg>...]
 run_install() {
   local home="$1"
   shift
-  env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" "$home/dotfiles/install.sh" "$@" </dev/null >"$LOG" 2>&1
+  mkdir -p "$SCRATCH/runtime"
+  env -i HOME="$home" PATH="$PATH" TERM=dumb XDG_RUNTIME_DIR="$SCRATCH/runtime" "$INSTALL_BASH" "$home/dotfiles/install.sh" "$@" </dev/null >"$LOG" 2>&1
 }
 
 # Run install.sh like run_install and report it as a check that it succeeds, showing its output if not.
@@ -196,6 +198,40 @@ test_dimensions() {
   write_install_conf "$home" "DOTFILES_VARIANT=steamos" "DOTFILES_PROFILE=minimal"
   install_ok "$home" && check "  ...DOTFILES_PROFILE overrides DOTFILES_VARIANT's" \
     grep -q "Options for OS 'steamos' with profile 'minimal'" "$LOG"
+}
+
+# Command-line parsing: --help in every form, value options, option names, and the order --reinstall runs in.
+# Usage: test_cli
+test_cli() {
+  local home
+  info "cli: option parsing and --reinstall order"
+  f_call new_home home
+  install_ok "$home" --oti arch-chroot --help && check "  ...--oti --help prints usage" grep -q '^Usage:' "$LOG"
+  install_ok "$home" --os arch --help && check "  ...--os alone with --help prints usage" grep -q '^Usage:' "$LOG"
+  install_ok "$home" --profile minimal --help && check "  ...--profile alone with --help prints usage" grep -q '^Usage:' "$LOG"
+  install_ok "$home" -h && check "  ...-h prints usage" grep -q '^Usage:' "$LOG"
+  install_ok "$home" --os=portable --profile=minimal --help \
+    && check "  ...--opt=value works" grep -q "Options for OS 'portable' with profile 'minimal'" "$LOG"
+  install_refused "$home" --os --all
+  check "  ...--os --all says the value is missing" grep -q "requires a value, but got the option --all" "$LOG"
+  install_refused "$home" --os= --profile minimal
+  check "  ...an empty value is rejected" grep -q "requires a non-empty value" "$LOG"
+  install_refused "$home" --variant coder --variant arch
+  check "  ...a repeated option is rejected" grep -q "given twice" "$LOG"
+  install_refused "$home" --variant coder '--*'
+  check "  ...odd option names are rejected, not globbed" grep -q "Unexpected argument: --\*" "$LOG"
+  write_install_conf "$home" "DOTFILES_VARIANT=nope"
+  install_ok "$home" --os portable --profile minimal --help \
+    && check "  ...a bad default variant is ignored when --os and --profile are given" \
+      grep -q "Options for OS 'portable'" "$LOG"
+  install_refused "$home" --help
+  check "  ...a bad default variant is named as the default" grep -q "Unknown variant 'nope' (from DOTFILES_VARIANT" "$LOG"
+  rm -f "$home/.config/dotfiles/install.conf"
+  install_ok "$home" --variant arch --dry-run --reinstall --logind --link \
+    && check "  ...--reinstall uninstalls everything, then installs" sh -c '
+      last_uninstall="$(grep -n "Uninstalling feature" "$1" | tail -1 | cut -d: -f1)"
+      first_install="$(grep -n "ln -snfv" "$1" | head -1 | cut -d: -f1)"
+      [ -n "$last_uninstall" ] && [ -n "$first_install" ] && [ "$last_uninstall" -lt "$first_install" ]' sh "$LOG"
 }
 
 # Write install.conf in home $1 with the remaining args as its lines.
@@ -444,7 +480,7 @@ test_checkout_location() {
     "with ~/dotfiles linked to a checkout named not-dotfiles"
 }
 
-# --dry-run must succeed and leave the home untouched, for install, reinstall and uninstall.
+# --dry-run must succeed and leave the home untouched, for install, reinstall, uninstall and capture.
 # Usage: test_dry_run <setup>
 test_dry_run() {
   local setup="$1" flags=() feature mode before skipped="" announced="" features honor_dry_run
@@ -462,7 +498,7 @@ test_dry_run() {
   local home
   f_call new_home home
   before="$(snapshot "$home")"
-  for mode in "" --reinstall --uninstall; do
+  for mode in "" --reinstall --uninstall --capture; do
     install_ok "$home" --os "${setup%/*}" --profile "${setup#*/}" --dry-run ${mode:+"$mode"} "${flags[@]}" || true
   done
   check_unchanged "home unchanged" "$before" "$(snapshot "$home")"
@@ -850,6 +886,68 @@ test_f_call() {
     'f() { f_return "=1"; }; ! (f_call f a) && f() { f_return _a; } && ! (f_call f a)'
 }
 
+# --capture --dconf writes the keys DCONF_CAPTURE selects from dconf into dump/dconf/arch.dconf, with paths under the home
+# directory written as ${HOME}/...: here one selected key, one left out with ! and one in a directory it doesn't select.
+# Usage: test_capture_dconf
+test_capture_dconf() {
+  local home saved="$SCRATCH/arch.dconf.saved" file="$REPO_ROOT/dump/dconf/arch.dconf" expected
+  info "capture: dconf writes the selected keys into dump/dconf/arch.dconf"
+  f_call new_home home
+  mkdir -p "$home/keyfile" "$home/.config/dconf"
+  printf '%s\n' '[org/gnome/desktop/peripherals/keyboard]' 'delay=uint32 123' '' \
+    '[org/gnome/desktop/input-sources]' "mru-sources=[('xkb', 'us')]" '' \
+    '[org/gnome/desktop/screensaver]' "picture-uri='file://$home/wallpaper.jpg'" '' \
+    '[org/gnome/desktop/notifications]' "application-children=['app']" > "$home/keyfile/settings"
+  # Compiled straight into the user database, so no session bus is needed.
+  dconf compile "$home/.config/dconf/user" "$home/keyfile"
+  expected="$(printf '%s\n' '[org/gnome/desktop/peripherals/keyboard]' 'delay=uint32 123' '' \
+    '[org/gnome/desktop/screensaver]' "picture-uri='file://\${HOME}/wallpaper.jpg'")"
+  cp "$file" "$saved"
+  install_ok "$home" --variant arch --capture --dconf --dry-run \
+    && check "  ...--dry-run leaves arch.dconf alone" cmp -s "$saved" "$file"
+  install_ok "$home" --variant arch --capture --dconf \
+    && check "  ...arch.dconf holds just the selected keys, with \${HOME}" [ "$(cat "$file")" = "$expected" ]
+  cp "$saved" "$file"
+}
+
+# --capture --kde writes home/.config/kcminputrc from ~/.config/kcminputrc, keeping the groups KDE_CAPTURE selects:
+# here [Keyboard], and not [Mouse]. Needs no KDE tools, so it runs everywhere.
+# Usage: test_capture_kde
+test_capture_kde() {
+  local dir="$SCRATCH/kde.saved" file="$REPO_ROOT/home/.config/kcminputrc" nested="$REPO_ROOT/home/.config/powerdevilrc"
+  local home expected expected_nested
+  info "capture: kde writes the selected keys of ~/.config files into home/.config, nested groups included"
+  f_call new_home home
+  mkdir -p "$home/.config" "$dir"
+  printf '%s\n' '[Keyboard]' 'NumLock=0' 'RepeatDelay=123' '' '[Mouse]' 'X11LibInputXAccelProfileFlat=true' \
+    > "$home/.config/kcminputrc"
+  printf '%s\n' '[AC][SuspendAndShutdown]' 'LidAction=64' 'PowerButtonAction=16' '' '[AC][Display]' 'DimDisplayWhenIdle=true' \
+    > "$home/.config/powerdevilrc"
+  expected="$(printf '%s\n' '[Keyboard]' 'NumLock=0' 'RepeatDelay=123')"
+  expected_nested="$(printf '%s\n' '[AC][SuspendAndShutdown]' 'LidAction=64')"
+  cp "$file" "$dir/kcminputrc"
+  cp "$nested" "$dir/powerdevilrc"
+  install_ok "$home" --variant steamos --capture --kde --dry-run \
+    && check "  ...--dry-run leaves the files alone" cmp -s "$dir/kcminputrc" "$file" \
+    && check "  ...--dry-run leaves the nested one alone" cmp -s "$dir/powerdevilrc" "$nested"
+  install_ok "$home" --variant steamos --capture --kde \
+    && check "  ...kcminputrc holds just the selected group" [ "$(cat "$file")" = "$expected" ] \
+    && check "  ...powerdevilrc holds just the selected key of the nested group" [ "$(cat "$nested")" = "$expected_nested" ]
+  cp "$dir/kcminputrc" "$file"
+  cp "$dir/powerdevilrc" "$nested"
+}
+
+# --capture copies settings from this system into the repo's files.
+# Usage: test_capture
+test_capture() {
+  test_capture_kde
+  if command -v dconf >/dev/null; then
+    test_capture_dconf
+  else
+    warn "dconf not found; skipping the dconf capture test"
+  fi
+}
+
 # Run download_verified with DOWNLOAD_CACHE $1 and the remaining args (url, sha256, out) in a fresh bash, its output
 # going to LOG. Returns its status.
 # Usage: download_with_cache <cache> <url> <sha256> <out>
@@ -896,6 +994,7 @@ main() {
   test_usage "$(with_install_loaded available_names variants)"
   test_dimensions
   test_defaults
+  test_cli
   test_checkout_location
   test_clone_checkout
   test_bootstrap
@@ -908,6 +1007,7 @@ main() {
   test_oti
   test_machine
   test_steam
+  test_capture
   test_download_cache
   test_f_call
   test_env_sh

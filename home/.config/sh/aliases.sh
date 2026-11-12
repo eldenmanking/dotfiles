@@ -1,11 +1,15 @@
 #!/bin/sh
 
 # defaults
-alias ls="ls --color=auto"                                      #
-alias la="ls -la"                                               # list all with filesizes in MB
+# shellcheck disable=SC3028 # OSTYPE is set by bash and zsh, the only shells that source this; empty elsewhere
+case "${OSTYPE:-}" in                                           # GNU ls takes --color, BSD ls (macOS) takes -G
+  darwin*) alias ls="ls -G" ;;
+  *) alias ls="ls --color=auto" ;;
+esac
+alias la="ls -la"                                               # List all files, long format
 alias cp="cp -i"                                                # Confirm before overwriting something
 alias df='df -h'                                                # Human-readable sizes
-alias free='free -m'                                            # Show sizes in MB
+command -v free >/dev/null 2>&1 && alias free='free -m'          # Show sizes in MB (procps; not on macOS)
 
 # shortcuts
 alias py=python3                                                # Python shortcut
@@ -13,7 +17,7 @@ alias activate=". venv/bin/activate"                            # Python virtual
 alias vi=nvim                                                   #
 alias vis="source vis"                                          # Allow vis to use the vi alias
 alias gitu='git pull && git add -u && git commit && git push'   #
-alias tt="gio trash"                                            # move file to trash
+command -v gio >/dev/null 2>&1 && alias tt="gio trash"          # Move file to trash (GLib; not on macOS)
 
 # git shortcuts
 alias gs="git status"
@@ -47,7 +51,7 @@ gm() {
   else
     git commit -S -m "$1"
   fi
-} 
+}
 # Commit like gm, then push.
 # Usage: gmp [<message>]
 gmp() { gm "$1" && git push; }
@@ -78,7 +82,7 @@ gb() (
   fi
   # Remaining "$@" is now the pass-through option list.
 
-  command gh >/dev/null && target="$(gh pr view --json baseRefName -q '.baseRefName')"
+  command -v gh >/dev/null 2>&1 && target="$(gh pr view --json baseRefName -q '.baseRefName')"
   if [ -z "$target" ]; then
     echo "Could not use 'gh' to determine target branch."
   fi

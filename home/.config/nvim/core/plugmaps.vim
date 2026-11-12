@@ -1,13 +1,10 @@
-" moll/vim-bbye: intelligent buffer deletion (overrides <Leader>dd)
+" moll/vim-bbye: intelligent buffer deletion (overrides <Leader>dd from mappings.vim)
 nnoremap <Leader>dd <cmd>Bdelete<CR>
 
 " tpope/vim-obsession: shortcut for editing Sessionx.vim file
 nnoremap <Leader>ax <cmd>if v:this_session != "" \| execute "e " . substitute(g:this_obsession, "Session.vim", "Sessionx.vim", "") \| endif<CR>
 
-" lervag/vimtex: Prevent vimtex from stealing ts chord
-nnoremap ts<Space> ts
-
-" lervag/vimtex: Jump to clipboard line number
+" Jump to clipboard line number
 nnoremap \t <cmd>JumpToClipboard<CR>
 
 " tpope/vim-commentary: Mappings for toggling comments

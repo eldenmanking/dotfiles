@@ -1,4 +1,7 @@
 # Syncing with upstream
+> **One-off plan, not maintained.** This describes a single history rewrite and merge with the repo this one was
+> forked from. Once its steps are done (see Status), it is only a record and can be removed.
+
 This repo (eldenmanking/dotfiles, "the fork") was forked from professorlinstar/dotfiles ("upstream"). The fork's
 history was later rewritten to scrub sensitive text, so the two no longer share commits. This is the plan for
 rewriting upstream's history to match, merging the two, and then keeping a single canonical repo. It is written so
@@ -7,8 +10,7 @@ an agent with push access to upstream can carry out the upstream side.
 ## Background
 - Git's apparent merge base is `ffa67ec` (2023-05-13), the last commit before the rewrite.
 - The fork's history was rewritten and force-pushed to remove internal hostnames, internal repo names and PR/ticket
-  references. They appeared in 6 files, all under `.claude/` and `tests/claude-pr-statusline/cases/` (32, 37, 39,
-  40).
+  references. They appeared in a handful of files, all under `.claude/` and in test cases for Claude's status line.
   - Authors, committers, dates and messages are unchanged.
   - PGP signatures were stripped, so every commit after `ffa67ec` has a new hash.
   - Author emails were left as they were: rewriting them would change every hash again.
@@ -16,7 +18,7 @@ an agent with push access to upstream can carry out the upstream side.
 
 ## Real merge base
 - Upstream `b9334a8` = fork `39e1ec9` ("Fix dotfiles for coder", 2026-09-30).
-- The 185 commits after `ffa67ec` map one to one, in the same order. Their trees differ only by the scrub.
+- The commits after `ffa67ec` map one to one, in the same order. Their trees differ only by the scrub.
 - Upstream has two commits after that:
   - `8086f6e` "Continue claude in tmux + fix nvim sessions"
   - `e8ac133` "Update claude.md + remove tmux color setting"
@@ -28,11 +30,12 @@ pushed to a staging branch on the fork. Upstream has no tags.
 | Staging branch on the fork | Commit | Replaces upstream's |
 |---|---|---|
 | `rewrite/main` | `effee5a` | `main` @ `e8ac133` |
-| `rewrite/andywang/termux` | `7a3ed7f` | `andywang/termux` @ `944c43c` |
-| `rewrite/andywang/test` | `4a74fb4` | `andywang/test` @ `2b66ee7` |
-| `rewrite/andywang/windows` | `8bb1d03` | `andywang/windows` @ `52a0ca5` |
+| `rewrite/<user>/termux` | `7a3ed7f` | `<user>/termux` @ `944c43c` |
+| `rewrite/<user>/test` | `4a74fb4` | `<user>/test` @ `2b66ee7` |
+| `rewrite/<user>/windows` | `8bb1d03` | `<user>/windows` @ `52a0ca5` |
 
-Each staging tip has the same number of commits as the branch it replaces (381, 379, 236 and 203).
+The commits in this plan were recorded when this plan was written and must be re-read from the remotes
+(`git ls-remote`) before use. Each staging tip has the same number of commits as the branch it replaces (381, 379, 236 and 203).
 
 ## Steps
 Steps 1 and 2 are independent; step 3 needs both. PRs here are always squash-merged, so upstream's two commits
@@ -57,10 +60,10 @@ forbids force-pushes.
    git fetch https://github.com/eldenmanking/dotfiles 'refs/heads/rewrite/*:refs/remotes/staging/*'
    ```
 2. Verify before pushing. Each pair must have the same commit count, and its tips may differ only by the scrub:
-   `main` and `andywang/termux` in the 6 files above (28 lines changed each way), `andywang/test` and
-   `andywang/windows` not at all.
+   `main` and `<user>/termux` in the files above, `<user>/test` and
+   `<user>/windows` not at all.
    ```sh
-   for b in main andywang/termux andywang/test andywang/windows; do
+   for b in main <user>/termux <user>/test <user>/windows; do
      echo "== $b: $(git rev-list --count origin/$b) vs $(git rev-list --count staging/$b)"
      git diff --stat origin/$b staging/$b
    done
@@ -70,15 +73,15 @@ forbids force-pushes.
 3. Force-push, each guarded by the commit it replaces:
    ```sh
    git push --force-with-lease=main:e8ac133 origin staging/main:refs/heads/main
-   git push --force-with-lease=andywang/termux:944c43c origin staging/andywang/termux:refs/heads/andywang/termux
-   git push --force-with-lease=andywang/test:2b66ee7 origin staging/andywang/test:refs/heads/andywang/test
-   git push --force-with-lease=andywang/windows:52a0ca5 origin staging/andywang/windows:refs/heads/andywang/windows
+   git push --force-with-lease=<user>/termux:944c43c origin staging/<user>/termux:refs/heads/<user>/termux
+   git push --force-with-lease=<user>/test:2b66ee7 origin staging/<user>/test:refs/heads/<user>/test
+   git push --force-with-lease=<user>/windows:52a0ca5 origin staging/<user>/windows:refs/heads/<user>/windows
    ```
    Then confirm `git ls-remote origin` shows the four new commits.
 4. Delete the staging branches from the fork (needs push access to it):
    ```sh
-   git push https://github.com/eldenmanking/dotfiles --delete rewrite/main rewrite/andywang/termux \
-     rewrite/andywang/test rewrite/andywang/windows
+   git push https://github.com/eldenmanking/dotfiles --delete rewrite/main rewrite/<user>/termux \
+     rewrite/<user>/test rewrite/<user>/windows
    ```
 
 Caveats:
@@ -97,7 +100,7 @@ Done by the PR that added this file, which ports them to the fork's layout:
   tmux-256color` stay.
 - The Claude `SessionStart` hook and `tmux-session-id.sh`, which `claude_save.sh` relies on, moved to
   eldenmanking/tools; merge that change before or with this one.
-- Not taken: the commit-signing CLAUDE.md rule, and the `light-install.sh` change (the file no longer exists).
+- Not taken: the commit-signing CLAUDE.md rule, and the `light-install.sh` change (that script is not part of this layout).
 
 ### Step 3: point upstream at the fork's main
 Once steps 1 and 2 are done, in the clone from step 1:

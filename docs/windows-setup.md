@@ -1,4 +1,4 @@
-# Windows setup nootes
+# Windows setup notes
 * [Uninstall edge](https://github.com/ShadowWhisperer/Remove-MS-Edge?tab=readme-ov-file)
 * [Install PowerToys](https://learn.microsoft.com/en-us/windows/powertoys/)
     * Map CAPS to ESC

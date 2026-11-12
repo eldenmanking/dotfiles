@@ -17,8 +17,8 @@ feature_light_sleep() {
   # SteamOS's default keep list covers the drop-in (*.service.d/), but not the script.
   keep_across_steamos_updates light_sleep "/${LIGHT_SLEEP_SCRIPT#root/}"
   copy_system_file 755 "$LIGHT_SLEEP_SCRIPT"
-  f_call copy_system_files changed -- "$DOTFILES_ROOT/$LIGHT_SLEEP_DROPIN_SRC" "$LIGHT_SLEEP_DROPIN_DIR" \
-    "$LIGHT_SLEEP_DROPIN"
+  f_call copy_system_files changed -- "$DOTFILES_ROOT/$LIGHT_SLEEP_DROPIN_SRC" "$LIGHT_SLEEP_DROPIN" \
+    "$LIGHT_SLEEP_DROPIN_DIR"
   [[ -z "$changed" ]] || run sudo systemctl daemon-reload
   info "Suspend idles instead while an eGPU is on the expansion bay. Logs: journalctl -t light-sleep -b"
 }

@@ -11,7 +11,7 @@ os_portable() {
 # Usage: f_call os_portable_minimal features gui optional link_paths
 # Returns: features gui optional link_paths
 os_portable_minimal() {
-  f_return features="binaries link zsh shell starship tmux gitconfig"
+  f_return features="$FEATURES_PORTABLE gitconfig"
   f_return gui="none"
   f_return optional=""
   f_return link_paths="${LINK_COMMON_PATHS[*]}"
@@ -21,7 +21,7 @@ os_portable_minimal() {
 # Usage: f_call os_portable_workspace features gui optional link_paths
 # Returns: features gui optional link_paths
 os_portable_workspace() {
-  f_return features="binaries link zsh shell starship tmux gng tre claude gitconfig"
+  f_return features="$FEATURES_PORTABLE gng tre claude gitconfig"
   f_return gui="none"
   f_return optional=""
   f_return link_paths="${LINK_COMMON_PATHS[*]}"

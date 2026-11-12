@@ -29,18 +29,20 @@ call plug#end()
 
 " lua plugin setup
 lua << EOF
--- vim.pack plugins
-vim.pack.add({ 'https://github.com/dmtrKovalenko/fff' })
+-- vim.pack plugins (Neovim 0.12+)
+if vim.pack then
+  vim.pack.add({ 'https://github.com/dmtrKovalenko/fff' })
 
-vim.api.nvim_create_autocmd('PackChanged', {
-  callback = function(ev)
-    local name, kind = ev.data.spec.name, ev.data.kind
-    if name == 'fff' and (kind == 'install' or kind == 'update') then
-      if not ev.data.active then vim.cmd.packadd('fff') end
-      require('fff.download').download_or_build_binary()
-    end
-  end,
-})
+  vim.api.nvim_create_autocmd('PackChanged', {
+    callback = function(ev)
+      local name, kind = ev.data.spec.name, ev.data.kind
+      if name == 'fff' and (kind == 'install' or kind == 'update') then
+        if not ev.data.active then vim.cmd.packadd('fff') end
+        require('fff.download').download_or_build_binary()
+      end
+    end,
+  })
+end
 
 local function nvimTreeOnAttach(bufnr)
   local api = require "nvim-tree.api"
@@ -55,20 +57,13 @@ end
 
 require("which-key").setup { win = {height = 8} }
 require("bufferline").setup {}
-require("nvim-tree").setup { on_attach = nvimTreeOnAttach, git = { enable = false }, update_cwd = true, view = { adaptive_size = true } }
-
--- lua plugin configuration
-
-vim.g.fff = {
-  debug = { enabled = true, show_scores = true },
-}
+require("nvim-tree").setup { on_attach = nvimTreeOnAttach, git = { enable = false }, sync_root_with_cwd = true, respect_buf_cwd = true, view = { adaptive_size = true } }
 
 EOF
 
 " vim-airline & vim-airline-themes
 let g:airline#extensions#tabline#show_buffers = 0
 let g:airline#extensions#tabline#enabled = 0
-let g:airline#extensions#tabline#ignore_bufadd_pat = 'defx|gundo|nerd_tree|startify|tagbar|undotree|vimfiler'
 let g:airline_powerline_fonts = 1
 
 " markdown-preview.nvim
@@ -77,6 +72,3 @@ let g:mkdp_auto_close = 0
 
 " catppuccin setup
 colorscheme catppuccin-mocha
-
-" nvim-tree setup
-let g:nvim_tree_respect_buf_cwd = 1

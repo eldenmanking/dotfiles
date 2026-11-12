@@ -4,6 +4,18 @@
 
 F_NULL='<<null>>'
 
+# Print the name of the function <prefix><name>, with - in <name> as _ (feature names may have dashes).
+# Usage: fn_name <prefix> <name>
+fn_name() {
+  printf '%s%s' "$1" "${2//-/_}"
+}
+
+# Return 0 if a function named $1 is defined.
+# Usage: fn_defined <name>
+fn_defined() {
+  declare -F "$1" >/dev/null
+}
+
 # Return 0 if $1 is a variable name that doesn't start with an underscore, which f_call keeps for its own variables.
 _f_is_name() {
   [[ "$1" == [a-zA-Z]* && "$1" != *[!a-zA-Z0-9_]* ]]

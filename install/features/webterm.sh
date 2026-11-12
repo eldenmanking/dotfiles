@@ -112,7 +112,7 @@ feature_webterm() {
   token="$(webterm_token)"
   save_token "$token"
   keep_across_steamos_updates webterm $(unit_keep_paths "$USER_UNITS_DIR" "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}")
-  f_call install_user_units changed -- --global "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
+  f_call install_user_units changed -- "$WEBTERM_UNITS_SRC" "${WEBTERM_UNITS[@]}"
 
   # A socket that is already listening keeps its old address until restarted. Restarting it stops the services too
   # (they require it); the next visit starts them again.
@@ -133,7 +133,7 @@ feature_webterm() {
 
 # Stop webterm and remove its units, their enable links, ttyd and the page it built. The URL token is kept.
 uninstall_feature_webterm() {
-  uninstall_user_units --global "${WEBTERM_UNITS[@]}"
+  uninstall_user_units "${WEBTERM_UNITS[@]}"
   forget_across_steamos_updates webterm
   if [[ -e "$TTYD_BIN" ]]; then
     run rm -f "$TTYD_BIN"

@@ -8,26 +8,10 @@
 # @os steamos
 # @gui desktop
 feature_steamos_xclip() {
-  local name="$DISTROBOX_NAME"
-
-  if command -v xclip &>/dev/null; then
-    info "xclip already available: $(command -v xclip)"
-    return
-  fi
-  if ! command -v distrobox &>/dev/null; then
-    warn "distrobox command not found, skipping xclip setup."
-    return
-  fi
-
-  copy_binary_from_distrobox xclip "$name" xclip
+  install_distrobox_binary xclip
 }
 
 # Remove the copied xclip binary. The distrobox is left to uninstall_feature_distrobox.
 uninstall_feature_steamos_xclip() {
-  if [[ ! -e "$LOCAL_BIN/xclip" ]]; then
-    info "$LOCAL_BIN/xclip does not exist"
-    return
-  fi
-  info "Removing $LOCAL_BIN/xclip..."
-  run rm -f "$LOCAL_BIN/xclip"
+  uninstall_distrobox_binary xclip
 }

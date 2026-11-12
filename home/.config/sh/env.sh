@@ -41,9 +41,8 @@ unset esc
 # go
 if command -v go >/dev/null 2>&1; then
   export GOPATH="$HOME/.local/share/go"                           # Go module cache (writable; ~/go/pkg is root-owned)
-  path_append "$(go env GOPATH)/bin"                              # Go executables
-  GOBIN="$(go env GOPATH)/bin"                                    # Go-installed binaries (already on PATH above)
-  export GOBIN
+  export GOBIN="$GOPATH/bin"                                      # Where `go install` puts binaries
+  path_append "$GOBIN"                                            # Go executables
 fi
 
 unset -f path_prepend path_append

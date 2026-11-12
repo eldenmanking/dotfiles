@@ -10,7 +10,7 @@ A function that returns values with f_return (install/lib/fn.sh) is called with 
 f_call, and a Returns line follows, optionally followed by one line per returned name:
 
     # Copy each file in <src_dir> matching <glob> into <dst_dir> with sudo, replacing any old symlink.
-    # Usage: f_call copy_system_files changed -- <src_dir> <dst_dir> <glob>
+    # Usage: f_call copy_system_files changed -- <src_dir> <glob> <dst_dir>
     #   <glob>: a shell pattern, matched against file names only
     # Returns: changed
     #   changed: the space-separated targets that were copied (empty if all were up to date)
@@ -23,8 +23,9 @@ name, or for one that calls f_return, is f_call <function>, the names it returns
 arguments, with a Returns line listing the same names in the same order, exactly the names its f_return calls return.
 (A function that passes on what another returns, without calling f_return itself, may have an f_call Usage line and a
 Returns line too.) Each entry names an argument from the Usage line or a name from the Returns line, and the entries
-come last. feature_<name> and uninstall_feature_<name> in install/features are left out: install.sh calls them all the
-same way (<os> <profile> <enabled>), and tests/validation/features.sh checks their docs, which end with tags.
+come last. feature_<name>, uninstall_feature_<name> and capture_feature_<name> in install/features are left out:
+install.sh calls them all the same way (<os> <profile> <enabled>), and tests/validation/features.sh checks a feature's
+doc, which ends with tags.
 
 Shell is only tokenized here, not parsed: quotes (across lines too), comments, here-documents and backslash
 continuations are understood, which is enough for the functions in this repo. Run by `make lint` with the shell files
@@ -36,7 +37,7 @@ import sys
 
 NAME = r"[A-Za-z][A-Za-z0-9_]*"
 FUNCTION = re.compile(rf"^({NAME}) ?\(\) *\{{")
-FEATURE = re.compile(r"^(uninstall_)?feature_[a-z0-9_]+$")
+FEATURE = re.compile(r"^(uninstall_|capture_)?feature_[a-z0-9_]+$")
 COMMAND_SEP = re.compile(r";|&&|\|\||[|&(){}]")
 
 

@@ -32,6 +32,7 @@ if !has('nvim')
   set undodir=~/.vim/undodir
 endif
 
+if has('nvim')
 lua << EOF
 
 vim.g.clipboard = {
@@ -45,3 +46,4 @@ vim.g.clipboard = {
 }
 
 EOF
+endif

@@ -482,8 +482,8 @@ arch_chroot_pacstrap() {
   fi
   if ! $DRY_RUN; then
     # Compared without blank lines, which genfstab puts after each entry.
-    fstab="$({ genfstab -U "$root"; printf '%s\n' "$swap_line"; } | grep -v '^$')"
-    if [[ -f "$root/etc/fstab" && "$(grep -v '^$' "$root/etc/fstab")" == "$fstab" ]]; then
+    fstab="$({ probe genfstab -U "$root"; printf '%s\n' "$swap_line"; } | grep -v '^$')"
+    if [[ -f "$root/etc/fstab" && "$(probe grep -v '^$' "$root/etc/fstab")" == "$fstab" ]]; then
       info "/etc/fstab is up to date"
       return
     fi
@@ -492,15 +492,19 @@ arch_chroot_pacstrap() {
   [[ -z "$swap_line" ]] || append_shown "$root/etc/fstab" "$swap_line"
 }
 
-# Write $2 to file $1 in $ARCH_CHROOT_ROOT, unless it already holds exactly that.
-# Usage: arch_chroot_write <file> <content>
+# Write <content> to file <file> in $ARCH_CHROOT_ROOT, unless it already holds exactly that.
+# Usage: f_call arch_chroot_write changed -- <file> <content>
+# Returns: changed
+#   changed: true if it wrote (or, under --dry-run, would write) the file
 arch_chroot_write() {
-  local path="$ARCH_CHROOT_ROOT$1" content="$2"
-  if [[ -f "$path" && "$(cat "$path")" == "$content" ]]; then
+  local path="$ARCH_CHROOT_ROOT$1" content="$2" changed=true
+  if [[ -f "$path" && "$(probe cat "$path")" == "$content" ]]; then
     info "$1 is up to date"
+    changed=false
   else
     write_shown "$path" "$content"
   fi
+  f_return changed
 }
 
 # Set up the system in $ARCH_CHROOT_ROOT from arch-chroot, as the guide does, with time zone $1, locale $2, keymap $3,
@@ -511,15 +515,16 @@ arch_chroot_write() {
 # Usage: arch_chroot_system <timezone> <locale> <keymap> <hostname> <user> <root_pw> <user_pw> <dual>
 arch_chroot_system() {
   local timezone="$1" locale="$2" keymap="$3" hostname="$4" user="$5" root_pw="$6" user_pw="$7" dual="$8"
-  local root="$ARCH_CHROOT_ROOT" service
-  if [[ "$(readlink "$root/etc/localtime" 2>/dev/null)" == "/usr/share/zoneinfo/$timezone" ]]; then
+  local root="$ARCH_CHROOT_ROOT" service changed mode
+  if [[ "$(probe readlink "$root/etc/localtime" || true)" == "/usr/share/zoneinfo/$timezone" ]]; then
     info "Time zone is already $timezone"
   else
     run_shown arch-chroot "$root" ln -sf "/usr/share/zoneinfo/$timezone" /etc/localtime
   fi
+  # Always run: the hardware clock has no cheap state to compare, and setting it again from the system clock is harmless.
   run_shown arch-chroot "$root" hwclock --systohc
 
-  if grep -q "^$locale " "$root/etc/locale.gen" 2>/dev/null && [[ -f "$root/usr/lib/locale/locale-archive" ]]; then
+  if probe grep -q "^$locale " "$root/etc/locale.gen" && [[ -f "$root/usr/lib/locale/locale-archive" ]]; then
     info "$locale is already generated"
   else
     run_shown sed -i "s/^#\\($locale \\)/\\1/" "$root/etc/locale.gen"
@@ -531,16 +536,22 @@ arch_chroot_system() {
   arch_chroot_write /etc/hosts "$(arch_chroot_hosts "$hostname")"
 
   [[ -z "$root_pw" ]] || run_shown_secret "root:$root_pw" "root:********" arch-chroot "$root" chpasswd
-  if grep -q "^$user:" "$root/etc/passwd" 2>/dev/null; then
+  if probe grep -q "^$user:" "$root/etc/passwd"; then
     info "User $user already exists"
   else
     run_shown arch-chroot "$root" useradd -m -G wheel "$user"
   fi
   [[ -z "$user_pw" ]] || run_shown_secret "$user:$user_pw" "$user:********" arch-chroot "$root" chpasswd
   # A drop-in instead of uncommenting the wheel line in /etc/sudoers with visudo; visudo -c checks it the same way.
-  arch_chroot_write "$ARCH_CHROOT_SUDOERS" "%wheel ALL=(ALL:ALL) ALL"
-  run_shown chmod 0440 "$root$ARCH_CHROOT_SUDOERS"
-  run_shown arch-chroot "$root" visudo -c -q -f "$ARCH_CHROOT_SUDOERS"
+  # sudo ignores a drop-in that isn't 0440, so an interrupted run that wrote it without the chmod gets fixed here.
+  f_call arch_chroot_write changed -- "$ARCH_CHROOT_SUDOERS" "%wheel ALL=(ALL:ALL) ALL"
+  mode="$(probe stat -c %a "$root$ARCH_CHROOT_SUDOERS" || true)"
+  if $changed || [[ "$mode" != 440 ]]; then
+    run_shown chmod 0440 "$root$ARCH_CHROOT_SUDOERS"
+    run_shown arch-chroot "$root" visudo -c -q -f "$ARCH_CHROOT_SUDOERS"
+  else
+    info "$ARCH_CHROOT_SUDOERS is already 0440 and valid"
+  fi
 
   if [[ -f "$root/efi/EFI/GRUB/grubx64.efi" ]]; then
     info "GRUB is already on the EFI system partition"
@@ -549,7 +560,7 @@ arch_chroot_system() {
   fi
   if [[ "$dual" == true ]]; then
     # The fallback path belongs to whichever OS put it there; leave it. os-prober is off by default.
-    if grep -q '^GRUB_DISABLE_OS_PROBER=false' "$root/etc/default/grub" 2>/dev/null; then
+    if probe grep -q '^GRUB_DISABLE_OS_PROBER=false' "$root/etc/default/grub"; then
       info "os-prober is already enabled in /etc/default/grub"
     else
       run_shown sed -i 's/^#\?GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' "$root/etc/default/grub"
@@ -559,6 +570,7 @@ arch_chroot_system() {
   else
     run_shown arch-chroot "$root" grub-install --target=x86_64-efi --efi-directory=/efi --removable
   fi
+  # Always run: it regenerates the menu from what the other steps (and os-prober) found, and is cheap.
   run_shown arch-chroot "$root" grub-mkconfig -o /boot/grub/grub.cfg
 
   for service in $ARCH_CHROOT_SERVICES; do
@@ -611,12 +623,13 @@ oti_arch_chroot() {
 
   if [[ -n "$root_part" ]]; then
     # Resuming with the system mounted: it was a whole disk if that holds just the EFI system and root partitions.
-    disk="/dev/$(lsblk -no PKNAME "$root_part")"
+    disk="/dev/$(probe lsblk -no PKNAME "$root_part")"
     if [[ "$esp" != "$(arch_chroot_partition "$disk" 1)" || "$root_part" != "$(arch_chroot_partition "$disk" 2)" \
-      || "$(lsblk -nro TYPE "$disk" | grep -c part)" != 2 ]]; then
+      || "$(probe lsblk -nro TYPE "$disk" | grep -c part)" != 2 ]]; then
       disk=""
     fi
   else
+    # Shown to the person choosing, not a check.
     $DRY_RUN || lsblk -o NAME,SIZE,TYPE,FSTYPE,PARTTYPENAME,LABEL,MODEL
     disk="$(arch_chroot_ask DOTFILES_ARCH_DISK "" \
       "Disk to erase and install onto (e.g. /dev/vda), or partitions to pick partitions you prepared" "" \
@@ -636,8 +649,8 @@ oti_arch_chroot() {
       # A dry run shows a first run: a shared EFI system partition kept, the root partition formatted.
       format_root=true
       if ! $DRY_RUN; then
-        [[ -n "$(lsblk -dno FSTYPE "$esp")" ]] || format_esp=true
-        [[ "$(lsblk -dno FSTYPE "$root_part")" != btrfs ]] || format_root=false
+        [[ -n "$(probe lsblk -dno FSTYPE "$esp")" ]] || format_esp=true
+        [[ "$(probe lsblk -dno FSTYPE "$root_part")" != btrfs ]] || format_root=false
       fi
     else
       esp="$(arch_chroot_partition "$disk" 1)"
@@ -655,13 +668,13 @@ oti_arch_chroot() {
       arch_chroot_valid_swap_part "$live" "$esp" "$root_part")" || return 1
     if [[ "$swap_part" != none ]]; then
       fstype=""
-      $DRY_RUN || fstype="$(lsblk -dno FSTYPE "$swap_part")"
+      $DRY_RUN || fstype="$(probe lsblk -dno FSTYPE "$swap_part")"
       [[ "$fstype" == swap ]] || format_swap=true
     fi
   else
     swap_part=none
     # Up to half the disk.
-    $DRY_RUN || max_swap="$(( $(lsblk -bdno SIZE "$disk") / 1073741824 / 2 ))"
+    $DRY_RUN || max_swap="$(( $(probe lsblk -bdno SIZE "$disk") / 1073741824 / 2 ))"
     swap_size="$(arch_chroot_ask DOTFILES_ARCH_SWAP_SIZE "$swap_size" "Swap file size in GiB (0 for none)" 0 \
       "a whole number of GiB from 0 to $max_swap (half the disk)" arch_chroot_valid_swap_size "$max_swap")" \
       || return 1
