@@ -31,6 +31,7 @@ OFF_MARKER=/run/orei-switch/projector-off
 log() { logger -t orei-switch "$*"; }
 
 # Run framework_tool with its arguments, giving up after FWT_TIMEOUT seconds.
+# Usage: fwt [<arg>...]
 fwt() {
   timeout "$FWT_TIMEOUT" "$FWT" "$@"
 }
