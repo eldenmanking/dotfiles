@@ -65,7 +65,8 @@ feature_font() {
 # @gui any
 feature_logiops() {
   local unit_files
-  unit_files="$(systemctl list-unit-files)"
+  # No systemctl (a macOS dry run) or a failing one just means logid.service isn't known to be installed.
+  unit_files="$(systemctl list-unit-files 2>/dev/null || true)"
   if [[ "$unit_files" != *logid.service* ]]; then
     info "Installing PixlOne/logiops..."
     run sudo pacman --needed -S cmake libevdev libconfig pkgconf
