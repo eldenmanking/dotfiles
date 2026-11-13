@@ -1,8 +1,22 @@
 #!/usr/bin/env bash
 
-# Attaches the USB devices matching a pattern to a running GNOME Boxes VM, then detaches them (and any that were
-# already attached) when Enter is pressed or the script exits.
-# Usage: vm-usb [pattern] [vm]
+# Attaches USB devices to a running GNOME Boxes VM (USB passthrough), then detaches them again.
+# Usage: vm-usb [PATTERN [VM]]
+#        vm-usb -h | --help
+#   PATTERN  text to match in lsusb output, case-insensitive: a name or a vendor:product id (default: logitech)
+#   VM       libvirt name of the VM, which must already be running in Boxes (default: win11)
+#
+# It lists the matching devices and asks before attaching them. Press Enter to detach them; they are also detached
+# when the script exits or is interrupted, along with any matching devices that were already attached to the VM.
+# While attaching, each device node is chowned to you with sudo, because the session libvirtd can't open it
+# otherwise, and restored afterwards.
+#
+# Examples:
+#   vm-usb                    attach the Logitech devices to win11
+#   vm-usb yubikey            attach a YubiKey to win11
+#   vm-usb 046d:c52b win10    attach the device with that id to win10
+# List the devices and their ids with: lsusb
+# List the VM names with: flatpak run --command=virsh org.gnome.Boxes list --all
 
 LIB_DIR="$HOME/dotfiles/install/lib"
 # shellcheck source=../../../install/lib/output.sh
@@ -14,10 +28,18 @@ source "$LIB_DIR/exec.sh"
 
 VIRSH="flatpak run --command=virsh org.gnome.Boxes"
 
-# Reads the positional arguments into pattern and vm, falling back to defaults.
+# Prints the usage and description from this script's header comment, which ends at the first blank line.
+usage() {
+  sed -n '3,/^$/{/^$/!p;}' "$0" | sed 's/^# \{0,1\}//'
+}
+
+# Reads the positional arguments into pattern and vm, falling back to defaults, and exits on an option it doesn't know
+# or more than two arguments.
 #   $1: text to match in lsusb output (case-insensitive), default "logitech"
 #   $2: libvirt VM name, default "win11"; list with: flatpak run --command=virsh org.gnome.Boxes list --all
 parse_args() {
+  [[ "${1:-}" != -* ]] || error "Unknown option '$1'; see vm-usb --help"
+  [[ $# -le 2 ]] || error "Too many arguments; see vm-usb --help"
   f_return pattern="${1:-logitech}" vm="${2:-win11}"
 }
 
@@ -25,7 +47,8 @@ parse_args() {
 #   $1: VM name
 require_vm_running() {
   local vm="$1"
-  $VIRSH domstate "$vm" 2>/dev/null | grep -q running || error "'$vm' isn't running. Start it in Boxes first."
+  $VIRSH domstate "$vm" 2>/dev/null | grep -q running ||
+    error "'$vm' isn't running. Start it in Boxes first, or name another VM (see vm-usb --help)."
 }
 
 # Prints the space-separated "bus:dev" ids (zero-padded, as lsusb prints them) of the USB devices whose lsusb line
@@ -107,6 +130,11 @@ detach_on_exit() {
 
 main() {
   local pattern vm ids attached pending id
+  case "${1:-}" in -h | --help)
+    usage
+    exit 0
+    ;;
+  esac
   f_call parse_args pattern vm -- "$@"
 
   require_vm_running "$vm"

@@ -569,6 +569,27 @@ test_env_sh() {
     '. "$1"; [ -z "${QT_QPA_PLATFORMTHEME:-}" ]' sh "$env_sh"
 }
 
+# vm-usb: steamos links it, and --help describes it without needing a VM, a device or libvirt.
+test_vm_usb() {
+  local home flag vm_usb="$REPO_ROOT/home/.local/bin/vm-usb"
+  info "vm-usb: linked on steamos, and --help"
+  f_call new_home home
+  install_ok "$home" --os steamos --profile desktop --machine generic --link \
+    && check "  ...vm-usb is linked" test -L "$home/.local/bin/vm-usb"
+
+  for flag in --help -h; do
+    check "vm-usb $flag prints its usage and exits 0" env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" \
+      -c '"$1" "$2" | grep -q "^Usage: vm-usb \[PATTERN \[VM\]\]$"' sh "$vm_usb" "$flag"
+  done
+  check "vm-usb --help lists the defaults and how to find a VM" env -i HOME="$home" PATH="$PATH" TERM=dumb \
+    "$INSTALL_BASH" -c '"$1" --help | grep -q "default: win11" && "$1" --help | grep -q "virsh org.gnome.Boxes list"' \
+    sh "$vm_usb"
+  check "vm-usb --help stops at the header" env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" \
+    -c '! "$1" --help | grep -q "LIB_DIR"' sh "$vm_usb"
+  check "vm-usb refuses an unknown option" env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" \
+    -c '! out=$("$1" --bogus 2>&1) && [[ $out == *"Unknown option"* ]]' sh "$vm_usb"
+}
+
 # Report a check that function $2 of install/lib/infer.sh, called with the remaining args, prints $1.
 infer_prints() {
   local expected="$1" got
@@ -954,6 +975,7 @@ main() {
   test_download_cache
   test_f_call
   test_env_sh
+  test_vm_usb
 
   [[ "$FAILURES" == 0 ]] || error "$FAILURES check(s) failed"
   info "all install tests passed"

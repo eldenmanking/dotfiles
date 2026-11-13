@@ -96,7 +96,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   ├── squidpdf             --- pdf splitter for Squid notes
 │   │   │   ├── steamos-vm           --- starts, stops and repairs the SteamOS test VM (linked on steamos)
 │   │   │   ├── vis                  --- resume or start an obsession session in cwd
-│   │   │   ├── vm-usb               ---
+│   │   │   ├── vm-usb               --- attaches USB devices to a running GNOME Boxes VM; see vm-usb --help (linked on steamos and arch)
 │   │   │   ├── webterm-index        --- builds ttyd's page with the tab-key script appended
 │   │   │   ├── webterm-shell        --- login shell ttyd runs for each connection
 │   │   │   └── webterm-ttyd         --- runs ~/.local/bin/ttyd with the built page, if any
