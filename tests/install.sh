@@ -980,7 +980,7 @@ test_lib_helpers() {
   check "  ...and leaves the file alone" grep -qx "#Opt=off" "$file"
   lib_run false "confirm() { return 0; }; has_tty() { return 1; }; confirmsed '$file' '#Opt=off' 'Opt=on&x'"
   check "confirmsed replaces the matching line with the literal text" grep -qxF "Opt=on&x" "$file"
-  check "  ...keeping the other lines" test "$(wc -l < "$file")" = 3
+  check "  ...keeping the other lines" test "$(grep -c '' "$file")" = 3
   check "  ...and a backup" grep -qx "#Opt=off" "$SCRATCH/backups$file"
   lib_run false "confirm() { return 1; }; confirmsed '$file' 'Opt=on&x' 'z'"
   check "confirmsed leaves the file alone when declined" grep -qxF "Opt=on&x" "$file"
