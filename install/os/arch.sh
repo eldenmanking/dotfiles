@@ -14,12 +14,12 @@ os_arch() {
 # Usage: f_call os_arch_desktop features gui optional link_paths
 # Returns: features gui optional link_paths
 os_arch_desktop() {
-  f_return features="pacman yay terminal font printer logiops link webterm desktop $FEATURES_SYSTEM manual $FEATURES_TOOLS dconf xdg info"
+  f_return features="pacman yay terminal font printer logiops console link webterm desktop $FEATURES_SYSTEM manual $FEATURES_TOOLS dconf xdg info"
   f_return gui="gnome"
   # Optional features run only when named, not with --all. pacman + yay cover the packages --terminal would install,
   # and --printer is only needed on machines with a printer.
   f_return optional="terminal printer"
-  f_return link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_DESKTOP_PATHS[*]} ${LINK_WEBTERM_PATHS[*]}"
+  f_return link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_ARCH_DESKTOP_PATHS[*]} ${LINK_WEBTERM_PATHS[*]}"
 }
 
 # Arch terminal setup: the terminal pacman packages, with the shell startup files linked.

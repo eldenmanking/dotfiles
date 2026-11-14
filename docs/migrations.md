@@ -53,7 +53,7 @@ under names after `dotfiles`. Applies to SteamOS machines that ran steamos-confi
 
 ## Move steamos/ into home/ and root/ (#46, ac0512a)
 webterm's scripts, page and units moved from `steamos/` into `home/` (ttyd now downloads to `~/.local/bin/ttyd`),
-home-units and hdmi-audio-fix files moved under `root/etc/`, and `LINK_DESKTOP_PATHS` stopped linking `root/etc`
+home-units and hdmi-audio-fix files moved under `root/etc/`, and `LINK_ARCH_DESKTOP_PATHS` stopped linking `root/etc`
 and `root/usr` as whole directories.
 
 ### webterm units still point into steamos/ (steamos)
@@ -73,12 +73,12 @@ Once `steamos/.gitignore` is gone, git shows the old download as untracked.
 `root/etc` used to be linked as a whole, which also linked files their features copy instead (the udev rule and the
 tmpfiles config).
 - **Check:** `sudo find /etc /usr/local /usr/share/kbd -type l -lname "$HOME/dotfiles/root/*"`, then compare each
-  link with `LINK_DESKTOP_PATHS` in `~/dotfiles/install/features/link.sh`: a link whose repo path is not listed
+  link with `LINK_ARCH_DESKTOP_PATHS` in `~/dotfiles/install/features/link.sh`: a link whose repo path is not listed
   there is stale.
 - **Fix:** on a Framework 16, `~/dotfiles/install.sh --variant arch --udev --tmpfiles`, which replaces those links
   with copies. Otherwise, after asking, `sudo rm` each stale link (only links, never regular files), then
   `sudo udevadm control --reload` if a udev rule was removed.
-- **Verify:** rerunning the check lists only paths in `LINK_DESKTOP_PATHS`.
+- **Verify:** rerunning the check lists only paths in `LINK_ARCH_DESKTOP_PATHS`.
 
 ## Stop installing atomic-update.conf.d/orei-switch.conf (61396a2)
 The `orei_switch` feature no longer copies its own `/etc/atomic-update.conf.d/orei-switch.conf` (a copy, not a
@@ -177,3 +177,23 @@ machines that ran `--webterm` (steamos).
 - **Fix:** `~/dotfiles/install.sh --variant steamos --webterm`, which copies the new socket unit and restarts it.
   Then tell the user to replace their bookmark with the URL it prints (`http://localhost:7681/<token>/`).
 - **Verify:** the check prints nothing, and the URL `--webterm` prints answers.
+
+## Copy boot-time files instead of linking them (#101)
+`root/etc/logid.cfg`, `root/etc/modprobe.d/hid_apple.conf`, `root/etc/vconsole.conf` and
+`root/usr/share/kbd/keymaps/us-caps.map` are now copied by `--logiops` and the new `--console` instead of linked, since
+the kernel, initramfs and `logid.service` read them before an encrypted home is unlocked. `~/.config/sh`, `~/.config/zsh`
+and `~/.config/git` are no longer linked either: nothing read them from there. Affects arch.
+
+### Links into the checkout left in /etc and /usr (arch)
+- **Check:** `sudo find /etc /usr/share/kbd -type l -lname "$HOME/dotfiles/root/*"`, which lists the four files above
+  while they are still links.
+- **Fix:** `~/dotfiles/install.sh --variant arch --logiops --console`, which replaces each link with a copy (`--logiops`
+  also restarts `logid.service` if the copy differs). A `/etc/vconsole.conf` that was a link becomes a copy of the
+  repo's; a regular one (e.g. from the Arch installer) is left as it is.
+- **Verify:** the check prints nothing for those paths.
+
+### Dead links in ~/.config (arch)
+- **Check:** `find ~/.config/sh ~/.config/zsh ~/.config/git -type l -lname "$HOME/dotfiles/*" 2>/dev/null`
+- **Fix:** after asking the user, `rm` the listed links (only links, never regular files), then `rmdir` any of those
+  directories that is now empty.
+- **Verify:** the check prints nothing; new shells still start, since the startup files source the checkout directly.

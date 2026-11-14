@@ -11,6 +11,7 @@ feature_description() {
     font)        echo "install JetBrainsMono Nerd Font to ~/.local/share/fonts" ;;
     printer)     echo "install and set up HP printer drivers" ;;
     logiops)     echo "install and configure logitech software" ;;
+    console)     echo "copy the us-caps console keymap and hid_apple option into /etc and /usr (not symlinked; boot-time files)" ;;
     link)        echo "symlink the OS and profile's dotfiles into ~ (root/ into /)" ;;
     desktop)     echo "enable bluetooth and the GDM login screen, and boot into it (sudo)" ;;
     manual)      echo "make manual substitutions to files in-place" ;;
@@ -137,7 +138,7 @@ FEATURES_TOOLS="tmux claude gitconfig"
 FEATURES_PORTABLE="binaries link zsh shell starship tmux"
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link desktop manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops console link desktop manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
 
 # Print the name of feature <feature>'s function, feature_<name> with any - as _.
 # Usage: feature_function <feature>

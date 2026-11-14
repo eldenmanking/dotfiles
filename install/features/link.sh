@@ -36,28 +36,21 @@ LINK_WEBTERM_PATHS=(
   home/.local/share/webterm
 )
 
-# Extra paths linked on full desktop installs (e.g. arch). Paths under root/ name single files, never directories:
-# features copy some files there (udev rules, tmpfiles configs, system units) and they must not be linked as well.
-LINK_DESKTOP_PATHS=(
+# Extra paths linked by the arch desktop. Paths under root/ name single files, never directories: features copy some
+# files there (udev rules, tmpfiles configs, system units, boot-time files) and they must not be linked as well.
+LINK_ARCH_DESKTOP_PATHS=(
   home/.vimrc
   home/.ideavimrc
   home/.ocamlformat
   home/.pylintrc
   home/.config/alacritty
-  home/.config/git
-  home/.config/sh
   home/.config/yapf
-  home/.config/zsh
   home/.local/bin/squidpdf
   home/.local/bin/vm-usb
   home/.local/share/applications
   home/.local/share/backgrounds
-  root/etc/logid.cfg
-  root/etc/modprobe.d/hid_apple.conf
-  root/etc/vconsole.conf
   root/usr/local/bin/cmus-reload
   root/usr/local/bin/colortest
-  root/usr/share/kbd/keymaps/us-caps.map
 )
 
 # Link one repo-relative file: root/* goes to / and home/* to $HOME.
