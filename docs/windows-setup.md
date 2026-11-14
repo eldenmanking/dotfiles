@@ -1,5 +1,6 @@
 # Windows setup notes
-* Windows can be installed as Windows To Go onto a standalone USB drive only with [Rufus](https://rufus.ie), which requires an existing Windows machine or VM
+> **Note:** Windows can be installed as Windows To Go onto a standalone USB drive only with [Rufus](https://rufus.ie), which requires an existing Windows machine or VM.
+
 * [Uninstall edge](https://github.com/ShadowWhisperer/Remove-MS-Edge?tab=readme-ov-file)
 * [Disable OneDrive](https://support.microsoft.com/en-us/office/turn-off-disable-or-uninstall-onedrive-f32a17ce-3336-40fe-9c38-6efb09f944b0)
 * [Disable "Hide pointer while typing"](https://answers.microsoft.com/en-us/windows/forum/all/mouse-cursor-disappears-in-any-dialogue-or-text/3b3f0664-9e30-4acd-9f20-d304fcc227e9)
