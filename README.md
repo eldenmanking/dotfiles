@@ -47,6 +47,11 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   └── k3-ultra-8k-ansi.json    --- Keychron Launcher keymap export for the K3 Ultra 8K
 │   ├── okular                       --- Okular settings (manual import)
 │   │   └── default.shortcuts        --- Okular keyboard shortcut scheme: import under Configure Keyboard Shortcuts > Manage Schemes
+│   ├── steamgrid                    --- Steam library artwork for the Chrome and Discord shortcuts (manual import: copy into Steam's grid folder, see below)
+│   │   ├── 2293441873_hero.png      --- Google Chrome hero (1920x620)
+│   │   ├── 2293441873p.png          --- Google Chrome portrait capsule (600x900)
+│   │   ├── 2333229111_hero.png      --- Discord hero (3840x1240)
+│   │   └── 2333229111p.png          --- Discord portrait capsule (600x900)
 │   ├── vscode                       --- Visual Studio Code settings (manual import)
 │   │   └── keybindings.json         --- VS Code keybindings
 │   └── windows                      --- Windows-only settings (manual import)
@@ -218,7 +223,7 @@ The dconf and KDE settings files are loaded by their features and written back b
 - `--capture --kde` works the same way on KDE's config files, which have the same layout: it writes each file in `KDE_CONFIG_FILES` from its `~/.config` counterpart, keeping only what `KDE_CAPTURE` (`install/features/kde.sh`) selects.
   - Entries are written as `<file>/<group>/<key>` (e.g. `kcminputrc/Keyboard/` for the whole `[Keyboard]` group).
 - Both use `capture_filter` (`install/lib/capture.sh`). A capture rewrites the files, so keep notes about their settings in the code rather than in comments in them.
-- Only `dump/dconf` is loaded by `--dconf`; the other `dump/` directories (Insync, Okular, VS Code, Keychron, Chrome, Windows Terminal) are manual imports, which `--info` lists.
+- Only `dump/dconf` is loaded by `--dconf`; the other `dump/` directories (Insync, Okular, VS Code, Keychron, Chrome, Steam artwork, Windows Terminal) are manual imports, which `--info` lists. `dump/steamgrid` holds custom Steam artwork for the Chrome and Discord shortcuts, named by each shortcut's app id (`<appid>p.png` portrait capsule, `<appid>_hero.png` hero): copy the files into `~/.steam/steam/userdata/<user id>/config/grid/` and restart Steam. A shortcut's app id depends on its name and executable, so check `shortcuts.vdf` or the file names Steam writes in that folder when you set artwork by hand, and rename these to match.
 
 Each OS lives in `install/os/`, each profile in `install/profiles/`, each variant in `install/variants/` and each feature in `install/features/`, and the files each OS and profile link are listed in `install/features/link.sh`. Files under `home/` are installed into `$HOME` and files under `root/` into `/`, at the same path: most are linked, while some are copied by the feature that needs them (e.g. udev rules, which are read before an encrypted home is mounted, or systemd units). Paths under `root/` are linked one file at a time, never as a whole directory, so a copied file can't get linked too; `make validate` checks this. Everything else at the top level stays in the repo.
 
