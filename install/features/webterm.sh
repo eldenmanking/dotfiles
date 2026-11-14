@@ -41,6 +41,10 @@ install_ttyd() {
 
   info "Downloading ttyd $TTYD_VERSION ($asset)"
   local tmp
+  if $DRY_RUN; then
+    info "[dry-run] would download ttyd to $TTYD_BIN"
+    return
+  fi
   run mkdir -p "$LOCAL_BIN"
   tmp="$(mktemp "$TTYD_BIN.XXXXXX")"
   download_verified "https://github.com/tsl0922/ttyd/releases/download/$TTYD_VERSION/$asset" \

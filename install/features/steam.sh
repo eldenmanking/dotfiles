@@ -63,8 +63,11 @@ feature_steam() {
       warn "Steam is running and would overwrite $file on exit; quit Steam and rerun with --steam."
     else
       info "Updating Steam settings in $file..."
-      run mkdir -p "$(dirname "$BACKUPS_ROOT$file")"
-      run cp "$file" "$BACKUPS_ROOT$file"
+      # Keep the first backup: later ones would hold what an earlier install wrote.
+      if [[ ! -e "$BACKUPS_ROOT$file" ]]; then
+        run mkdir -p "$(dirname "$BACKUPS_ROOT$file")"
+        run cp "$file" "$BACKUPS_ROOT$file"
+      fi
       run cp "$tmp" "$file"
       changed=true
     fi

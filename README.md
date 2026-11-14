@@ -96,7 +96,7 @@ This repository contains configuration files for my linux workspace. The followi
 │   │   │   ├── squidpdf             --- pdf splitter for Squid notes
 │   │   │   ├── steamos-vm           --- starts, stops and repairs the SteamOS test VM (linked on steamos)
 │   │   │   ├── vis                  --- resume or start an obsession session in cwd
-│   │   │   ├── vm-usb               ---
+│   │   │   ├── vm-usb               --- attaches USB devices to a running GNOME Boxes VM; see vm-usb --help (linked on steamos and arch)
 │   │   │   ├── webterm-index        --- builds ttyd's page with the tab-key script appended
 │   │   │   ├── webterm-shell        --- login shell ttyd runs for each connection
 │   │   │   └── webterm-ttyd         --- runs ~/.local/bin/ttyd with the built page, if any
@@ -266,7 +266,7 @@ DOTFILES_FEATURES=all
 With that file, `./install.sh` runs `--variant coder --all`, `./install.sh --dry-run` previews it, `./install.sh --tmux` runs only `tmux` on `coder`, and `./install.sh --help` lists the `coder` options. In a Coder template, setting the two variables in the workspace agent's environment does the same without a file.
 
 #### Download Cache
-Features download their pinned binaries (ttyd, framework_tool, the Nerd Font) with `download_verified`, which checks each against its SHA-256. Set `DOTFILES_DOWNLOAD_CACHE` in the environment to a directory to reuse them: a file there named by the SHA-256 is used instead of downloading (and still checked), and each download is stored there. `make fixtures` shares one between its containers.
+Features download their pinned binaries (ttyd, framework_tool, the Nerd Font, neovim, starship, tmux) with `download_verified` and clone gng, tre and logiops at pinned commits with `clone_pinned`. `download_verified` checks each download against its SHA-256 and `clone_pinned` checks that HEAD is the pinned commit; Pinned downloads in `.claude/CLAUDE.md` says how to update a pin. Set `DOTFILES_DOWNLOAD_CACHE` in the environment to a directory to reuse them: a file there named by the SHA-256 is used instead of downloading (and still checked), and each download is stored there. `make fixtures` shares one between its containers.
 
 #### Feature Requirements
 Each `feature_<name>` function has a doc comment directly above it: a brief description, a bare `#` line, then tags naming the machines, OS and GUI it works on and the features it requires (`@requires` is optional):

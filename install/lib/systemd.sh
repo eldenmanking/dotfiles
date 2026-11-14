@@ -5,6 +5,7 @@ USER_UNITS_DIR="/etc/systemd/user"
 
 # Return 0 if unit file $1 has an [Install] section, so it can be enabled. Units without one are started by another
 # unit (a timer, a path or socket unit, a dependency), so the helpers below only copy them.
+# Usage: _unit_has_install <unit_file>
 _unit_has_install() {
   grep -q '^\[Install\]' "$1"
 }
@@ -47,11 +48,13 @@ unit_keep_paths() {
   done
 }
 
-# Copy units $4... from $3 into units dir $1 with sudo, and work out which to (re)enable: those with an [Install]
-# section that were copied or aren't enabled yet, as 'systemctl $2 is-enabled' tells ($2 is empty for system units,
-# --global for user ones). Outputs: changed, the space-separated units that were copied or will be (re)enabled, and
-# enable, those to (re)enable.
+# Copy units <unit>... from <src_dir> into <units_dir> with sudo, and work out which to (re)enable: those with an
+# [Install] section that were copied or aren't enabled yet, as 'systemctl <scope> is-enabled' tells.
 # Usage: f_call _copy_units changed enable -- <units_dir> <scope> <src_dir> <unit>...
+#   <scope>: empty for system units, --global for user ones
+# Returns: changed enable
+#   changed: the space-separated units that were copied or will be (re)enabled
+#   enable: the space-separated units to (re)enable
 _copy_units() {
   local dir="$1" scope="$2" src_dir="$3" unit copied changed="" enable=""
   shift 3

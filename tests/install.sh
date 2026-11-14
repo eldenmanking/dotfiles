@@ -609,6 +609,28 @@ test_env_sh() {
     '. "$1"; [ -z "${QT_QPA_PLATFORMTHEME:-}" ]' sh "$env_sh"
 }
 
+# vm-usb: steamos links it, and --help describes it without needing a VM, a device or libvirt.
+# Usage: test_vm_usb
+test_vm_usb() {
+  local home flag vm_usb="$REPO_ROOT/home/.local/bin/vm-usb"
+  info "vm-usb: linked on steamos, and --help"
+  f_call new_home home
+  install_ok "$home" --os steamos --profile desktop --machine generic --link \
+    && check "  ...vm-usb is linked" test -L "$home/.local/bin/vm-usb"
+
+  for flag in --help -h; do
+    check "vm-usb $flag prints its usage and exits 0" env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" \
+      -c '"$1" "$2" | grep -q "^Usage: vm-usb \[PATTERN \[VM\]\]$"' sh "$vm_usb" "$flag"
+  done
+  check "vm-usb --help lists the defaults and how to find a VM" env -i HOME="$home" PATH="$PATH" TERM=dumb \
+    "$INSTALL_BASH" -c '"$1" --help | grep -q "default: win11" && "$1" --help | grep -q "virsh org.gnome.Boxes list"' \
+    sh "$vm_usb"
+  check "vm-usb --help stops at the header" env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" \
+    -c '! "$1" --help | grep -q "LIB_DIR"' sh "$vm_usb"
+  check "vm-usb refuses an unknown option" env -i HOME="$home" PATH="$PATH" TERM=dumb "$INSTALL_BASH" \
+    -c '! out=$("$1" --bogus 2>&1) && [[ $out == *"Unknown option"* ]]' sh "$vm_usb"
+}
+
 # Report a check that function $2 of install/lib/infer.sh, called with the remaining args, prints $1.
 # Usage: infer_prints <expected> <function> [<arg>...]
 infer_prints() {
@@ -955,7 +977,7 @@ download_with_cache() {
   local cache="$1"
   shift
   "$INSTALL_BASH" -c 'set -euo pipefail; DRY_RUN=false DOWNLOAD_CACHE="$1"; shift
-    source "$0/output.sh"; source "$0/fs.sh"; download_verified "$@" test' \
+    source "$0/output.sh"; source "$0/fn.sh"; source "$0/fs.sh"; download_verified "$@" test' \
     "$REPO_ROOT/install/lib" "$cache" "$@" >"$LOG" 2>&1
 }
 
@@ -968,11 +990,6 @@ test_download_cache() {
   dir="$(mktemp -d "$SCRATCH/download.XXXXXX")"
   printf 'payload\n' > "$dir/src"
   sha="$(sha256_of "$dir/src")"
-  # download_verified checks files with GNU sha256sum's -c --status, which only the Linux features that call it need.
-  if ! echo "$sha  $dir/src" | sha256sum -c --status >/dev/null 2>&1; then
-    warn "sha256sum can't check files here (-c --status); skipping the download cache test"
-    return
-  fi
   check "a download is stored in the cache" download_with_cache "$dir/cache" "file://$dir/src" "$sha" "$dir/out1"
   check "  ...under its SHA-256" cmp -s "$dir/src" "$dir/cache/$sha"
   mv "$dir/src" "$dir/moved"
@@ -983,6 +1000,113 @@ test_download_cache() {
     fail "a cached file that doesn't match its SHA-256 is downloaded again"
   else
     pass "a cached file that doesn't match its SHA-256 is downloaded again"
+  fi
+}
+
+# Run the code in $2 in a fresh bash with the shared library loaded, DRY_RUN=$1 and BACKUPS_ROOT and DOTFILES_ROOT in
+# SCRATCH, its output going to LOG. Returns its status.
+# Usage: lib_run <dry_run> <code>
+lib_run() {
+  local dry_run="$1" code="$2" lib="$REPO_ROOT/install/lib"
+  "$INSTALL_BASH" -c 'set -euo pipefail; DRY_RUN="$1"; BACKUPS_ROOT="$2/backups"; DOTFILES_ROOT="$2/root"
+    for f in output fn exec fs capture; do source "$3/$f.sh"; done
+    eval "$4"' lib_run "$dry_run" "$SCRATCH" "$lib" "$code" >"$LOG" 2>&1
+}
+
+# The shared library's dry-run output, upsert_block, confirmsed, write_captured and file_sha256.
+# Usage: test_lib_helpers
+test_lib_helpers() {
+  local dir file
+  info "install/lib: dry-run output, upsert_block, confirmsed, write_captured, file_sha256"
+  dir="$(mktemp -d "$SCRATCH/lib.XXXXXX")"
+
+  lib_run true 'run printf "%s\n" "two words" ""'
+  check "run shows a command with its quoting under --dry-run" grep -qF "'two words' ''" "$LOG"
+
+  file="$dir/rc"
+  lib_run false "upsert_block '$file' x 'line one'"
+  lib_run true "upsert_block '$file' x 'line one'"
+  check "upsert_block --dry-run says an unchanged block is up to date" grep -q "already up to date" "$LOG"
+  lib_run true "upsert_block '$file' x 'line two'"
+  check "upsert_block --dry-run says a changed block would be set" grep -q "would set block" "$LOG"
+  check "  ...and leaves the file alone" grep -qx "line one" "$file"
+
+  file="$dir/main.conf"
+  printf 'a\n#Opt=off\nb\n' > "$file"
+  lib_run true "confirmsed '$file' '#Opt=off' 'Opt=on&x'"
+  check "confirmsed --dry-run announces the replacement" grep -q "would replace" "$LOG"
+  check "  ...and leaves the file alone" grep -qx "#Opt=off" "$file"
+  lib_run false "confirm() { return 0; }; has_tty() { return 1; }; confirmsed '$file' '#Opt=off' 'Opt=on&x'"
+  check "confirmsed replaces the matching line with the literal text" grep -qxF "Opt=on&x" "$file"
+  check "  ...keeping the other lines" test "$(grep -c '' "$file")" = 3
+  check "  ...and a backup" grep -qx "#Opt=off" "$SCRATCH/backups$file"
+  lib_run false "confirm() { return 1; }; confirmsed '$file' 'Opt=on&x' 'z'"
+  check "confirmsed leaves the file alone when declined" grep -qxF "Opt=on&x" "$file"
+  lib_run false "confirmsed '$file' 'nothing' 'nope'"
+  check "confirmsed warns when neither is found" grep -q "Neither" "$LOG"
+  lib_run false "confirmsed '$file' 'nothing' 'Opt=on&x'"
+  check "  ...but not when the replacement is already there" test ! -s "$LOG"
+
+  mkdir -p "$SCRATCH/root"
+  file="$SCRATCH/root/new.txt"
+  lib_run true "write_captured '$file' 'text'"
+  check "write_captured --dry-run diffs a missing file against empty" grep -q "^+text" "$LOG"
+  check "  ...without creating it" test ! -e "$file"
+
+  printf 'payload\n' > "$dir/src"
+  lib_run false "f_call file_sha256 sha=sha256 -- '$dir/src'; sha256_matches '$dir/src' \"\$sha\" && ! sha256_matches '$dir/src' 00"
+  check "file_sha256 and sha256_matches compare a file's SHA-256" test ! -s "$LOG"
+}
+
+# Run bash code $1 with the install library's output.sh and fs.sh loaded and the remaining args as $1.., its output
+# going to LOG. Returns its status.
+# Usage: run_fs_lib <code> [<arg>...]
+run_fs_lib() {
+  local code="$1"
+  shift
+  "$INSTALL_BASH" -c 'set -euo pipefail; DRY_RUN=false; source "$0/output.sh"; source "$0/fs.sh"; code="$1"; shift; eval "$code"' \
+    "$REPO_ROOT/install/lib" "$code" "$@" >"$LOG" 2>&1
+}
+
+# with_tmpdir removes its directory however the command ends, and clone_pinned only accepts the commit it was given.
+# Usage: test_tmpdir_and_pinned_clone
+test_tmpdir_and_pinned_clone() {
+  local dir commit
+  info "with_tmpdir and clone_pinned"
+  dir="$(mktemp -d "$SCRATCH/tmpdir.XXXXXX")"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  run_fs_lib 'w() { printf "%s" "${@: -1}" > "$1"; }; with_tmpdir w "$1"' "$dir/ok" || true
+  check "with_tmpdir passes a directory and removes it afterwards" test -n "$(cat "$dir/ok")" -a ! -e "$(cat "$dir/ok")"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  if run_fs_lib 'f() { printf "%s" "$2" > "$1"; false; }; with_tmpdir f "$1"; touch "$1.after"' "$dir/fail"; then
+    fail "with_tmpdir returns the command's failure"
+  else
+    pass "with_tmpdir returns the command's failure"
+  fi
+  check "  ...and removes its directory" test ! -e "$(cat "$dir/fail")"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  run_fs_lib 'f() { printf "%s" "$2" > "$1"; error boom; }; with_tmpdir f "$1"' "$dir/err" || true
+  check "with_tmpdir removes its directory when the command calls error" test ! -e "$(cat "$dir/err")"
+
+  git init -q "$dir/repo"
+  git -C "$dir/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m one
+  commit="$(git -C "$dir/repo" rev-parse HEAD)"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  check "clone_pinned checks out the pinned commit" \
+    run_fs_lib 'clone_pinned "$1" "$2" "$3"; test "$(git -C "$3" rev-parse HEAD)" = "$2"' "$dir/repo" "$commit" "$dir/clone"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  check "  ...again, unchanged" run_fs_lib 'clone_pinned "$1" "$2" "$3"' "$dir/repo" "$commit" "$dir/clone"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  if run_fs_lib 'clone_pinned "$1" "$2" "$3"' "$dir/repo" "0000000000000000000000000000000000000000" "$dir/clone2"; then
+    fail "clone_pinned rejects a commit the remote doesn't have"
+  else
+    pass "clone_pinned rejects a commit the remote doesn't have"
+  fi
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  if run_fs_lib 'clone_pinned "$1" v1 "$2"' "$dir/repo" "$dir/clone3"; then
+    fail "clone_pinned rejects a ref that isn't a full commit hash"
+  else
+    pass "clone_pinned rejects a ref that isn't a full commit hash"
   fi
 }
 
@@ -1009,8 +1133,11 @@ main() {
   test_steam
   test_capture
   test_download_cache
+  test_lib_helpers
+  test_tmpdir_and_pinned_clone
   test_f_call
   test_env_sh
+  test_vm_usb
 
   [[ "$FAILURES" == 0 ]] || error "$FAILURES check(s) failed"
   info "all install tests passed"

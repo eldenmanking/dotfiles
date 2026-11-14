@@ -147,12 +147,14 @@ DOTFILES_OLD_BLOCK_END="# /Managed by dotfiles"
 DOTFILES_OLD_SUBBLOCK_PREFIX="# feature "
 
 # Print the 1-based line numbers of lines in $1 exactly equal to $2.
+# Usage: _line_numbers <file> <line>
 _line_numbers() {
   awk -v s="$2" '$0 == s { print NR }' "$1"
 }
 
 # Return 0 if $file is a symlink into the dotfiles repo, where edits would
 # land in tracked files.
+# Usage: _links_into_dotfiles <file>
 _links_into_dotfiles() {
   local file="$1" target dir root
   [[ -L "$file" ]] || return 1
@@ -164,6 +166,7 @@ _links_into_dotfiles() {
 }
 
 # Return 0 if line $1 is a section marker, old or current.
+# Usage: _is_marker_line <line>
 _is_marker_line() {
   [[ "$1" == "$DOTFILES_BLOCK_START" || "$1" == "$DOTFILES_BLOCK_END" || "$1" == "$DOTFILES_SUBBLOCK_PREFIX"* \
     || "$1" == "$DOTFILES_OLD_BLOCK_START" || "$1" == "$DOTFILES_OLD_BLOCK_END" \
@@ -172,6 +175,7 @@ _is_marker_line() {
 
 # Print file $1 with the markers of an old-style section (starting with a single
 # '#') changed to the current ones. Everything else is printed unchanged.
+# Usage: _convert_old_section <file>
 _convert_old_section() {
   awk -v os="$DOTFILES_OLD_BLOCK_START" -v oe="$DOTFILES_OLD_BLOCK_END" -v op="$DOTFILES_OLD_SUBBLOCK_PREFIX" \
       -v ns="$DOTFILES_BLOCK_START" -v ne="$DOTFILES_BLOCK_END" -v np="$DOTFILES_SUBBLOCK_PREFIX" '
@@ -185,6 +189,7 @@ _convert_old_section() {
 # Overwrite $file with $tmp in place (keeping its mode and any symlink), creating
 # its directory as needed, then remove $tmp. Third arg is an optional sudo-style
 # prefix for the write.
+# Usage: _replace_contents <file> <tmp> [<sudo_cmd>]
 _replace_contents() {
   local file="$1" tmp="$2" sudo_cmd="${3:-}"
   ${sudo_cmd:+"$sudo_cmd"} mkdir -p "$(dirname "$file")"
@@ -228,12 +233,6 @@ upsert_block() {
     rm -f "$work"
     warn "Malformed dotfiles section in $file (need one '$DOTFILES_BLOCK_START' before one '$DOTFILES_BLOCK_END'); fix it by hand"
     return 1
-  fi
-
-  if $DRY_RUN; then
-    rm -f "$work"
-    info "[dry-run] would set block '$name' in $file"
-    return 0
   fi
 
   local tmp content_file
@@ -291,6 +290,11 @@ upsert_block() {
     rm -f "$tmp"
     return 0
   fi
+  if $DRY_RUN; then
+    rm -f "$tmp"
+    info_dry_run "set block '$name' in $file"
+    return 0
+  fi
   info "Updating block '$name' in $file"
   _replace_contents "$file" "$tmp" "$sudo_cmd"
 }
@@ -303,7 +307,7 @@ remove_block() {
   local header="$DOTFILES_SUBBLOCK_PREFIX$name"
   [[ -f "$file" ]] && grep -qxF "$header" "$file" || return 0
   if $DRY_RUN; then
-    info "[dry-run] would remove block '$name' from $file"
+    info_dry_run "remove block '$name' from $file"
     return 0
   fi
   local tmp
@@ -372,18 +376,34 @@ forget_across_steamos_updates() {
 write_file() {
   local dest="$1"
   if $DRY_RUN; then
-    info "[dry-run] would write $dest"
+    info_dry_run "write $dest"
     cat >/dev/null
   else
     cat >"$dest"
   fi
 }
 
+# Compute the SHA-256 of file <file> (sha256sum on Linux, shasum on macOS).
+# Usage: f_call file_sha256 sha256 -- <file>
+# Returns: sha256
+file_sha256() {
+  local sha256
+  if command -v sha256sum >/dev/null; then
+    sha256="$(sha256sum "$1")"
+  else
+    sha256="$(shasum -a 256 "$1")"
+  fi
+  sha256="${sha256%% *}"
+  f_return sha256
+}
+
 # Return 0 if $file exists and has SHA-256 $sha256.
 # Usage: sha256_matches <file> <sha256>
 sha256_matches() {
-  local file="$1" sha256="$2"
-  [[ -f "$file" ]] && echo "$sha256  $file" | sha256sum -c --status
+  local file="$1" sha256="$2" actual
+  [[ -f "$file" ]] || return 1
+  f_call file_sha256 actual=sha256 -- "$file"
+  [[ "$actual" == "$sha256" ]]
 }
 
 # Download $url to $out and check it against $sha256 ($name is for messages). With DOWNLOAD_CACHE set, a file there
@@ -393,7 +413,7 @@ download_verified() {
   local url="$1" sha256="$2" out="$3" name="$4"
   local cached="$DOWNLOAD_CACHE/$sha256"
   if $DRY_RUN; then
-    info "[dry-run] would download $url"
+    info_dry_run "download $url"
     return
   fi
   if [[ -n "$DOWNLOAD_CACHE" ]] && sha256_matches "$cached" "$sha256"; then
@@ -405,4 +425,78 @@ download_verified() {
   sha256_matches "$out" "$sha256" || { warn "$name checksum mismatch"; return 1; }
   [[ -z "$DOWNLOAD_CACHE" ]] || { mkdir -p "$DOWNLOAD_CACHE" && install -m 644 "$out" "$cached"; } \
     || warn "could not store $name in $DOWNLOAD_CACHE"
+}
+
+# Replace the lines of <file> that match the ERE ^pattern$ with the literal text <replace> (with a backup) after user
+# confirmation. Warns if neither the pattern nor the replacement is there. Fourth arg is an optional sudo-style prefix
+# for the write.
+# Usage: confirmsed <file> <pattern> <replace> [sudo]
+confirmsed() {
+  local file="$1" pattern="$2" replace="$3" sudo_cmd="${4:-}"
+
+  if [[ ! -f "$file" ]]; then
+    warn "$file does not exist."
+    return
+  fi
+
+  if grep -Eq "^${pattern}\$" "$file"; then
+    if $DRY_RUN; then
+      info_dry_run "replace '$pattern' with '$replace' in $file"
+      return
+    fi
+    if confirm "Edit $file to replace '$pattern' with '$replace'?"; then
+      run mkdir -pv "$(dirname "$BACKUPS_ROOT$file")"
+      if has_tty; then
+        run_tty cp -nvi "$file" "$BACKUPS_ROOT$file"
+      else
+        run cp -nv "$file" "$BACKUPS_ROOT$file"
+      fi
+      local tmp line
+      tmp="$(mktemp)"
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^${pattern}$ ]]; then line="$replace"; fi
+        printf '%s\n' "$line"
+      done < "$file" > "$tmp"
+      _replace_contents "$file" "$tmp" "$sudo_cmd"
+    fi
+  elif ! grep -qxF -- "$replace" "$file"; then
+    warn "Neither '$pattern' nor '$replace' were found in $file."
+  fi
+}
+
+# Make a temporary directory, run "$@" with it appended as the last argument, and remove it afterwards, even when the
+# command fails or calls error. Its status is with_tmpdir's. The command runs in a subshell, so it can't set the caller's variables.
+# Usage: with_tmpdir cmd [args...]   (cmd is called as: cmd args... tmpdir)
+with_tmpdir() {
+  local tmp status errexit=false
+  tmp="$(mktemp -d)" || return 1
+  # The directory is removed here and not by an EXIT trap in the subshell, which bash 3.2 (macOS) doesn't run when
+  # the command fails. errexit is switched off around the subshell so its status can be read without ending this
+  # function, and switched on inside it, which bash only honors when the subshell isn't on the left of || or if.
+  [[ $- == *e* ]] && errexit=true
+  set +e
+  (
+    set -e
+    "$@" "$tmp"
+  )
+  status=$?
+  rm -rf "$tmp"
+  ! $errexit || set -e
+  return "$status"
+}
+
+# Check out commit $2 of the git repository $1 into $3 (cloning it first if needed) and check that HEAD is that
+# commit, so a moved tag or a hijacked remote can't change what runs afterwards. $2 must be a full commit hash.
+# Usage: clone_pinned <url> <commit> <dest>
+clone_pinned() {
+  local url="$1" commit="$2" dest="$3" head
+  [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || error "clone_pinned: '$commit' is not a full commit hash"
+  [[ -d "$dest/.git" ]] || git init -q "$dest"
+  head="$(git -C "$dest" rev-parse HEAD 2>/dev/null || true)"
+  if [[ "$head" != "$commit" ]]; then
+    git -C "$dest" fetch -q --depth 1 "$url" "$commit" || error "could not fetch $commit from $url"
+    git -C "$dest" checkout -q --detach FETCH_HEAD
+    head="$(git -C "$dest" rev-parse HEAD)"
+  fi
+  [[ "$head" == "$commit" ]] || error "$url: expected commit $commit but got $head"
 }

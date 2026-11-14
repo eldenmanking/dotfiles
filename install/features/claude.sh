@@ -211,9 +211,11 @@ for path in src_paths:
         deep_merge(json.load(f), source, overwrite=False)
 
 def write(settings):
-    with open(dst_path, 'w') as f:
+    tmp_path = dst_path + '.tmp'
+    with open(tmp_path, 'w') as f:
         json.dump(settings, f, indent=2)
         f.write('\n')
+    os.replace(tmp_path, dst_path)
 
 if not os.path.exists(dst_path):
     print(f'[info] Creating {dst_path} from the tools repos', file=sys.stderr)
@@ -224,8 +226,11 @@ with open(dst_path) as f:
     settings = json.load(f)
 
 if deep_merge(source, settings, overwrite=True):
-    shutil.copy2(dst_path, dst_path + '.bak')
-    print(f'[info] Backed up existing settings to {dst_path}.bak', file=sys.stderr)
+    if os.path.exists(dst_path + '.bak'):
+        print(f'[info] Keeping the earlier backup {dst_path}.bak', file=sys.stderr)
+    else:
+        shutil.copy2(dst_path, dst_path + '.bak')
+        print(f'[info] Backed up existing settings to {dst_path}.bak', file=sys.stderr)
     write(settings)
 else:
     print('[info] Settings already up to date', file=sys.stderr)

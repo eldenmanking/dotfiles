@@ -36,7 +36,7 @@ import re
 import sys
 
 NAME = r"[A-Za-z][A-Za-z0-9_]*"
-FUNCTION = re.compile(rf"^({NAME}) ?\(\) *\{{")
+FUNCTION = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*) ?\(\) *\{")
 FEATURE = re.compile(r"^(uninstall_|capture_)?feature_[a-z0-9_]+$")
 COMMAND_SEP = re.compile(r";|&&|\|\||[|&(){}]")
 

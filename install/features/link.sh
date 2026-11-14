@@ -24,6 +24,7 @@ LINK_SHELL_PATHS=(
 LINK_STEAMOS_PATHS=(
   home/.local/bin/gamescope-screenshot
   home/.local/bin/steamos-vm
+  home/.local/bin/vm-usb
 )
 
 # Scripts and settings for the webterm feature, linked by the OSes and profiles that run it.

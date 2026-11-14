@@ -43,8 +43,9 @@ write_captured() {
   if [[ -f "$file" && "$text" == "$(cat "$file")" ]]; then
     info "${file#"$DOTFILES_ROOT/"} already matches this system"
   elif $DRY_RUN; then
-    info "[dry-run] would update ${file#"$DOTFILES_ROOT/"}:"
-    diff -u "$file" <(printf '%s\n' "$text") || true
+    info_dry_run "update ${file#"$DOTFILES_ROOT/"}:"
+    # diff exits 1 when the files differ, which is the point; a missing file is compared as empty.
+    diff -u "$([[ -f "$file" ]] && echo "$file" || echo /dev/null)" <(printf '%s\n' "$text") || [[ $? -eq 1 ]]
   else
     printf '%s\n' "$text" > "$file"
     info "Updated ${file#"$DOTFILES_ROOT/"}; review it with: git -C $DOTFILES_ROOT diff"

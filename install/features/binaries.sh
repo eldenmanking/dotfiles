@@ -1,47 +1,30 @@
 # Features: install binaries into ~/.local without a package manager.
 
-# --- Install neovim ---
+NEOVIM_VERSION=v0.12.6
+TMUX_VERSION=3.8
+TMUX_SHA256=e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e
 
-# Install the latest neovim release into ~/.local, unless nvim is already available.
-# Usage: install_neovim
-install_neovim() {
-  if command -v nvim &>/dev/null; then
-    info "neovim already available: $(command -v nvim)"
-    return
-  fi
-
-  local os arch
-  f_call detect_os_arch os arch
-
-  # Use direct GitHub release URL (no API call needed, avoids rate limits).
-  # Format: https://github.com/neovim/neovim/releases/latest/download/nvim-<os>-<arch>.tar.gz
-  local asset_name
-  case "${os}-${arch}" in
-    linux-x86_64)  asset_name="nvim-linux-x86_64.tar.gz" ;;
-    linux-arm64)   asset_name="nvim-linux-arm64.tar.gz" ;;
-    macos-arm64)   asset_name="nvim-macos-arm64.tar.gz" ;;
-    macos-x86_64)  asset_name="nvim-macos-x86_64.tar.gz" ;;
-    *)             error "No neovim binary available for ${os}-${arch}" ;;
+# Look up the pinned neovim release asset for <os> and <arch>.
+# Usage: f_call neovim_asset asset sha256 -- <os> <arch>
+# Returns: asset sha256
+neovim_asset() {
+  case "$1-$2" in
+    linux-x86_64) f_return asset=nvim-linux-x86_64.tar.gz sha256=474430d53e6264f6d6dd18db42d6dc9df3a1b56ca9e88a325bbf860e1a811d87 ;;
+    linux-arm64)  f_return asset=nvim-linux-arm64.tar.gz  sha256=8f1f64a0bdb97247034038c3823c6cbad5bdf9ecd5751b85494b71c3ee04c815 ;;
+    macos-arm64)  f_return asset=nvim-macos-arm64.tar.gz  sha256=1dbd148222b051ba6c307c4d17a318ed083df018a4f6a5a0ce46955ffc9ab87b ;;
+    macos-x86_64) f_return asset=nvim-macos-x86_64.tar.gz sha256=481424f1dbc85f637d57e47d27d042aa9c883e5a4fe9ee64fc4ee9573b221998 ;;
+    *)            error "No neovim binary available for $1-$2" ;;
   esac
+}
 
-  local download_url="https://github.com/neovim/neovim/releases/latest/download/${asset_name}"
-
-  if $DRY_RUN; then
-    info "[dry-run] would download $download_url and install neovim to $LOCAL_PREFIX"
-    return
-  fi
-
-  local tmp
-  tmp="$(mktemp -d)"
-
-  info "Downloading neovim from $download_url ..."
-  if ! curl -fSL -o "$tmp/nvim.tar.gz" "$download_url"; then
-    warn "Direct download failed, trying GitHub API fallback..."
-    local api_pattern="nvim-${os}.*(${arch}|64)\\.tar\\.gz\""
-    download_url="$(github_release_url neovim/neovim "$api_pattern")"
-    [[ -n "$download_url" ]] || error "Could not find neovim release for ${os}-${arch}"
-    curl -fSL -o "$tmp/nvim.tar.gz" "$download_url"
-  fi
+# Download the verified neovim release $1 (asset name) with SHA-256 $2 into the temp dir $3 and merge it into
+# $LOCAL_PREFIX.
+# Usage: _install_neovim_in <asset> <sha256> <tmp>
+_install_neovim_in() {
+  local asset="$1" sha256="$2" tmp="$3"
+  info "Downloading neovim $NEOVIM_VERSION ($asset)..."
+  download_verified "https://github.com/neovim/neovim/releases/download/$NEOVIM_VERSION/$asset" \
+    "$sha256" "$tmp/nvim.tar.gz" neovim || error "could not download neovim"
 
   info "Extracting to $LOCAL_PREFIX..."
   mkdir -p "$LOCAL_PREFIX"
@@ -53,9 +36,51 @@ install_neovim() {
   cp -r "$extracted_dir"/bin "$LOCAL_PREFIX/"
   cp -r "$extracted_dir"/lib "$LOCAL_PREFIX/" 2>/dev/null || true
   cp -r "$extracted_dir"/share "$LOCAL_PREFIX/"
+}
 
-  rm -rf "$tmp"
+# --- Install neovim ---
+
+# Install the pinned neovim release into ~/.local, unless nvim is already available.
+# Usage: install_neovim
+install_neovim() {
+  if command -v nvim &>/dev/null; then
+    info "neovim already available: $(command -v nvim)"
+    return
+  fi
+
+  local os arch asset sha256
+  f_call detect_os_arch os arch
+  f_call neovim_asset asset sha256 -- "$os" "$arch"
+
+  if $DRY_RUN; then
+    info "[dry-run] would download neovim $NEOVIM_VERSION ($asset) and install it to $LOCAL_PREFIX"
+    return
+  fi
+
+  with_tmpdir _install_neovim_in "$asset" "$sha256"
   info "neovim installed to $LOCAL_BIN/nvim"
+}
+
+# Download the verified tmux source tarball into the temp dir $1, then build and install it into $LOCAL_PREFIX.
+# Usage: _install_tmux_in <tmp>
+_install_tmux_in() {
+  local tmp="$1"
+  info "Downloading tmux $TMUX_VERSION..."
+  download_verified "https://github.com/tmux/tmux/releases/download/$TMUX_VERSION/tmux-$TMUX_VERSION.tar.gz" \
+    "$TMUX_SHA256" "$tmp/tmux.tar.gz" tmux || error "could not download tmux"
+
+  info "Building tmux (prefix=$LOCAL_PREFIX)..."
+  tar -xzf "$tmp/tmux.tar.gz" -C "$tmp"
+
+  local src_dir
+  src_dir="$(find "$tmp" -maxdepth 1 -mindepth 1 -type d | head -1)"
+
+  (
+    cd "$src_dir" || exit
+    ./configure --prefix="$LOCAL_PREFIX"
+    make
+    make install
+  )
 }
 
 # --- Install tmux ---
@@ -78,31 +103,7 @@ install_tmux_binary() {
 Install them first (e.g. apt install build-essential pkg-config libevent-dev ncurses-dev)."
   fi
 
-  info "Fetching latest tmux release URL..."
-  local download_url
-  download_url="$(github_release_url tmux/tmux "\\.tar\\.gz\"")"
-  [[ -n "$download_url" ]] || error "Could not find tmux release tarball"
-
-  local tmp
-  tmp="$(mktemp -d)"
-
-  info "Downloading tmux..."
-  curl -fSL -o "$tmp/tmux.tar.gz" "$download_url"
-
-  info "Building tmux (prefix=$LOCAL_PREFIX)..."
-  tar -xzf "$tmp/tmux.tar.gz" -C "$tmp"
-
-  local src_dir
-  src_dir="$(find "$tmp" -maxdepth 1 -mindepth 1 -type d | head -1)"
-
-  (
-    cd "$src_dir" || exit
-    ./configure --prefix="$LOCAL_PREFIX"
-    make
-    make install
-  )
-
-  rm -rf "$tmp"
+  with_tmpdir _install_tmux_in
   info "tmux installed to $LOCAL_BIN/tmux"
 }
 
@@ -125,7 +126,12 @@ feature_neovim() {
   install_neovim
 }
 
-# Clone gng (a Gradle wrapper launcher, run as gw) into ~/.local/gng and run its installer with sudo.
+GNG_VERSION=v1.0.5
+GNG_COMMIT=317f7717e1470d22f0c6a26e30534e33b8ad4e52
+TRE_VERSION=v0.4.0
+TRE_COMMIT=2caab2805d14340b71118d7d6c02b8ff340d8e54
+
+# Clone gng (a Gradle wrapper launcher, run as gw) at a pinned commit into ~/.local/gng and run its installer with sudo.
 #
 # @machine any
 # @os any
@@ -138,12 +144,9 @@ feature_gng() {
 
   local gng_dir="$LOCAL_PREFIX/gng"
 
-  if [[ -d "$gng_dir" ]]; then
-    info "gng repo already cloned at $gng_dir"
-  else
-    info "Cloning gng..."
-    git clone https://github.com/gdubw/gng.git "$gng_dir"
-  fi
+  # Whatever is cloned is checked out at the pinned commit before its installer runs as root.
+  info "Fetching gng $GNG_VERSION..."
+  clone_pinned https://github.com/gdubw/gng.git "$GNG_COMMIT" "$gng_dir"
 
   info "Running gng install script..."
   sudo "$gng_dir/install.sh"
@@ -151,7 +154,24 @@ feature_gng() {
   info "gng installed"
 }
 
-# Build tre (a tree alternative) from source with cargo and install it to ~/.local/bin.
+# Build tre from a pinned commit cloned into the temp dir $1 and install it to $LOCAL_BIN.
+# Usage: _install_tre_in <tmp>
+_install_tre_in() {
+  local tmp="$1"
+  info "Cloning tre $TRE_VERSION..."
+  clone_pinned https://github.com/dduan/tre.git "$TRE_COMMIT" "$tmp/tre"
+
+  info "Building tre (cargo build --release)..."
+  (
+    cd "$tmp/tre" || exit
+    cargo build --release
+  )
+
+  mkdir -p "$LOCAL_BIN"
+  mv "$tmp/tre/target/release/tre" "$LOCAL_BIN/tre"
+}
+
+# Build tre (a tree alternative) from a pinned commit with cargo and install it to ~/.local/bin.
 #
 # @machine any
 # @os any
@@ -168,21 +188,6 @@ feature_tre() {
 Install Rust and Cargo first (e.g. https://rustup.rs)."
   fi
 
-  local tmp
-  tmp="$(mktemp -d)"
-
-  info "Cloning tre..."
-  git clone https://github.com/dduan/tre.git "$tmp/tre"
-
-  info "Building tre (cargo build --release)..."
-  (
-    cd "$tmp/tre" || exit
-    cargo build --release
-  )
-
-  mkdir -p "$LOCAL_BIN"
-  mv "$tmp/tre/target/release/tre" "$LOCAL_BIN/tre"
-
-  rm -rf "$tmp"
+  with_tmpdir _install_tre_in
   info "tre installed to $LOCAL_BIN/tre"
 }

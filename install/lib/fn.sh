@@ -17,6 +17,7 @@ fn_defined() {
 }
 
 # Return 0 if $1 is a variable name that doesn't start with an underscore, which f_call keeps for its own variables.
+# Usage: _f_is_name <name>
 _f_is_name() {
   [[ "$1" == [a-zA-Z]* && "$1" != *[!a-zA-Z0-9_]* ]]
 }
