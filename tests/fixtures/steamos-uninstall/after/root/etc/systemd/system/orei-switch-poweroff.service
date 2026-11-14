@@ -8,6 +8,7 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 ExecStart=/etc/dotfiles/bin/orei-switch poweroff
+TimeoutStartSec=30
 
 [Install]
 WantedBy=poweroff.target
