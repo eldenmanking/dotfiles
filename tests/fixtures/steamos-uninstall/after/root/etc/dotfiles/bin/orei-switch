@@ -13,6 +13,9 @@
 # when the TV is behind a switch (this laptop's physical address is two levels deep, like 1.1.0.0), so sleeping away
 # from the projector, or on a TV without a switch, leaves them on.
 FWT=/etc/dotfiles/bin/framework_tool
+# framework_tool polls the EC with no timeout of its own, and the boot and sleep units wait for this script (oneshot
+# units have none either), so a wedged EC would hold back the login screen or suspend for good.
+FWT_TIMEOUT=10
 PD=1      # left PD controller (ports 2,3); right is 0
 UCSI=/sys/kernel/debug/usb/ucsi/USBC000:00
 CONN=3    # UCSI connector for the HDMI card (typec port2 + 1)
@@ -23,10 +26,19 @@ ON_WAIT=60    # seconds to keep trying to turn the projector on, e.g. while it f
 # Set when sleep turned the projector off, so wake only turns on a projector it turned off.
 OFF_MARKER=/run/orei-switch/projector-off
 
+# Log a message to the journal, tagged orei-switch.
+# Usage: log <message>...
 log() { logger -t orei-switch "$*"; }
+
+# Run framework_tool with its arguments, giving up after FWT_TIMEOUT seconds.
+# Usage: fwt [<arg>...]
+fwt() {
+  timeout "$FWT_TIMEOUT" "$FWT" "$@"
+}
 
 # Return 0 if an external display is connected with a readable EDID. A wake can leave the connector "connected" without
 # one: then there is no CEC adapter and gamescope falls back to 640x480, and only a UCSI reset fixes it.
+# Usage: external_connected
 external_connected() {
   local c
   for c in /sys/class/drm/card*-DP-*; do
@@ -38,6 +50,7 @@ external_connected() {
 
 # Return 0 once an external display is connected, or 1 after $1 seconds, or after 3s connected without an EDID (it
 # doesn't recover on its own).
+# Usage: wait_connected <seconds>
 wait_connected() {
   local i half=0
   for (( i = 0; i < $1 * 4; i++ )); do
@@ -51,6 +64,7 @@ wait_connected() {
 }
 
 # Reset the HDMI card's connector, a software replug.
+# Usage: ucsi_reset
 ucsi_reset() {
   printf '0x%x\n' $(( 0x03 | (CONN << 16) )) > "$UCSI/command"
   cat "$UCSI/response" >/dev/null
@@ -61,6 +75,7 @@ ucsi_reset() {
 # An adapter that lost its address (a hotplug storm or a stalled claim leaves it unconfigured) still lists
 # "Logical Address : Not Allocated", so only an address number counts. If the claim fails, clear the adapter's
 # addresses and claim again.
+# Usage: cec_ready <seconds>
 cec_ready() {
   local i
   for (( i = 0; i < $1 * 4; i++ )); do
@@ -76,12 +91,14 @@ cec_ready() {
 }
 
 # Print the TV's power state (on, standby, to-on or to-standby), or nothing if no TV answers.
+# Usage: tv_power
 tv_power() {
   cec-ctl -s -D "$CEC_DRIVER" --to 0 --give-device-power-status 2>/dev/null | sed -n 's/.*pwr-state: \([a-z-]*\).*/\1/p'
 }
 
 # Return 0 if an external display is connected and is a CEC TV, asking for up to $1 seconds: right after resume, the
 # adapter can report an address before cecd has finished configuring it, and messages fail until then.
+# Usage: tv_present <seconds>
 tv_present() {
   local i
   external_connected || return 1
@@ -93,11 +110,13 @@ tv_present() {
 }
 
 # Return 0 if this laptop's CEC physical address is at least two levels deep, i.e. behind a switch.
+# Usage: behind_switch
 behind_switch() {
   cec-ctl -D "$CEC_DRIVER" 2>/dev/null | grep -Eq 'Physical Address +: [1-9a-f]\.[1-9a-f]\.'
 }
 
 # Press the projector's Power Off key over CEC: it ignores <Standby>.
+# Usage: projector_off
 projector_off() {
   log "turning the projector off"
   if ! cec-ctl -s -D "$CEC_DRIVER" --to 0 --user-control-pressed ui-cmd=power-off-function >/dev/null \
@@ -109,6 +128,7 @@ projector_off() {
 # Wake the projector with <Image View On> (SteamOS's cecd also tries on resume, but the projector doesn't respond to
 # it), and keep trying for up to $ON_WAIT seconds until it reports on: one still shutting down may ignore it. Each try
 # re-checks the logical address, since cecd can drop and reclaim it for a few seconds after resume.
+# Usage: projector_on
 projector_on() {
   local i state=""
   log "turning the projector on"
@@ -131,9 +151,10 @@ projector_on() {
 # Return 0 unless framework_tool reports both of the PD controller's ports enabled ("0, 1"), so a failed read counts
 # as disabled. Checked on wake and boot rather than trusting a marker: the EC keeps the setting across a forced
 # poweroff, and anything else (e.g. a manual --pd-disable) could have cut the ports too.
+# Usage: pd_disabled
 pd_disabled() {
   local ports
-  ports="$("$FWT" --pd-info 2>/dev/null | awk -v pd="$PD" '
+  ports="$(fwt --pd-info 2>/dev/null | awk -v pd="$PD" '
     /^Right/ { n = 0 } /^Left/ { n = 1 } /^Back/ { n = 2 }
     n == pd && /Ports Enabled/ { sub(/.*: */, ""); print }')"
   [[ "$ports" != "0, 1" ]]
@@ -141,10 +162,11 @@ pd_disabled() {
 
 # Enable the PD controller, then wait for the display, falling back to UCSI resets. The first reset makes the OREI
 # switch, the second gives a clean hotplug so video comes up. Returns 1 if no display came up.
+# Usage: reconnect
 reconnect() {
   local step secs
   log "enabling PD $PD"
-  "$FWT" --pd-enable "$PD"
+  fwt --pd-enable "$PD"
   for step in "PD enable" "UCSI reset 1" "UCSI reset 2"; do
     secs="$RESET_WAIT"
     if [[ "$step" == "PD enable" ]]; then
@@ -173,7 +195,7 @@ case "$1" in
     mkdir -p "${OFF_MARKER%/*}" && touch "$OFF_MARKER"
     if behind_switch; then
       log "disabling PD $PD"
-      "$FWT" --pd-disable "$PD"
+      fwt --pd-disable "$PD"
       sleep 1
     fi
     ;;

@@ -17,10 +17,13 @@ SYSTEMD_SLEEP=/usr/lib/systemd/systemd-sleep
 DPMS_WAIT=3            # seconds to wait for KWin to turn the displays off
 SESSION_USER=deck       # whose KWin (Desktop Mode) session to turn the displays off in
 
+# Log a message to the journal, tagged light-sleep.
+# Usage: log <message>...
 log() { logger -t light-sleep "$*"; }
 
 # Print the PCI address of each display controller below ROOT_PORT that still answers: once the link is gone its
 # config space reads all ones (sysfs's vendor file is cached, so read the config space itself).
+# Usage: live_egpus
 live_egpus() {
   local dev
   for dev in /sys/bus/pci/devices/*; do
@@ -34,6 +37,7 @@ live_egpus() {
 # Start an evtest for each keyboard, and the power button, that doesn't have one running. An evtest exits by itself
 # when its device goes away, so nothing else needs stopping when devices come and go. Uses wait_for_press's devs and
 # pids, and writes to its fd 3.
+# Usage: watch_new_devices
 watch_new_devices() {
   local dev i running
   shopt -s nullglob
@@ -56,6 +60,7 @@ watch_new_devices() {
 # before the sleep doesn't wake. The grabs stay for WAKE_GRAB seconds after the press, to swallow any presses after it.
 # SIGKILL, not SIGTERM: this script's EXIT trap can make a just-forked job lose a SIGTERM before it execs, and an evtest
 # blocked on the full fifo wouldn't act on one.
+# Usage: wait_for_press
 wait_for_press() {
   local fifo line key monitor devs=() pids=()
   fifo="$(mktemp -u /run/light-sleep.XXXXXX)"
@@ -84,6 +89,7 @@ wait_for_press() {
 # Turn the displays on or off ($1: on or off) through KWin, if Desktop Mode is running; gamescope does it itself.
 # KWin applies a request about a second after kscreen-doctor returns, so off waits until no connector is enabled any
 # more (at most DPMS_WAIT seconds) before the freeze stops KWin. On needs KWin thawed, so it comes after the thaw.
+# Usage: kwin_dpms on|off
 kwin_dpms() {
   local i
   pgrep -x -u "$SESSION_USER" kwin_wayland >/dev/null || return 0
@@ -97,6 +103,9 @@ kwin_dpms() {
   log "displays still on ${DPMS_WAIT}s after kscreen-doctor --dpms off"
 }
 
+# Freeze the user session with the displays off until a key or power button press, then thaw it and
+# turn them back on.
+# Usage: light_sleep
 light_sleep() {
   trap 'systemctl thaw user.slice || log "failed to thaw user.slice"; kwin_dpms on' EXIT
   kwin_dpms off

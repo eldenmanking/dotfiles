@@ -13,7 +13,8 @@ source "$REPO_ROOT/install/lib/platform.sh"
 # shellcheck source=versions.env
 source "$TEST_DIR/versions.env"
 
-# Print the SHA-256 of $1 (sha256sum on Linux, shasum on macOS).
+# Print the SHA-256 of <file> (sha256sum on Linux, shasum on macOS).
+# Usage: sha256_of <file>
 sha256_of() {
   if command -v sha256sum >/dev/null; then
     sha256sum "$1" | cut -d' ' -f1
@@ -70,8 +71,9 @@ pinned_tool() {
   f_return path="$bin"
 }
 
-# Return 0 if command $1 exists. Otherwise warn that check $2 is skipped and return 1, or fail under CI, where every
+# Return 0 if <command> exists. Otherwise warn that <check> is skipped and return 1, or fail under CI, where every
 # check must run.
+# Usage: have_or_skip <command> <check>
 have_or_skip() {
   command -v "$1" >/dev/null && return 0
   [[ -z "${CI:-}" ]] || error "$1 is required for $2"
@@ -81,6 +83,7 @@ have_or_skip() {
 
 # Load install/ the way install.sh does, so tests can call its functions. The caller sets the globals the files read at
 # load time (INSTALL_DIR, DOTFILES_ROOT, ...) first.
+# Usage: load_install_tree
 load_install_tree() {
   local install_dir="$REPO_ROOT/install" file
   for file in "$install_dir"/lib/*.sh "$install_dir"/features/*.sh "$install_dir"/features/*/*.sh \

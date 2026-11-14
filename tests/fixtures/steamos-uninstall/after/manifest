@@ -3,10 +3,10 @@ new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 046380f5f46bd5dd
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
 new     /etc/dotfiles/bin d 755 root:root
 new     /etc/dotfiles/bin/framework_tool f 755 root:root ebc2f3ca300dac6f
-new     /etc/dotfiles/bin/light-sleep f 755 root:root 6aa1dedd3b2715cd
-new     /etc/dotfiles/bin/orei-switch f 755 root:root 2b557b37b495a303
-new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root 3b3111dd183ed5cc
-new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 1f708c32bbc3f993
+new     /etc/dotfiles/bin/light-sleep f 755 root:root e823d6825bee4edd
+new     /etc/dotfiles/bin/orei-switch f 755 root:root 53ab745ba7965ccc
+new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root b0fd815e55bf5a37
+new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 3a45f82ce67017c3
 new     /etc/sddm.conf.d d 755 root:root
 new     /etc/sddm.conf.d/orei-switch.conf f 644 root:root d605e909e9754daf
 new     /etc/systemd/system/orei-switch-boot.service f 644 root:root 3511f52781077efd
@@ -42,7 +42,9 @@ new     ~/.local d 755 user
 new     ~/.local/bin d 755 user
 new     ~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
 new     ~/.local/bin/gamescope-screenshot l 777 user -> ~/dotfiles/home/.local/bin/gamescope-screenshot
+new     ~/.local/bin/steamos-vm l 777 user -> ~/dotfiles/home/.local/bin/steamos-vm
 new     ~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
+new     ~/.local/bin/vm-usb l 777 user -> ~/dotfiles/home/.local/bin/vm-usb
 new     ~/.local/bin/webterm-index l 777 user -> ~/dotfiles/home/.local/bin/webterm-index
 new     ~/.local/bin/webterm-shell l 777 user -> ~/dotfiles/home/.local/bin/webterm-shell
 new     ~/.local/bin/webterm-ttyd l 777 user -> ~/dotfiles/home/.local/bin/webterm-ttyd

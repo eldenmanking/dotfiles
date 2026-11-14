@@ -261,9 +261,9 @@ desktop.sh edits /etc/bluetooth/main.conf, which only the arch and other Linux d
 # Find the problems with the hooks of the features: every uninstall_feature_<x> and capture_feature_<x> must name a
 # feature, and a feature with either must be in DRY_RUN_FEATURES, since both must honor --dry-run.
 # Usage: f_call check_hook_functions problems -- <known>
+#   <known>: the space-separated names of all the features
 # Returns: problems
 #   problems: one line per problem
-#   <known>: the space-separated names of all the features
 check_hook_functions() {
   local known="$1" problems="" kind name
   while IFS=: read -r kind name; do
@@ -286,8 +286,8 @@ check_steamos_keep() {
   local problems="" file name
   for file in "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh; do
     name="${file#"$INSTALL_DIR"/features/}"
-    grep -qE '^[^#]*(copy_system_files?|install_system_dir|install_system_units|install_user_units|confirmsed /etc/)' "$file" || continue
-    grep -q 'keep_across_steamos_updates' "$file" && continue
+    grep -qE '^[^#]*(copy_system_files?|install_system_units|install_user_units|confirmsed /etc/)' "$file" || continue
+    grep -qE 'keep_across_steamos_updates|install_system_dir' "$file" && continue
     case "$KEEP_EXEMPT" in *$'\n'"${name##*/} "*) continue ;; esac
     problems+="install/features/$name: writes into /etc but never calls keep_across_steamos_updates (or add it to KEEP_EXEMPT with a reason)"$'\n'
   done
