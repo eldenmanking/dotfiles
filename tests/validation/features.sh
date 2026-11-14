@@ -5,7 +5,8 @@
 # platforms and machines, the features of every OS and profile exist, suit its platforms, GUI and machines, and come
 # after the features they require, its link paths exist, naming single files under root/, and every variant names an
 # OS and profile that go together, and every one-time install in install/oti defines its function and description and
-# no uninstall. Run via `make validate`.
+# no uninstall, and uninstall and capture functions name a feature that honors --dry-run, and features that copy files
+# into /etc keep them across SteamOS updates. Run via `make validate`.
 
 set -euo pipefail
 
@@ -20,11 +21,7 @@ LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 DRY_RUN=true
 
-for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
-  "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh "$INSTALL_DIR"/oti/*.sh; do
-  # shellcheck source=/dev/null
-  source "$f"
-done
+load_install_tree
 
 # Find every feature with a feature_<name> function in install/features.
 # Usage: f_call scan_features features
@@ -255,6 +252,48 @@ check_oti() {
   f_return problems
 }
 
+# Files in install/features that copy files or units into /etc, so must keep them across SteamOS updates, mapped to why
+# one doesn't (a file listed here may still call keep_across_steamos_updates). Each is "path reason".
+KEEP_EXEMPT="
+desktop.sh edits /etc/bluetooth/main.conf, which only the arch and other Linux desktops use; SteamOS keeps its own
+"
+
+# Find the problems with the hooks of the features: every uninstall_feature_<x> and capture_feature_<x> must name a
+# feature, and a feature with either must be in DRY_RUN_FEATURES, since both must honor --dry-run.
+# Usage: f_call check_hook_functions problems -- <known>
+#   <known>: the space-separated names of all the features
+# Returns: problems
+#   problems: one line per problem
+check_hook_functions() {
+  local known="$1" problems="" kind name
+  while IFS=: read -r kind name; do
+    [[ -n "$name" ]] || continue
+    list_contains "$known" "$name" || problems+="${kind}_feature_$name: names no feature"$'\n'
+    list_contains "$DRY_RUN_FEATURES" "$name" \
+      || problems+="--$name: has ${kind}_feature_$name, which must honor --dry-run, but is not in DRY_RUN_FEATURES"$'\n'
+  done < <(sed -n 's/^\(uninstall\|capture\)_feature_\([a-z0-9_]*\)() *{.*/\1:\2/p' \
+    "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
+  f_return problems
+}
+
+# Find the feature files under install/features that copy system files or units (into /etc) without calling
+# keep_across_steamos_updates: a SteamOS update would drop them. This greps for the copying helpers, so it is a
+# heuristic; KEEP_EXEMPT lists the exceptions.
+# Usage: f_call check_steamos_keep problems
+# Returns: problems
+#   problems: one line per feature file
+check_steamos_keep() {
+  local problems="" file name
+  for file in "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh; do
+    name="${file#"$INSTALL_DIR"/features/}"
+    grep -qE '^[^#]*(copy_system_files?|install_system_units|install_user_units|confirmsed /etc/)' "$file" || continue
+    grep -qE 'keep_across_steamos_updates|install_system_dir' "$file" && continue
+    case "$KEEP_EXEMPT" in *$'\n'"${name##*/} "*) continue ;; esac
+    problems+="install/features/$name: writes into /etc but never calls keep_across_steamos_updates (or add it to KEEP_EXEMPT with a reason)"$'\n'
+  done
+  f_return problems
+}
+
 # Run every check, then fail with all the problems found, if any.
 # Usage: main
 main() {
@@ -281,6 +320,10 @@ main() {
     f_call check_oti found=problems -- "$oti"
     problems+="$found"
   done
+  f_call check_hook_functions found=problems -- "$known"
+  problems+="$found"
+  f_call check_steamos_keep found=problems
+  problems+="$found"
   for k in $DRY_RUN_FEATURES; do
     list_contains "$known" "$k" || problems+="DRY_RUN_FEATURES names unknown feature '$k'"$'\n'
   done

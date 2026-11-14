@@ -1,0 +1,61 @@
+kept    /etc/atomic-update.conf.d d 755 root:root
+new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 046380f5f46bd5dd
+kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
+new     /etc/dotfiles/bin d 755 root:root
+new     /etc/dotfiles/bin/framework_tool f 755 root:root ebc2f3ca300dac6f
+new     /etc/dotfiles/bin/light-sleep f 755 root:root e823d6825bee4edd
+new     /etc/dotfiles/bin/orei-switch f 755 root:root 53ab745ba7965ccc
+new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root b0fd815e55bf5a37
+new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 3a45f82ce67017c3
+new     /etc/sddm.conf.d d 755 root:root
+new     /etc/sddm.conf.d/orei-switch.conf f 644 root:root d605e909e9754daf
+new     /etc/systemd/system/orei-switch-boot.service f 644 root:root 3511f52781077efd
+new     /etc/systemd/system/orei-switch-poweroff.service f 644 root:root c601bc26ae6abf27
+new     /etc/systemd/system/orei-switch.service f 644 root:root 730ffcbd84068139
+new     /etc/systemd/system/systemd-suspend.service.d d 755 root:root
+new     /etc/systemd/system/systemd-suspend.service.d/light-sleep.conf f 644 root:root 0f2a8f889164a8c1
+kept    /etc/systemd/user d 755 root:root
+new     /etc/systemd/user/gamescope-screenshot.service f 644 root:root eccaf6fa2414876c
+new     /etc/systemd/user/gamescope-session.target.wants d 755 root:root
+new     /etc/systemd/user/gamescope-session.target.wants/gamescope-screenshot.service l 777 root:root -> /etc/systemd/user/gamescope-screenshot.service
+new     /etc/systemd/user/gamescope-session.target.wants/keyboard-rescan.path l 777 root:root -> /etc/systemd/user/keyboard-rescan.path
+new     /etc/systemd/user/keyboard-rescan.path f 644 root:root d5b9b372265f7eb8
+new     /etc/systemd/user/keyboard-rescan.service f 644 root:root 56caf1ae2044bfea
+kept    ~ d 700 user
+new     ~/.bash_profile l 777 user -> ~/dotfiles/home/.bash_profile
+new     ~/.bashrc l 777 user -> ~/dotfiles/home/.bashrc
+new     ~/.config d 755 user
+new     ~/.config/nvim d 755 user
+new     ~/.config/nvim/core d 755 user
+new     ~/.config/nvim/core/autocommands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/autocommands.vim
+new     ~/.config/nvim/core/commands.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/commands.vim
+new     ~/.config/nvim/core/filetypes.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/filetypes.vim
+new     ~/.config/nvim/core/mappings.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/mappings.vim
+new     ~/.config/nvim/core/options.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/options.vim
+new     ~/.config/nvim/core/plugins.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugins.vim
+new     ~/.config/nvim/core/plugmaps.vim l 777 user -> ~/dotfiles/home/.config/nvim/core/plugmaps.vim
+new     ~/.config/nvim/init.vim l 777 user -> ~/dotfiles/home/.config/nvim/init.vim
+new     ~/.config/starship.toml l 777 user -> ~/dotfiles/home/.config/starship.toml
+new     ~/.config/webterm d 755 user
+new     ~/.config/webterm/env l 777 user -> ~/dotfiles/home/.config/webterm/env
+new     ~/.local d 755 user
+new     ~/.local/bin d 755 user
+new     ~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
+new     ~/.local/bin/gamescope-screenshot l 777 user -> ~/dotfiles/home/.local/bin/gamescope-screenshot
+new     ~/.local/bin/steamos-vm l 777 user -> ~/dotfiles/home/.local/bin/steamos-vm
+new     ~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
+new     ~/.local/bin/vm-usb l 777 user -> ~/dotfiles/home/.local/bin/vm-usb
+new     ~/.local/bin/webterm-index l 777 user -> ~/dotfiles/home/.local/bin/webterm-index
+new     ~/.local/bin/webterm-shell l 777 user -> ~/dotfiles/home/.local/bin/webterm-shell
+new     ~/.local/bin/webterm-ttyd l 777 user -> ~/dotfiles/home/.local/bin/webterm-ttyd
+new     ~/.local/share d 755 user
+new     ~/.local/share/webterm d 755 user
+new     ~/.local/share/webterm/tab-keys.html l 777 user -> ~/dotfiles/home/.local/share/webterm/tab-keys.html
+new     ~/.profile l 777 user -> ~/dotfiles/home/.profile
+new     ~/.tmux d 755 user
+new     ~/.tmux.conf l 777 user -> ~/dotfiles/home/.tmux.conf
+new     ~/.tmux/resurrect d 755 user
+new     ~/.tmux/resurrect/claude_save.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/claude_save.sh
+new     ~/.tmux/resurrect/saferestore.sh l 777 user -> ~/dotfiles/home/.tmux/resurrect/saferestore.sh
+new     ~/.zprofile l 777 user -> ~/dotfiles/home/.zprofile
+new     ~/.zshrc l 777 user -> ~/dotfiles/home/.zshrc

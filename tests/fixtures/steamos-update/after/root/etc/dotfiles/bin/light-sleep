@@ -1,0 +1,121 @@
+#!/bin/bash
+# Suspend, or idle with the displays off while an eGPU sits on the Framework 16 expansion bay. Installed into
+# /etc/dotfiles/bin by the light_sleep feature of ~/dotfiles/install.sh, and run by systemd-suspend.service in place of
+# systemd-sleep (see its drop-in light-sleep.conf). See docs/light-sleep.md.
+#
+# An eGPU on the bay's M.2 slot loses its PCIe link whenever the SoC reaches hardware sleep (S0i3) and never gets it
+# back: it has its own power supply, so it never sees the reset a new link needs. Nothing in Linux keeps s2idle out of
+# S0i3, so while a live one is attached, sleep is a light sleep instead: freeze user.slice as systemd-sleep does and
+# wait for a key or the power button. The compositor has already turned the displays off, on logind's PrepareForSleep;
+# in Desktop Mode, KWin lights the laptop panel again when orei-switch's PD cut removes the projector's output, so
+# it is turned off again here, after that.
+# logind, Steam and the units on sleep.target still see an ordinary suspend.
+ROOT_PORT=0000:00:01.5  # the expansion bay's PCIe root port
+POWER_BUTTON=/dev/input/by-path/platform-PNP0C0C:00-event  # the ACPI power button, which has no by-id link
+WAKE_GRAB=1             # seconds to keep swallowing presses after the one that wakes
+SYSTEMD_SLEEP=/usr/lib/systemd/systemd-sleep
+DPMS_WAIT=3            # seconds to wait for KWin to turn the displays off
+SESSION_USER=deck       # whose KWin (Desktop Mode) session to turn the displays off in
+
+# Log a message to the journal, tagged light-sleep.
+# Usage: log <message>...
+log() { logger -t light-sleep "$*"; }
+
+# Print the PCI address of each display controller below ROOT_PORT that still answers: once the link is gone its
+# config space reads all ones (sysfs's vendor file is cached, so read the config space itself).
+# Usage: live_egpus
+live_egpus() {
+  local dev
+  for dev in /sys/bus/pci/devices/*; do
+    [[ "$(readlink -f "$dev")" == */$ROOT_PORT/* ]] || continue
+    [[ "$(cat "$dev/class")" == 0x03* ]] || continue
+    [[ "$(od -An -tx2 -N2 "$dev/config" | tr -d ' ')" != ffff ]] && echo "${dev##*/}"
+  done
+  return 0
+}
+
+# Start an evtest for each keyboard, and the power button, that doesn't have one running. An evtest exits by itself
+# when its device goes away, so nothing else needs stopping when devices come and go. Uses wait_for_press's devs and
+# pids, and writes to its fd 3.
+# Usage: watch_new_devices
+watch_new_devices() {
+  local dev i running
+  shopt -s nullglob
+  for dev in /dev/input/by-id/*-event-kbd "$POWER_BUTTON"; do
+    running=false
+    for i in "${!devs[@]}"; do
+      [[ "${devs[$i]}" == "$dev" ]] && kill -0 "${pids[$i]}" 2>/dev/null && running=true
+    done
+    $running && continue
+    stdbuf -oL evtest --grab "$dev" >&3 2>/dev/null &
+    devs+=("$dev")
+    pids+=($!)
+  done
+  shopt -u nullglob
+}
+
+# Return on the first key or power button press. Each evtest grabs its device, so the press never reaches the frozen
+# session, whose input queues would otherwise deliver it on thaw (Steam would suspend again on the power button). The
+# fifo gets evtest's lines and udevadm's; key repeats (value 2) and releases (value 0) are ignored, so a key held since
+# before the sleep doesn't wake. The grabs stay for WAKE_GRAB seconds after the press, to swallow any presses after it.
+# SIGKILL, not SIGTERM: this script's EXIT trap can make a just-forked job lose a SIGTERM before it execs, and an evtest
+# blocked on the full fifo wouldn't act on one.
+# Usage: wait_for_press
+wait_for_press() {
+  local fifo line key monitor devs=() pids=()
+  fifo="$(mktemp -u /run/light-sleep.XXXXXX)"
+  mkfifo "$fifo"
+  exec 3<>"$fifo"
+  rm "$fifo"
+  stdbuf -oL udevadm monitor --udev --subsystem-match=input >&3 2>/dev/null &
+  monitor=$!
+  watch_new_devices
+  while read -r line <&3; do
+    case "$line" in
+      Event:*'(EV_KEY)'*'value 1')
+        key="${line##*\(}"
+        log "woken by ${key%%\)*}"
+        break
+        ;;
+      UDEV*' add '*) watch_new_devices ;;
+    esac
+  done
+  sleep "$WAKE_GRAB"
+  kill -9 "$monitor" "${pids[@]}" 2>/dev/null
+  wait "$monitor" "${pids[@]}" 2>/dev/null
+  exec 3>&-
+}
+
+# Turn the displays on or off ($1: on or off) through KWin, if Desktop Mode is running; gamescope does it itself.
+# KWin applies a request about a second after kscreen-doctor returns, so off waits until no connector is enabled any
+# more (at most DPMS_WAIT seconds) before the freeze stops KWin. On needs KWin thawed, so it comes after the thaw.
+# Usage: kwin_dpms on|off
+kwin_dpms() {
+  local i
+  pgrep -x -u "$SESSION_USER" kwin_wayland >/dev/null || return 0
+  timeout 10 runuser -u "$SESSION_USER" -- env "XDG_RUNTIME_DIR=/run/user/$(id -u "$SESSION_USER")" \
+    WAYLAND_DISPLAY=wayland-0 kscreen-doctor --dpms "$1" >/dev/null 2>&1 || log "kscreen-doctor --dpms $1 failed"
+  [[ "$1" == off ]] || return 0
+  for ((i = 0; i < DPMS_WAIT * 10; i++)); do
+    grep -qx enabled /sys/class/drm/card*-*/enabled 2>/dev/null || return 0
+    sleep 0.1
+  done
+  log "displays still on ${DPMS_WAIT}s after kscreen-doctor --dpms off"
+}
+
+# Freeze the user session with the displays off until a key or power button press, then thaw it and
+# turn them back on.
+# Usage: light_sleep
+light_sleep() {
+  trap 'systemctl thaw user.slice || log "failed to thaw user.slice"; kwin_dpms on' EXIT
+  kwin_dpms off
+  systemctl freeze user.slice || log "failed to freeze user.slice"
+  wait_for_press
+}
+
+[[ "$1" == suspend ]] || exec "$SYSTEMD_SLEEP" "$@"
+egpus="$(live_egpus)"
+[[ -n "$egpus" ]] || exec "$SYSTEMD_SLEEP" "$@"
+log "light sleep instead of suspend: the eGPU at ${egpus//$'\n'/ } would lose its link"
+light_sleep
+log "woke from light sleep"

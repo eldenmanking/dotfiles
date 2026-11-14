@@ -1,0 +1,1 @@
+/home/deck/dotfiles/home/.config/nvim/core/autocommands.vim

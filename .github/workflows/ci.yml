@@ -16,22 +16,37 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make validate
 
   lint:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # shellcheck and actionlint, downloaded by make lint into this directory (checked against their pinned SHA-256s).
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/dotfiles-test
+          key: dotfiles-test-lint-${{ runner.os }}-${{ hashFiles('tests/versions.env') }}
       - name: Install zsh
         run: sudo apt-get update -q && sudo apt-get install -y -q zsh
       - run: make lint
 
   fixtures:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The pinned downloads the containers share (see Download Cache in README.md). They are checksummed on use, so a
+      # stale entry is harmless; the key changes with install/, which pins them, so new downloads get saved.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/dotfiles-test
+          key: dotfiles-test-fixtures-${{ runner.os }}-${{ hashFiles('tests/versions.env', 'install/**') }}
+          restore-keys: dotfiles-test-fixtures-${{ runner.os }}-
       # Each fixture picks its container image from tests/images (see tests/fixtures.sh).
       - run: make fixtures
 
@@ -49,6 +64,7 @@ jobs:
           - name: ubuntu
             runs-on: ubuntu-24.04
     runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 30
     container: ${{ matrix.container }}
     env:
       ARCH_ARCHIVE_DATE: 2026/10/18

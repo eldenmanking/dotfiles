@@ -1,0 +1,92 @@
+#!/bin/bash
+# Redo the switch to the new session's VT when SDDM's X11 login screen drops it on exit. SDDM runs this as the sddm
+# user right after the login screen's X server exits (/etc/sddm.conf.d/orei-switch.conf), in place of SteamOS's own
+# stop command.
+#
+# On login, the greeter quits as soon as the password is accepted, which stops its X server, while SDDM opens the
+# session. Once the session's process has taken its VT as controlling tty, it asks the kernel to switch to it. X holds
+# its VT in VT_PROCESS mode, so the kernel waits for X to agree, and X answers only from its main loop: a request that
+# lands while X is shutting down is dropped when X hands the VT back to the kernel. The session then waits for a switch
+# that never comes, until SDDM gives up on it after 30 s (QProcess::waitForStarted) and kills Gaming Mode a minute
+# later. Asking logind for the switch again completes it at once, because X is gone.
+#
+# Asking before the session holds its VT breaks the login instead: switching to a VT nobody has open makes logind start
+# a getty there, and the session then can't take it ("Failed to take control of /dev/ttyN"). That happens whenever
+# opening the session takes a while, so this asks only once a process holds the VT and it still isn't active, and
+# otherwise leaves the switch to SDDM, which X can no longer drop. SDDM kills this script after 5 s.
+#
+# SDDM's greeter no longer quits on login since commit da0b64d (after 0.21), so its X server stays up until the switch
+# is done; this can go once SteamOS ships that.
+# Installed into /etc/dotfiles/bin by the orei_switch feature of ~/dotfiles/install.sh.
+BUDGET_MS=4000
+
+# Log a message to the journal, tagged orei-switch like the rest of the display handling.
+# Usage: log <message>...
+log() { logger -t orei-switch "login screen: $*"; }
+
+# Print the current time in milliseconds.
+# Usage: now_ms
+now_ms() { echo $(( ${EPOCHREALTIME/./} / 1000 )); }
+
+# Print the id and VT of the user session SDDM opened on seat0 after session $1 (the login screen's), if any: the one
+# logging in. Other user sessions, older or opened elsewhere (e.g. a text login on another VT), belong to other logins.
+# Usage: new_user_session <session>
+new_user_session() {
+  local since id class service state vt ts key value
+  since="$(loginctl show-session "$1" --property=TimestampMonotonic --value 2>/dev/null)"
+  for id in $(loginctl show-seat seat0 --property=Sessions --value); do
+    class='' service='' state='' vt='' ts=''
+    while IFS='=' read -r key value; do
+      case "$key" in
+        Class) class="$value" ;;
+        Service) service="$value" ;;
+        State) state="$value" ;;
+        VTNr) vt="$value" ;;
+        TimestampMonotonic) ts="$value" ;;
+      esac
+    done < <(loginctl show-session "$id" \
+      --property=Class --property=Service --property=State --property=VTNr --property=TimestampMonotonic)
+    [[ "$class" == user && "$service" == sddm && "$state" != closing && -n "$vt" && "$vt" != 0 ]] || continue
+    (( ${ts:-0} > ${since:-0} )) || continue
+    printf '%s %s\n' "$id" "$vt"
+    return
+  done
+}
+
+# Return 0 if tty<vt> is the active VT.
+# Usage: vt_active <vt>
+vt_active() { [[ "$(cat /sys/class/tty/tty0/active)" == "tty$1" ]]; }
+
+# Return 0 if a process holds tty$1 as its controlling tty, as the session does before it asks for the switch.
+# Usage: vt_held <vt>
+vt_held() { [[ -n "$(ps -t "tty$1" -o pid=)" ]]; }
+
+deadline=$(( $(now_ms) + BUDGET_MS ))
+
+# SteamOS's own DisplayStopCommand, which this replaces.
+/usr/bin/gamescope-wayland-teardown-workaround || true
+
+# This script runs in the login screen's logind session. Without a newer user session nothing is logging in (e.g. on
+# poweroff), or it hasn't got far enough to ask for its VT, which then can't be dropped since X is already gone.
+read -r id vt <<<"$(new_user_session "${XDG_SESSION_ID:-self}")"
+[[ -n "$vt" ]] || exit 0
+
+while (( $(now_ms) < deadline )); do
+  vt_active "$vt" && exit 0
+  if vt_held "$vt"; then
+    # A switch asked for just now finishes within a fraction of a second; one X dropped never does.
+    sleep 0.2
+    vt_active "$vt" && exit 0
+    # The sddm user may switch VTs through logind (polkit's org.freedesktop.login1.chvt) while its greeter session
+    # lasts.
+    if loginctl activate "$id"; then
+      log "the switch to tty$vt was dropped when the X server exited; asked again"
+    else
+      log "the switch to tty$vt was dropped when the X server exited, and asking again failed"
+    fi
+    exit 0
+  fi
+  sleep 0.1
+done
+log "no process took tty$vt $(( BUDGET_MS / 1000 ))s after the X server exited; left the switch to SDDM"
+exit 0
