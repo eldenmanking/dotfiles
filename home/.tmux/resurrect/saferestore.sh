@@ -1,7 +1,10 @@
 #!/bin/sh
 
+# Print the command line this script takes.
+# Usage: usage
 usage() { echo "$0 [last|prev]"; }
 # Print the resurrect files, oldest first (their names end in a timestamp).
+# Usage: resurrect_files
 resurrect_files() {
   for file in tmux_resurrect_*.txt; do
     [ -e "$file" ] && printf '%s\n' "$file"

@@ -11,6 +11,7 @@ STEAM_SETTINGS=(
 
 # Read a localconfig.vdf on stdin and print it with the value on each "key" line replaced by $2. Fails if no line has
 # the key, after printing the file unchanged. Steam writes each "key"<tab><tab>"value" pair on its own line.
+# Usage: steam_vdf_replace <key> <value>
 steam_vdf_replace() {
   KEY="$1" VALUE="$2" awk '
     {
@@ -25,9 +26,11 @@ steam_vdf_replace() {
   '
 }
 
-# Outputs: content, localconfig.vdf $1 with every STEAM_SETTINGS value replaced, and missing, the space-separated
-# keys it lacks.
+# Apply STEAM_SETTINGS to localconfig.vdf <file>, without writing it.
 # Usage: f_call steam_apply_settings content missing -- <file>
+# Returns: content missing
+#   content: <file>'s contents with every STEAM_SETTINGS value replaced
+#   missing: the space-separated keys it lacks
 steam_apply_settings() {
   local file="$1" content entry key value missing=""
   content="$(cat "$file")"

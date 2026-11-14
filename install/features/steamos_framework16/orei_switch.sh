@@ -37,6 +37,8 @@ declare_orei_switch() {
   hook_units system --no-start "$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS
 }
 
+# Remind where the charger must go, and where the logs are.
+# Usage: post_orei_switch <os> <profile> <enabled> <changed>
 post_orei_switch() {
   info "Keep the charger on a right-side port: sleep cuts power to ports 2 and 3. Logs: journalctl -t orei-switch -b"
 }

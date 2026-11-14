@@ -35,6 +35,7 @@ SHORTCUT_AWK='
 }'
 
 # Print a path in directory $1 named after the current time, with a counter added if that name is taken.
+# Usage: screenshot_path <dir>
 screenshot_path() {
   local dir="$1" stamp path n=1
   stamp="$(date +%Y-%m-%d_%H-%M-%S)"
@@ -47,6 +48,7 @@ screenshot_path() {
 }
 
 # Succeed once file $1 exists and is not empty, or fail after $2 seconds.
+# Usage: wait_for_file <file> <seconds>
 wait_for_file() {
   local file="$1" tries=$(($2 * 10))
   until [[ -s "$file" ]]; do
@@ -57,6 +59,7 @@ wait_for_file() {
 }
 
 # Take a screenshot of gamescope type $1 (empty for gamescope's default), print its path and play the shutter sound.
+# Usage: take_screenshot <type>
 take_screenshot() {
   local type="$1" path
   mkdir -p "$SCREENSHOT_DIR" || return 1
@@ -76,6 +79,7 @@ take_screenshot() {
 # Take a screenshot on each shortcut press on the keyboards connected now. evtest only reads, so games still get the
 # keys. Each keyboard's evtest writes lines (line-buffered, so they don't interleave) into one awk, which runs the
 # screenshots. Exits when a keyboard goes away, for systemd to restart it with the keyboards connected then.
+# Usage: watch_keys
 watch_keys() {
   local dev
   [[ -e "${KEYBOARDS[0]}" ]] || { echo "gamescope-screenshot: no keyboards found" >&2; return 1; }
@@ -92,6 +96,8 @@ watch_keys() {
   return 1
 }
 
+# With --watch, take a screenshot on each shortcut press; otherwise take one of gamescope type <type>.
+# Usage: main [--watch|<type>]
 main() {
   if [[ "${1:-}" == --watch ]]; then
     watch_keys

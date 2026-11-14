@@ -33,12 +33,18 @@ alias ghl="git stash list"
 alias gmb="git merge-base"
 alias gp="git push"
 alias gnb="git rebase --no-verify --no-gpg-sign -i"
+# Fetch branch <branch> from origin and check it out.
+# Usage: gfc <branch>
 gfc () {
   git fetch origin "$1" && gc "$1"
 }
+# cd to the top of the current git checkout.
+# Usage: gg
 gg() {
   cd "$(git rev-parse --show-toplevel)" || return
 }
+# Commit signed, with message <message>, or in the editor without one.
+# Usage: gm [<message>]
 gm() {
   if [ -z "$1" ]; then
     git commit -S
@@ -46,9 +52,17 @@ gm() {
     git commit -S -m "$1"
   fi
 }
+# Commit like gm, then push.
+# Usage: gmp [<message>]
 gmp() { gm "$1" && git push; }
+# Stage tracked changes and commit like gam, then push.
+# Usage: gamp [<message>]
 gamp() { gam "$1" && git push; }
+# Stage everything and commit without hooks or signing, as unsigned-wip unless <message> is given.
+# Usage: gn [<message>]
 gn() { ga . && git commit --no-verify --no-gpg-sign -m "${1:-unsigned-wip}"; }
+# Commit like gn, then push.
+# Usage: gnp [<message>]
 gnp() { ga . && git commit --no-verify --no-gpg-sign -m "${1:-unsigned-wip}" && git push; }
 # Functions that need local variables run their body in a subshell (POSIX sh
 # has no 'local'), so their variables don't leak into the interactive shell.

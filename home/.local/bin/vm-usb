@@ -29,14 +29,17 @@ source "$LIB_DIR/exec.sh"
 VIRSH="flatpak run --command=virsh org.gnome.Boxes"
 
 # Prints the usage and description from this script's header comment, which ends at the first blank line.
+# Usage: usage
 usage() {
   sed -n '3,/^$/{/^$/!p;}' "$0" | sed 's/^# \{0,1\}//'
 }
 
-# Reads the positional arguments into pattern and vm, falling back to defaults, and exits on an option it doesn't know
-# or more than two arguments.
-#   $1: text to match in lsusb output (case-insensitive), default "logitech"
-#   $2: libvirt VM name, default "win11"; list with: flatpak run --command=virsh org.gnome.Boxes list --all
+# Reads the positional arguments, falling back to defaults, and exits on an option it doesn't know or more than two
+# arguments.
+# Usage: f_call parse_args pattern vm -- [<pattern>] [<vm>]
+#   <pattern>: text to match in lsusb output (case-insensitive), default "logitech"
+#   <vm>: libvirt VM name, default "win11"; list with: flatpak run --command=virsh org.gnome.Boxes list --all
+# Returns: pattern vm
 parse_args() {
   [[ "${1:-}" != -* ]] || error "Unknown option '$1'; see vm-usb --help"
   [[ $# -le 2 ]] || error "Too many arguments; see vm-usb --help"
@@ -44,7 +47,8 @@ parse_args() {
 }
 
 # Exits unless the VM is running.
-#   $1: VM name
+# Usage: require_vm_running <vm>
+#   <vm>: VM name
 require_vm_running() {
   local vm="$1"
   $VIRSH domstate "$vm" 2>/dev/null | grep -q running ||
@@ -53,7 +57,8 @@ require_vm_running() {
 
 # Prints the space-separated "bus:dev" ids (zero-padded, as lsusb prints them) of the USB devices whose lsusb line
 # matches a pattern, exiting if there are none.
-#   $1: case-insensitive pattern
+# Usage: find_devices <pattern>
+#   <pattern>: case-insensitive pattern
 find_devices() {
   local pattern="$1" ids
   ids="$(lsusb | grep -i -- "$pattern" | awk '{ sub(/:$/, "", $4); printf "%s%s:%s", sep, $2, $4; sep = " " }')"
@@ -62,7 +67,8 @@ find_devices() {
 }
 
 # Prints the lsusb line for each device, indented.
-#   $1: space-separated "bus:dev" ids
+# Usage: describe <ids>
+#   <ids>: space-separated "bus:dev" ids
 describe() {
   local id
   for id in $1; do
@@ -71,16 +77,21 @@ describe() {
 }
 
 # Prints the libvirt <hostdev> XML for a USB device.
-#   $1: "bus:dev" id
+# Usage: xml <id>
+#   <id>: "bus:dev" id
 xml() {
   local bus="${1%:*}" dev="${1#*:}"
   printf "<hostdev mode='subsystem' type='usb' managed='yes'><source><address bus='%d' device='%d'/></source></hostdev>" \
     "$((10#$bus))" "$((10#$dev))"
 }
 
-# Splits devices into those already attached to the VM (attached) and those still to attach (pending).
-#   $1: VM name
-#   $2: space-separated "bus:dev" ids
+# Splits devices into those already attached to the VM and those still to attach.
+# Usage: f_call partition_devices attached pending -- <vm> <ids>
+#   <vm>: VM name
+#   <ids>: space-separated "bus:dev" ids
+# Returns: attached pending
+#   attached: the space-separated ids already attached
+#   pending: the space-separated ids still to attach
 partition_devices() {
   local vm="$1" ids="$2" live id attached="" pending=""
   live="$($VIRSH dumpxml "$vm")"
@@ -96,8 +107,9 @@ partition_devices() {
 
 # Attaches a USB device to the VM, returning non-zero on failure. The device node is temporarily chowned to $USER so
 # the session libvirtd can open it, then restored to its original owner.
-#   $1: VM name
-#   $2: "bus:dev" id
+# Usage: attach_device <vm> <id>
+#   <vm>: VM name
+#   <id>: "bus:dev" id
 attach_device() {
   local vm="$1" id="$2" node orig status
   node="/dev/bus/usb/${id%:*}/${id#*:}"
@@ -110,8 +122,9 @@ attach_device() {
 }
 
 # Detaches devices from the VM.
-#   $1: VM name
-#   $2: space-separated "bus:dev" ids
+# Usage: detach_all <vm> <ids>
+#   <vm>: VM name
+#   <ids>: space-separated "bus:dev" ids
 detach_all() {
   local vm="$1" ids="$2" id
   [[ -n "$ids" ]] || return 0
@@ -122,12 +135,16 @@ detach_all() {
 }
 
 # Sets the EXIT trap to detach devices from the VM, replacing the previous one.
-#   $1: VM name
-#   $2: space-separated "bus:dev" ids
+# Usage: detach_on_exit <vm> <ids>
+#   <vm>: VM name
+#   <ids>: space-separated "bus:dev" ids
 detach_on_exit() {
   trap "detach_all $(printf %q "$1") $(printf %q "$2")" EXIT
 }
 
+# Attaches the USB devices matching <pattern> to VM <vm> (see parse_args), then detaches them when Enter
+# is pressed or the script exits.
+# Usage: main [<pattern>] [<vm>]
 main() {
   local pattern vm ids attached pending id
   case "${1:-}" in -h | --help)

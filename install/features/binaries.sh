@@ -4,7 +4,9 @@ NEOVIM_VERSION=v0.12.6
 TMUX_VERSION=3.8
 TMUX_SHA256=e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e
 
-# Return the pinned neovim release asset for $1 (os) and $2 (arch), and its SHA-256.
+# Look up the pinned neovim release asset for <os> and <arch>.
+# Usage: f_call neovim_asset asset sha256 -- <os> <arch>
+# Returns: asset sha256
 neovim_asset() {
   case "$1-$2" in
     linux-x86_64) f_return asset=nvim-linux-x86_64.tar.gz sha256=474430d53e6264f6d6dd18db42d6dc9df3a1b56ca9e88a325bbf860e1a811d87 ;;
@@ -17,6 +19,7 @@ neovim_asset() {
 
 # Download the verified neovim release $1 (asset name) with SHA-256 $2 into the temp dir $3 and merge it into
 # $LOCAL_PREFIX.
+# Usage: _install_neovim_in <asset> <sha256> <tmp>
 _install_neovim_in() {
   local asset="$1" sha256="$2" tmp="$3"
   info "Downloading neovim $NEOVIM_VERSION ($asset)..."
@@ -36,6 +39,9 @@ _install_neovim_in() {
 }
 
 # --- Install neovim ---
+
+# Install the pinned neovim release into ~/.local, unless nvim is already available.
+# Usage: install_neovim
 install_neovim() {
   if command -v nvim &>/dev/null; then
     info "neovim already available: $(command -v nvim)"
@@ -56,6 +62,7 @@ install_neovim() {
 }
 
 # Download the verified tmux source tarball into the temp dir $1, then build and install it into $LOCAL_PREFIX.
+# Usage: _install_tmux_in <tmp>
 _install_tmux_in() {
   local tmp="$1"
   info "Downloading tmux $TMUX_VERSION..."
@@ -77,6 +84,9 @@ _install_tmux_in() {
 }
 
 # --- Install tmux ---
+
+# Build tmux from its source release into ~/.local, unless it is already available.
+# Usage: install_tmux_binary
 install_tmux_binary() {
   if command -v tmux &>/dev/null; then
     info "tmux already available: $(command -v tmux)"
@@ -145,6 +155,7 @@ feature_gng() {
 }
 
 # Build tre from a pinned commit cloned into the temp dir $1 and install it to $LOCAL_BIN.
+# Usage: _install_tre_in <tmp>
 _install_tre_in() {
   local tmp="$1"
   info "Cloning tre $TRE_VERSION..."

@@ -5,6 +5,7 @@ DISTROBOX_IMAGE="archlinux:latest"
 
 # Return 0 if a distrobox named $1 exists. Matches the NAME column exactly, so
 # 'arch' doesn't match e.g. 'tmp-arch'.
+# Usage: distrobox_exists <name>
 distrobox_exists() {
   distrobox list --no-color 2>/dev/null \
     | awk -F'|' -v name="$1" 'NR > 1 { gsub(/^ +| +$/, "", $2); if ($2 == name) found = 1 } END { exit !found }'
@@ -13,6 +14,7 @@ distrobox_exists() {
 # Install package $1 in the distrobox named $2 (created from $DISTROBOX_IMAGE if missing) and copy its
 # /usr/bin/$3 binary to $LOCAL_BIN, since the SteamOS rootfs is read-only. Warns if the copy is missing
 # shared libraries on this host.
+# Usage: copy_binary_from_distrobox <package> <name> <binary>
 copy_binary_from_distrobox() {
   local package="$1" name="$2" binary="$3"
 
@@ -37,6 +39,7 @@ copy_binary_from_distrobox() {
 
 # Install $1 by copying it out of the distrobox (copy_binary_from_distrobox), unless the command is already available.
 # Skips with a warning if distrobox is missing.
+# Usage: install_distrobox_binary <binary>
 install_distrobox_binary() {
   local binary="$1"
 
@@ -53,6 +56,7 @@ install_distrobox_binary() {
 }
 
 # Remove the copy of $1 in $LOCAL_BIN. The distrobox is left alone.
+# Usage: uninstall_distrobox_binary <binary>
 uninstall_distrobox_binary() {
   local binary="$1"
   if [[ ! -e "$LOCAL_BIN/$binary" ]]; then

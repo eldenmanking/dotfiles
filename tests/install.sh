@@ -18,24 +18,29 @@ FAILURES=0
 trap 'rm -rf "$SCRATCH"' EXIT
 
 # Report a passed check.
+# Usage: pass <description>...
 pass() {
   printf '  \033[32mok\033[0m   %s\n' "$*"
 }
 
 # Report a failed check and keep going, so one run reports every failure.
+# Usage: fail <description>...
 fail() {
   printf '  \033[31mFAIL\033[0m %s\n' "$*" >&2
   FAILURES=$((FAILURES + 1))
 }
 
 # Report check $1 as passed if the remaining args, run as a command, succeed.
+# Usage: check <description> <command> [<arg>...]
 check() {
   local description="$1"
   shift
   if "$@"; then pass "$description"; else fail "$description"; fi
 }
 
-# Outputs: home, a new scratch home holding a dotfiles symlink to this checkout, as install.sh requires.
+# Make a new scratch home holding a dotfiles symlink to this checkout, as install.sh requires.
+# Usage: f_call new_home home
+# Returns: home
 new_home() {
   local home
   home="$(mktemp -d "$SCRATCH/home.XXXXXX")"
@@ -46,6 +51,7 @@ new_home() {
 # Run install.sh with home $1 and the remaining args, in a clean environment with no terminal. Its output goes to
 # LOG. Returns install.sh's status. XDG_RUNTIME_DIR is set as in a login session, since without one dconf (read by
 # --capture --dconf) keeps its runtime state in ~/.cache instead.
+# Usage: run_install <home> [<arg>...]
 run_install() {
   local home="$1"
   shift
@@ -54,6 +60,7 @@ run_install() {
 }
 
 # Run install.sh like run_install and report it as a check that it succeeds, showing its output if not.
+# Usage: install_ok <home> [<arg>...]
 install_ok() {
   local home="$1"
   shift
@@ -67,6 +74,7 @@ install_ok() {
 }
 
 # Run install.sh like run_install and report it as a check that it refuses.
+# Usage: install_refused <home> [<arg>...]
 install_refused() {
   local home="$1"
   shift
@@ -74,6 +82,7 @@ install_refused() {
 }
 
 # Print the output of running the remaining args as a command, with install/ loaded the way install.sh loads it.
+# Usage: with_install_loaded <command> [<arg>...]
 with_install_loaded() {
   (
     set +u
@@ -88,14 +97,17 @@ with_install_loaded() {
 }
 
 # Print the features, link paths and DRY_RUN_FEATURES of OS $1 with profile $2, one per line.
+# Usage: print_setup_info <os> <profile>
 print_setup_info() {
   local features link_paths
   f_call os_profile_config features link_paths -- "$1" "$2"
   printf '%s\n%s\n%s\n' "$features" "$link_paths" "$DRY_RUN_FEATURES"
 }
 
-# Outputs: features and link_paths of setup $1 (os/profile), read from its definition the same way install.sh does,
-# and dry_run_features, the features that honor --dry-run (install.sh only announces the others).
+# Read the features and link paths of setup <os>/<profile> from its definition the same way install.sh does.
+# Usage: f_call setup_info features link_paths dry_run_features -- <os>/<profile>
+# Returns: features link_paths dry_run_features
+#   dry_run_features: the features that honor --dry-run (install.sh only announces the others)
 setup_info() {
   local out
   out="$(with_install_loaded print_setup_info "${1%/*}" "${1#*/}")"
@@ -105,6 +117,7 @@ setup_info() {
 }
 
 # Print one line per entry under home $1 (outside dotfiles): its type, path, and symlink target or checksum.
+# Usage: snapshot <home>
 snapshot() {
   local home="$1" path
   (cd "$home" && find . -path ./dotfiles -prune -o -print | LC_ALL=C sort) | while IFS= read -r path; do
@@ -119,6 +132,7 @@ snapshot() {
 }
 
 # Report check $1: snapshot $3 must equal snapshot $2, or the lines that differ are shown.
+# Usage: check_unchanged <description> <before> <after>
 check_unchanged() {
   local description="$1" before="$2" after="$3"
   if [[ "$before" == "$after" ]]; then
@@ -129,12 +143,15 @@ check_unchanged() {
   fi
 }
 
+# Print the checkout's git status, ignored files included.
+# Usage: repo_status
 repo_status() {
   # --ignored too, since backups would land in the ignored dotfiles/.backup.
   git -C "$REPO_ROOT" status --porcelain --untracked-files=all --ignored
 }
 
 # Print every OS and profile that go together, as os/profile.
+# Usage: print_all_setups
 print_all_setups() {
   local os profile setups=""
   for os in $(available_names os); do
@@ -145,6 +162,9 @@ print_all_setups() {
   printf '%s' "$setups"
 }
 
+# install.sh with no arguments runs, --help lists the options of each variant in <variants>, and an
+# unknown variant or option is refused.
+# Usage: test_usage <variants>
 test_usage() {
   local variants="$1" variant
   info "usage"
@@ -160,6 +180,7 @@ test_usage() {
 
 # --variant names an OS and profile, which --os and --profile override; only the OS, profile and machine combinations
 # install/os defines run.
+# Usage: test_dimensions
 test_dimensions() {
   info "dimensions: --os, --profile and their combinations"
   local home
@@ -180,6 +201,7 @@ test_dimensions() {
 }
 
 # Command-line parsing: --help in every form, value options, option names, and the order --reinstall runs in.
+# Usage: test_cli
 test_cli() {
   local home
   info "cli: option parsing and --reinstall order"
@@ -213,6 +235,7 @@ test_cli() {
 }
 
 # Write install.conf in home $1 with the remaining args as its lines.
+# Usage: write_install_conf <home> [<line>...]
 write_install_conf() {
   local home="$1"
   shift
@@ -222,6 +245,7 @@ write_install_conf() {
 
 # DOTFILES_VARIANT and DOTFILES_FEATURES, from the environment or ~/.config/dotfiles/install.conf, stand in for
 # --variant and the feature options when the command line leaves them out.
+# Usage: test_defaults
 test_defaults() {
   local out
   info "defaults: DOTFILES_VARIANT and DOTFILES_FEATURES from install.conf or the environment"
@@ -259,6 +283,7 @@ test_defaults() {
 }
 
 # Run install.sh at $1 with home $2 and expect it to refuse, with a message matching $3. $4 describes the case.
+# Usage: expect_refused <script> <home> <pattern> <description>
 expect_refused() {
   local script="$1" home="$2" pattern="$3" description="$4" out
   if out="$(env -i HOME="$home" PATH="$PATH" "$INSTALL_BASH" "$script" --variant coder --gitconfig </dev/null 2>&1)"; then
@@ -271,6 +296,7 @@ expect_refused() {
 }
 
 # Commit to repo $1 with message $2, as a test user.
+# Usage: test_commit <repo> <message>
 test_commit() {
   git -C "$1" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false \
     commit --quiet --allow-empty -m "$2"
@@ -279,6 +305,7 @@ test_commit() {
 # Clone this checkout to $1 on branch main, as a GitHub repo would be (CI checks out a detached HEAD), and commit the
 # working tree's install.sh, install/, bootstrap/ and scripts/ there, so tests that clone it test them rather than the
 # last commit.
+# Usage: clone_working_tree <src>
 clone_working_tree() {
   local src="$1"
   git -c advice.detachedHead=false clone --quiet "$REPO_ROOT" "$src"
@@ -290,6 +317,7 @@ clone_working_tree() {
 
 # Run from a git checkout elsewhere with no ~/dotfiles, install.sh clones that checkout's commit to ~/dotfiles, keeps
 # its origin, and installs from the clone.
+# Usage: test_clone_checkout
 test_clone_checkout() {
   local home src
   info "checkout location: install.sh clones a checkout elsewhere to ~/dotfiles"
@@ -315,6 +343,7 @@ test_clone_checkout() {
 
 # Run install.sh like run_install, but from script $2 rather than home $1's checkout, with no terminal. Its output goes
 # to LOG.
+# Usage: run_script <home> <script> [<arg>...]
 run_script() {
   local home="$1" script="$2"
   shift 2
@@ -322,6 +351,7 @@ run_script() {
 }
 
 # Report check $1 as passed if run_script with the remaining args succeeds, showing its output if not.
+# Usage: script_ok <description> [<arg>...]
 script_ok() {
   local description="$1"
   shift
@@ -336,6 +366,7 @@ script_ok() {
 
 # The install branch's bootstrap (bootstrap/install.sh, filled in by scripts/bootstrap.sh) clones its pinned commit to
 # ~/dotfiles, on the default branch so it can be pulled, and runs it. main's install.sh doesn't run on its own.
+# Usage: test_bootstrap
 test_bootstrap() {
   local src pinned script home
   info "bootstrap: the install branch's install.sh clones its pinned commit to ~/dotfiles and runs it"
@@ -385,12 +416,14 @@ test_bootstrap() {
 }
 
 # Print the commit that the install.sh on branch $2 of repo $1 pins.
+# Usage: branch_pin <repo> <branch>
 branch_pin() {
   git -C "$1" show "$2:install.sh" | sed -n 's/^PINNED_COMMIT="\(.*\)"$/\1/p'
 }
 
 # scripts/bootstrap.sh --publish, as the install branch workflow runs it: it commits the bootstrap as the install
 # branch's only file, moves the branch forward one commit per pin, and never back to an older commit.
+# Usage: test_publish
 test_publish() {
   local origin work first second
   info "bootstrap: scripts/bootstrap.sh --publish moves the install branch forward"
@@ -427,6 +460,7 @@ test_publish() {
 }
 
 # install.sh must run from ~/dotfiles (or a link to it), and the checkout must be named dotfiles.
+# Usage: test_checkout_location
 test_checkout_location() {
   local home other
   info "checkout location: install.sh refuses to run from anywhere but a checkout named dotfiles at ~/dotfiles"
@@ -447,6 +481,7 @@ test_checkout_location() {
 }
 
 # --dry-run must succeed and leave the home untouched, for install, reinstall, uninstall and capture.
+# Usage: test_dry_run <setup>
 test_dry_run() {
   local setup="$1" flags=() feature mode before skipped="" announced="" features honor_dry_run
   f_call setup_info features honor_dry_run=dry_run_features -- "$setup"
@@ -470,6 +505,7 @@ test_dry_run() {
 }
 
 # Check that every file under the link paths of setup $1 (os/profile) is linked into home $2.
+# Usage: check_links <setup> <home>
 check_links() {
   local setup="$1" home="$2" file target count=0 bad=0 paths link_paths
   f_call setup_info link_paths -- "$setup"
@@ -486,6 +522,7 @@ check_links() {
 }
 
 # Check the managed startup files in home $1 source env.sh and keep the user's own lines.
+# Usage: check_managed_blocks <setup> <home>
 check_managed_blocks() {
   local setup="$1" home="$2" file
   for file in .profile .zprofile .bashrc .zshrc; do
@@ -495,6 +532,7 @@ check_managed_blocks() {
 }
 
 # Check login and interactive bash and zsh load the startup files in home $1 without errors.
+# Usage: check_shells_load <setup> <home>
 check_shells_load() {
   local setup="$1" home="$2" shell opts err
   for shell in bash zsh; do
@@ -514,6 +552,7 @@ check_shells_load() {
 
 # A real install of the rootless features of setup $1 (os/profile), then the same install again, which must change
 # nothing. Setups that link anything under root/ need sudo, so only their --dry-run is tested.
+# Usage: test_install <setup>
 test_install() {
   local setup="$1" flags=(--os "${1%/*}" --profile "${1#*/}" --link --gitconfig) managed=false repo_before first
   local features link_paths
@@ -551,8 +590,9 @@ test_install() {
   check_unchanged "nothing was written into the checkout" "$repo_before" "$(repo_status)"
 }
 
-# Run bash snippet $1 under INSTALL_BASH with the install/lib helpers hooks.sh uses loaded, from checkout $2, in
-# scratch home $3, under --dry-run. Its output goes to LOG.
+# Run bash <snippet> under INSTALL_BASH with the install/lib helpers hooks.sh uses loaded from <checkout>, in scratch
+# home <home>, under --dry-run. Its output goes to LOG.
+# Usage: hooks_snippet <snippet> <checkout> <home>
 hooks_snippet() {
   env -i HOME="$3" PATH="$PATH" "$INSTALL_BASH" -c 'set -euo pipefail
     DOTFILES_ROOT="$0" DRY_RUN=true BACKUPS_ROOT="$0/.backup"
@@ -562,6 +602,7 @@ hooks_snippet() {
 
 # Declared features (install/lib/hooks.sh): the plan keeps what features declare, refuses two features installing the
 # same path, and --uninstall undoes what an install did.
+# Usage: test_hooks
 test_hooks() {
   local home
   info "hooks: declared features"
@@ -588,6 +629,7 @@ test_hooks() {
 }
 
 # env.sh must be POSIX and safe to source more than once: a second source leaves PATH as it was.
+# Usage: test_env_sh
 test_env_sh() {
   local shell env_sh="$REPO_ROOT/home/.config/sh/env.sh"
   info "env.sh: sourcing it twice leaves PATH unchanged"
@@ -606,6 +648,7 @@ test_env_sh() {
 }
 
 # vm-usb: steamos links it, and --help describes it without needing a VM, a device or libvirt.
+# Usage: test_vm_usb
 test_vm_usb() {
   local home flag vm_usb="$REPO_ROOT/home/.local/bin/vm-usb"
   info "vm-usb: linked on steamos, and --help"
@@ -627,6 +670,7 @@ test_vm_usb() {
 }
 
 # Report a check that function $2 of install/lib/infer.sh, called with the remaining args, prints $1.
+# Usage: infer_prints <expected> <function> [<arg>...]
 infer_prints() {
   local expected="$1" got
   shift
@@ -636,6 +680,7 @@ infer_prints() {
 }
 
 # What --infer picks for a system: the OS and profile from uname, os-release and Coder's CODER, the machine from DMI.
+# Usage: test_infer
 test_infer() {
   local os_release="$SCRATCH/os-release"
   info "infer: OSes, profiles and machines for known systems"
@@ -661,6 +706,7 @@ test_infer() {
 }
 
 # Check that a function of install/oti/arch-chroot.sh, run with the remaining args, prints $1.
+# Usage: arch_chroot_prints <expected> <function> [<arg>...]
 arch_chroot_prints() {
   local expected="$1" got
   shift
@@ -670,6 +716,7 @@ arch_chroot_prints() {
 }
 
 # Check that a function of install/oti/arch-chroot.sh, run with the remaining args, returns $1 (0 or 1).
+# Usage: arch_chroot_returns <expected> <function> [<arg>...]
 arch_chroot_returns() {
   local expected="$1" got=0
   shift
@@ -678,12 +725,14 @@ arch_chroot_returns() {
 }
 
 # Return 0 if arch_chroot_packages for CPU vendor $1, dual booting when $2 is true, includes package $3.
+# Usage: packages_include <vendor> <dual> <package>
 packages_include() {
   list_contains "$(arch_chroot_packages "$1" "$2")" "$3"
 }
 
 # One-time installs: --oti is refused with anything else and can't be undone; arch-chroot's --dry-run prints every
 # command without touching the home; and its pure helpers.
+# Usage: test_oti
 test_oti() {
   local dir="$SCRATCH/oti" before home
   info "one-time installs"
@@ -776,6 +825,7 @@ test_oti() {
 
 # --machine picks the hardware, which decides whether --all includes features for specific hardware; --infer fills in
 # the OS, profile or machine not given, to suit the ones given, and only then.
+# Usage: test_machine
 test_machine() {
   local out
   info "machine: --machine, DOTFILES_MACHINE and --infer"
@@ -818,6 +868,7 @@ test_machine() {
 
 # The steam feature replaces the hotkeys Steam already wrote, keeps the other settings, warns about missing keys
 # instead of adding them, backs up the file and changes nothing on a second run.
+# Usage: test_steam
 test_steam() {
   local userdata vdf_a vdf_b b_before first
   info "steam: hotkeys replaced in localconfig.vdf"
@@ -855,6 +906,7 @@ test_steam() {
 # Run bash snippet $1 under INSTALL_BASH with install/lib/output.sh and fn.sh loaded and these test functions defined:
 # pair returns a and b, nested returns a after an f_call of pair, half returns only a, and tricky returns a value
 # with = signs, spaces, quotes and a newline. Its output goes to LOG.
+# Usage: f_call_snippet <snippet>
 f_call_snippet() {
   "$INSTALL_BASH" -c 'set -euo pipefail; source "$0/output.sh"; source "$0/fn.sh"
     pair() { f_return a="a:$1" b="b:$1"; }
@@ -867,6 +919,7 @@ z" b=""; }
 
 # f_call sets its caller's variables from the values a function returns with f_return, the way read does, and checks
 # them.
+# Usage: test_f_call
 test_f_call() {
   info "f_call and f_return: returning named values"
   check "sets the named variables" f_call_snippet \
@@ -895,6 +948,7 @@ test_f_call() {
 
 # --capture --dconf writes the keys DCONF_CAPTURE selects from dconf into dump/dconf/arch.dconf, with paths under the home
 # directory written as ${HOME}/...: here one selected key, one left out with ! and one in a directory it doesn't select.
+# Usage: test_capture_dconf
 test_capture_dconf() {
   local home saved="$SCRATCH/arch.dconf.saved" file="$REPO_ROOT/dump/dconf/arch.dconf" expected
   info "capture: dconf writes the selected keys into dump/dconf/arch.dconf"
@@ -918,6 +972,7 @@ test_capture_dconf() {
 
 # --capture --kde writes home/.config/kcminputrc from ~/.config/kcminputrc, keeping the groups KDE_CAPTURE selects:
 # here [Keyboard], and not [Mouse]. Needs no KDE tools, so it runs everywhere.
+# Usage: test_capture_kde
 test_capture_kde() {
   local dir="$SCRATCH/kde.saved" file="$REPO_ROOT/home/.config/kcminputrc" nested="$REPO_ROOT/home/.config/powerdevilrc"
   local home expected expected_nested
@@ -943,6 +998,7 @@ test_capture_kde() {
 }
 
 # --capture copies settings from this system into the repo's files.
+# Usage: test_capture
 test_capture() {
   test_capture_kde
   if command -v dconf >/dev/null; then
@@ -954,6 +1010,7 @@ test_capture() {
 
 # Run download_verified with DOWNLOAD_CACHE $1 and the remaining args (url, sha256, out) in a fresh bash, its output
 # going to LOG. Returns its status.
+# Usage: download_with_cache <cache> <url> <sha256> <out>
 download_with_cache() {
   local cache="$1"
   shift
@@ -964,6 +1021,7 @@ download_with_cache() {
 
 # With DOTFILES_DOWNLOAD_CACHE, download_verified stores downloads under their SHA-256 and uses a cached file instead of
 # downloading, but only one that matches.
+# Usage: test_download_cache
 test_download_cache() {
   local dir sha
   info "download_verified: DOTFILES_DOWNLOAD_CACHE"
@@ -985,6 +1043,7 @@ test_download_cache() {
 
 # Run the code in $2 in a fresh bash with the shared library loaded, DRY_RUN=$1 and BACKUPS_ROOT and DOTFILES_ROOT in
 # SCRATCH, its output going to LOG. Returns its status.
+# Usage: lib_run <dry_run> <code>
 lib_run() {
   local dry_run="$1" code="$2" lib="$REPO_ROOT/install/lib"
   "$INSTALL_BASH" -c 'set -euo pipefail; DRY_RUN="$1"; BACKUPS_ROOT="$2/backups"; DOTFILES_ROOT="$2/root"
@@ -993,6 +1052,7 @@ lib_run() {
 }
 
 # The shared library's dry-run output, upsert_block, confirmsed, write_captured and file_sha256.
+# Usage: test_lib_helpers
 test_lib_helpers() {
   local dir file
   info "install/lib: dry-run output, upsert_block, confirmsed, write_captured, file_sha256"
@@ -1038,6 +1098,7 @@ test_lib_helpers() {
 
 # Run bash code $1 with the install library's output.sh and fs.sh loaded and the remaining args as $1.., its output
 # going to LOG. Returns its status.
+# Usage: run_fs_lib <code> [<arg>...]
 run_fs_lib() {
   local code="$1"
   shift
@@ -1046,6 +1107,7 @@ run_fs_lib() {
 }
 
 # with_tmpdir removes its directory however the command ends, and clone_pinned only accepts the commit it was given.
+# Usage: test_tmpdir_and_pinned_clone
 test_tmpdir_and_pinned_clone() {
   local dir commit
   info "with_tmpdir and clone_pinned"
@@ -1086,6 +1148,8 @@ test_tmpdir_and_pinned_clone() {
   fi
 }
 
+# Run every test, then fail if any check failed.
+# Usage: main
 main() {
   local setup
   info "install.sh runs under $("$INSTALL_BASH" -c 'echo "bash $BASH_VERSION"')"

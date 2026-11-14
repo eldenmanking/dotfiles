@@ -8,10 +8,15 @@
 # Location: /usr/.local/bin/squidpdf
 ################################################################################
 
+# Print the command line this script takes.
+# Usage: usage
 usage() { echo "Usage: $0 [-o filename] file.pdf"; }
+# Print the message for an input or output file that isn't a .pdf file.
+# Usage: badfile
 badfile() { echo "Filename invalid or file does not exist. Input and output files must be .pdf files."; }
 
 # Prompts for a positive integer on the terminal and prints it, or 1 if the answer is empty.
+# Usage: promptnumber
 promptnumber() {
   local reply
   while true; do

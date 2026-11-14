@@ -20,6 +20,7 @@ KEEP_DIR=/etc/atomic-update.conf.d
 PREVIOUS=/etc/previous
 
 # Print each entry of the keep lists as an anchored extended regex, one per line.
+# Usage: keep_patterns
 keep_patterns() {
   local list
   for list in "$DEFAULT_KEEP_LIST" "$KEEP_DIR"/*.conf; do
@@ -30,6 +31,7 @@ keep_patterns() {
 }
 
 # Return 0 if path $1 matches a regex in newline-separated list $2.
+# Usage: kept <path> <keep>
 kept() {
   local path="$1" keep="$2" pattern
   while IFS= read -r pattern; do
@@ -39,6 +41,7 @@ kept() {
 }
 
 # Return 0 if paths $1 and $2 are the same symlink or file.
+# Usage: same <path> <other>
 same() {
   if [[ -L "$1" || -L "$2" ]]; then
     [[ -L "$1" && -L "$2" && "$(readlink "$1")" == "$(readlink "$2")" ]]
@@ -47,6 +50,8 @@ same() {
   fi
 }
 
+# Save /etc and the list of files under /usr as the state an update resets to.
+# Usage: snapshot
 snapshot() {
   rm -rf "$STATE"
   mkdir -p "$STATE"
@@ -54,6 +59,8 @@ snapshot() {
   find /usr -xdev | LC_ALL=C sort > "$STATE/usr.list"
 }
 
+# Reset /etc to the snapshot but for the files the keep lists name, as a SteamOS update does.
+# Usage: update
 update() {
   local keep path original
   [[ -d "$STATE" ]] || { echo "steamos-update: no snapshot; run steamos-update --snapshot first" >&2; exit 1; }

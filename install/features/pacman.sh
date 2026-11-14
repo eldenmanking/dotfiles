@@ -87,6 +87,7 @@ GNOME_YAY=(
 )
 
 # Install yay if it's not already on the system.
+# Usage: ensure_yay
 ensure_yay() {
   if command -v yay &>/dev/null; then
     return
@@ -101,6 +102,7 @@ ensure_yay() {
 }
 
 # Clone yay from the AUR into the temp dir $1 and build and install it.
+# Usage: _build_yay_in <tmp>
 _build_yay_in() {
   local tmp="$1"
   git clone https://aur.archlinux.org/yay.git "$tmp/yay"

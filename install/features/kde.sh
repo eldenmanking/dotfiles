@@ -25,7 +25,11 @@ KDE_CAPTURE=(
   'powerdevilrc/AC][SuspendAndShutdown/LidAction'
 )
 
-# Resolve the kwriteconfig/kreadconfig pair for the installed Plasma (6, else 5), or empty when neither exists.
+# Resolve the kwriteconfig/kreadconfig pair for the installed Plasma (6, else 5).
+# Usage: f_call kde_config_tools write read
+# Returns: write read
+#   write: kwriteconfig6 or kwriteconfig5, or empty when neither pair exists
+#   read: kreadconfig6 or kreadconfig5, or empty when neither pair exists
 kde_config_tools() {
   local v
   f_return write="" read=""
@@ -37,8 +41,10 @@ kde_config_tools() {
   done
 }
 
-# Parse INI file $1 into newline-separated "group<TAB>key<TAB>value" entries, where group keeps nested groups as
-# "A][B". Skips blank lines, # and ; comments, and keys outside a group.
+# Parse INI file <file>, skipping blank lines, # and ; comments, and keys outside a group.
+# Usage: f_call kde_parse_ini entries -- <file>
+# Returns: entries
+#   entries: newline-separated "group<TAB>key<TAB>value" entries, where group keeps nested groups as "A][B"
 kde_parse_ini() {
   local file="$1" line group="" key value entries=""
   while IFS= read -r line || [[ -n "$line" ]]; do

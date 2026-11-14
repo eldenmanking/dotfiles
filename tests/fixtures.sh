@@ -36,7 +36,9 @@ CONTAINER_CMD="$(command -v docker || command -v podman || true)"
 # shellcheck disable=SC2088 # manifest paths, not ones to expand
 UNPINNED_FILES="~/.claude/settings.json ~/git/.claude/CLAUDE.md"
 
-# Outputs: image, args, files, root_files, after_install and run_with of fixture $1, read from its case.sh.
+# Read the config of fixture <fixture> from its case.sh.
+# Usage: f_call case_config image args files root_files after_install run_with -- <fixture>
+# Returns: image args files root_files after_install run_with
 case_config() {
   local out image args files root_files after_install run_with
   out="$(
@@ -61,6 +63,7 @@ case_config() {
 }
 
 # Print the name of every fixture.
+# Usage: all_fixtures
 all_fixtures() {
   local f names=""
   for f in "$FIXTURES_DIR"/*/case.sh; do
@@ -72,12 +75,14 @@ all_fixtures() {
 
 # Print the entries under directory $1 (none if it is missing) but directories as ./relative paths, sorted. after/
 # leaves out directories, which git can't hold empty; the manifest lists them.
+# Usage: tree_entries <dir>
 tree_entries() {
   [[ -d "$1" ]] || return 0
   (cd "$1" && find . ! -type d | LC_ALL=C sort)
 }
 
 # Return 0 if path $1 exists, counting dangling symlinks.
+# Usage: present <path>
 present() {
   [[ -e "$1" || -L "$1" ]]
 }
@@ -85,6 +90,7 @@ present() {
 # Compare tree $2 against the expected tree $1: the same entries, of the same type, with the same symlink targets and
 # file contents. Prints each difference (paths relative to the trees, e.g. home/.bashrc), with a diff for files (all of
 # a new one, so a missing after/ file shows in full), and returns 1 if there are any.
+# Usage: compare_trees <expected> <actual>
 compare_trees() {
   local expected="$1" actual="$2" path name e a differ=0
   while IFS= read -r path; do
@@ -113,6 +119,7 @@ compare_trees() {
 }
 
 # Print what kind of entry $1 is, for messages.
+# Usage: describe <path>
 describe() {
   if [[ -L "$1" ]]; then
     printf 'a symlink to %s' "$(readlink "$1")"
@@ -126,6 +133,7 @@ describe() {
 # --- In the container ---
 
 # Print path $1 as the manifest shows it: starting with ~ under ~.
+# Usage: shown_path <path>
 shown_path() {
   case "$1" in
     "$HOME" | "$HOME"/*) printf '~%s' "${1#"$HOME"}" ;;
@@ -139,6 +147,7 @@ shown_path() {
 # UNPINNED_FILES). Paths and link targets under ~ start with ~. ~/dotfiles is left out (name its .backup to include
 # that). A git clone, whose contents follow upstream, is one "git" line with its remote URL (without credentials), then
 # lines for its untracked and changed files. Returns 1 if a symlink outside ~/dotfiles/.backup dangles.
+# Usage: manifest_lines <sudo> <path>...
 manifest_lines() {
   local sudo="$1" me type mode owner path target line status=0
   shift
@@ -179,6 +188,7 @@ manifest_lines() {
 
 # Print manifest lines (see manifest_lines, under command $1) for the untracked and changed files of the git clone $2,
 # and "<path> deleted" for each deleted one.
+# Usage: clone_changes <sudo> <clone>
 clone_changes() {
   local sudo="$1" clone="$2" entry path status=0
   while IFS= read -r -d '' entry; do
@@ -197,6 +207,7 @@ clone_changes() {
 # Copy the regular files and symlinks under the paths $4... (relative to directory $2) into directory $3, keeping their
 # paths, read under command $1 (sudo, or empty). Leaves $3 out if there are none, since git can't hold it empty. A path
 # inside a symlinked directory is an error: tar would copy the link target's files as if they were there.
+# Usage: copy_files <sudo> <from> <to> <path>...
 copy_files() {
   local sudo="$1" from="${2%/}" to="$3" path parent list
   shift 3
@@ -217,6 +228,7 @@ copy_files() {
 
 # Write the sorted manifest lines (see manifest_lines) of ~, with ~/dotfiles/.backup, and of the absolute paths in $2 to
 # file $1. Returns 1 if a symlink dangles.
+# Usage: write_manifest <file> <root_files>
 write_manifest() {
   local file="$1" root_files="$2" path homes=("$HOME") roots=() status=0
   for path in $root_files; do
@@ -238,6 +250,7 @@ write_manifest() {
 # Print the lines of manifest $2, each marked against manifest $1, taken before the install: "new" if $1 has no line
 # for its path, "kept" if $1 has the same line, or "changed" with "(was ...)" and the rest of $1's line; then "removed"
 # and $1's line for each path only $1 has. Sorted by path.
+# Usage: mark_manifest <before> <after>
 mark_manifest() {
   awk '
     NR == FNR { before[$1] = substr($0, length($1) + 2); next }
@@ -256,6 +269,7 @@ mark_manifest() {
 # $1/manifest, and copy the symlinks it lists and the regular files and symlinks under the paths in $2 (relative to ~)
 # and ~/dotfiles/.backup into $1/home, and those outside ~ into $1/root (read with sudo, since some may be root's
 # alone).
+# Usage: collect <dest> <files> <root_files> <before>
 collect() {
   local dest="$1" files="$2" root_files="$3" before="$4" links
   mkdir -p "$dest"
@@ -270,6 +284,7 @@ collect() {
 }
 
 # Run install.sh with the words of $1 as arguments, under the words of command $2 if any, showing its output, indented.
+# Usage: run_install <args> <run_with>
 run_install() {
   local args="$1" run_with="$2" status=0
   info "\$ ${run_with:+$run_with }~/dotfiles/install.sh $args"
@@ -282,6 +297,7 @@ run_install() {
 # Run fixture $1 here: copy in before/, take a manifest, install, run AFTER_INSTALL, install again, then compare the
 # results of the first install with after/, or with $2 = true, write them to fd 3 as a tar archive. Refuses to run
 # outside a container, since it changes ~ and /.
+# Usage: run_inside <name> <update>
 run_inside() {
   local name="$1" update="$2" dir="$FIXTURES_DIR/$1" scratch image args files root_files after_install run_with
   [[ -f /.dockerenv || -f /run/.containerenv ]] || error "--inside changes ~ and /, so it only runs in a container"
@@ -318,6 +334,7 @@ run_inside() {
 # --- On the host ---
 
 # Write a tar archive of the checkout's files (tracked and untracked, not ignored) to stdout.
+# Usage: repo_archive
 repo_archive() {
   (
     cd "$REPO_ROOT"
@@ -329,6 +346,7 @@ repo_archive() {
 
 # Run fixture $1 in a fresh container of its image, from a copy of the checkout at ~/dotfiles. With $2 = true, replace
 # its after/ with the results. Returns 1 if it fails.
+# Usage: run_fixture <name> <update>
 run_fixture() {
   local name="$1" update="$2" dir="$FIXTURES_DIR/$1" archive image
   f_call case_config image -- "$name"
@@ -349,6 +367,9 @@ run_fixture() {
   rm -f "$archive"
 }
 
+# Run the fixtures <name>... (all without any) in containers, rewriting their after/ with --update;
+# with --inside, run one inside its container (see run_inside).
+# Usage: main [--update] [<name>...] | --inside <name> <update>
 main() {
   local update=false names="" name image images="" failed=""
   if [[ "${1:-}" == --inside ]]; then

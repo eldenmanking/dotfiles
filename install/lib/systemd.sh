@@ -5,11 +5,13 @@ USER_UNITS_DIR="/etc/systemd/user"
 
 # Return 0 if unit file $1 has an [Install] section, so it can be enabled. Units without one are started by another
 # unit (a timer, a path or socket unit, a dependency), so the helpers below only copy them.
+# Usage: _unit_has_install <unit_file>
 _unit_has_install() {
   grep -q '^\[Install\]' "$1"
 }
 
 # Return 0 if this process can reach a systemd user manager (not under su or sudo, or before a login).
+# Usage: has_user_session
 has_user_session() {
   systemctl --user show-environment >/dev/null 2>&1
 }
@@ -46,11 +48,13 @@ unit_keep_paths() {
   done
 }
 
-# Copy units $4... from $3 into units dir $1 with sudo, and work out which to (re)enable: those with an [Install]
-# section that were copied or aren't enabled yet, as 'systemctl $2 is-enabled' tells ($2 is empty for system units,
-# --global for user ones). Outputs: changed, the space-separated units that were copied or will be (re)enabled, and
-# enable, those to (re)enable.
+# Copy units <unit>... from <src_dir> into <units_dir> with sudo, and work out which to (re)enable: those with an
+# [Install] section that were copied or aren't enabled yet, as 'systemctl <scope> is-enabled' tells.
 # Usage: f_call _copy_units changed enable -- <units_dir> <scope> <src_dir> <unit>...
+#   <scope>: empty for system units, --global for user ones
+# Returns: changed enable
+#   changed: the space-separated units that were copied or will be (re)enabled
+#   enable: the space-separated units to (re)enable
 _copy_units() {
   local dir="$1" scope="$2" src_dir="$3" unit copied changed="" enable=""
   shift 3
@@ -72,11 +76,12 @@ _copy_units() {
 # Copy system units $2... from $1 into /etc/systemd/system with sudo (copied, not linked: see copy_system_files),
 # then reload systemd and reenable and restart each unit that changed or isn't enabled yet, so a oneshot service
 # runs again. Units without an [Install] section are only copied. With --no-start, only reenable them: for units
-# whose start does something unwanted right away, like one wanted by sleep.target. Outputs: changed, the
-# space-separated units that were copied or (re)enabled (empty if all were up to date).
-# On SteamOS, also name unit_keep_paths "$SYSTEM_UNITS_DIR" <src_dir> <unit>... on the keep list: timers and the like aren't
-# on the default one.
+# whose start does something unwanted right away, like one wanted by sleep.target.
+# On SteamOS, also name unit_keep_paths "$SYSTEM_UNITS_DIR" <src_dir> <unit>... on the keep list: timers and the like
+# aren't on the default one.
 # Usage: f_call install_system_units changed -- [--no-start] <src_dir> <unit>...
+# Returns: changed
+#   changed: the space-separated units that were copied or (re)enabled (empty if all were up to date)
 install_system_units() {
   local start=true src_dir unit changed enable
   if [[ "$1" == --no-start ]]; then
@@ -97,8 +102,10 @@ install_system_units() {
 }
 
 # Stop, disable and remove system units $1... from /etc/systemd/system with sudo, then reload systemd. Units that
-# aren't installed are skipped. Outputs: removed, the space-separated units that were removed.
+# aren't installed are skipped.
 # Usage: f_call uninstall_system_units removed -- <unit>...
+# Returns: removed
+#   removed: the space-separated units that were removed
 uninstall_system_units() {
   local unit removed=""
   for unit in "$@"; do
@@ -115,16 +122,17 @@ uninstall_system_units() {
   f_return removed
 }
 
-# Copy user units $2... from $1 into /etc/systemd/user with sudo, reload this user's manager if any changed and there
-# is a user session, then reenable each unit that changed or isn't enabled yet for every user (links in
-# /etc/systemd/user, which needs no session). Units without an [Install] section are only copied. Starting them is left to the caller.
-# Every user manager sees the units from boot, even with an encrypted home, and with --global their links too, so
-# they start without waiting for the unlock. They are copied, not linked: systemd treats a symlinked unit file as a "linked" unit,
-# which enable and disable handle differently. Outputs: changed, the space-separated units that were copied or
-# (re)enabled (empty if all were up to date).
-# On SteamOS, also name unit_keep_paths "$USER_UNITS_DIR" <src_dir> <unit>... on the keep list: the default one keeps nothing
-# in /etc/systemd/user.
+# Copy user units <unit>... from <src_dir> into /etc/systemd/user with sudo, reload this user's manager if any changed
+# and there is a user session, then reenable each unit that changed or isn't enabled yet for every user (links in
+# /etc/systemd/user, which needs no session). Units without an [Install] section are only copied. Starting them is
+# left to the caller. Every user manager sees the units and their links from boot, even with an encrypted home, so
+# they start without waiting for the unlock. They are copied, not linked: systemd treats a symlinked unit file as a
+# "linked" unit, which enable and disable handle differently.
+# On SteamOS, also name unit_keep_paths "$USER_UNITS_DIR" <src_dir> <unit>... on the keep list: the default one keeps
+# nothing in /etc/systemd/user.
 # Usage: f_call install_user_units changed -- <src_dir> <unit>...
+# Returns: changed
+#   changed: the space-separated units that were copied or (re)enabled (empty if all were up to date)
 install_user_units() {
   local src_dir="$1" unit changed enable
   shift
@@ -136,10 +144,12 @@ install_user_units() {
   f_return changed
 }
 
-# Stop user units $1... if there is a user session, remove their enablement links from /etc/systemd/user and then the
-# units, with sudo, and reload this user's manager. Units that aren't installed are skipped. Works without a session too, but running units then keep
-# running until the next login. Outputs: removed, the space-separated units that were removed.
+# Stop user units <unit>... if there is a user session, remove their enablement links from /etc/systemd/user and then
+# the units, with sudo, and reload this user's manager. Units that aren't installed are skipped. Works without a
+# session too, but running units then keep running until the next login.
 # Usage: f_call uninstall_user_units removed -- <unit>...
+# Returns: removed
+#   removed: the space-separated units that were removed
 uninstall_user_units() {
   local unit link installed="" session=false
   has_user_session && session=true

@@ -14,6 +14,7 @@ declare_udev() {
 }
 
 # Re-apply the rules to i2c devices if any changed.
+# Usage: post_udev <os> <profile> <enabled> <changed>
 post_udev() {
   local changed="$4"
   [[ -n "$changed" ]] || return 0

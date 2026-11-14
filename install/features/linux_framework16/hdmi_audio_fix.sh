@@ -6,6 +6,7 @@ HDMI_AUDIO_FIX_UNIT="hdmi-audio-fix.service"
 HDMI_AUDIO_FIX_ID="0x1002:0x15bf"
 
 # Print the sysfs directory of each PCI device with ID $1 (vendor:device).
+# Usage: pci_devices_with_id <id>
 pci_devices_with_id() {
   local dev
   for dev in /sys/bus/pci/devices/*; do
@@ -24,6 +25,8 @@ declare_hdmi_audio_fix() {
   hook_units system "$HDMI_AUDIO_FIX_SRC" "$HDMI_AUDIO_FIX_UNIT"
 }
 
+# Say how to check the socclk floor if the unit changed.
+# Usage: post_hdmi_audio_fix <os> <profile> <enabled> <changed>
 post_hdmi_audio_fix() {
   local changed="$4"
   [[ -n "$changed" ]] || return 0
@@ -32,6 +35,7 @@ post_hdmi_audio_fix() {
 
 # Once the unit is removed, reset the 780M's clock range and set it back to the auto performance level, which also
 # lifts the socclk floor.
+# Usage: post_uninstall_hdmi_audio_fix <os> <profile> <enabled> <removed>
 post_uninstall_hdmi_audio_fix() {
   local removed="$4" dev
   [[ -n "$removed" ]] || return 0

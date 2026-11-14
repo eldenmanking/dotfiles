@@ -23,6 +23,7 @@ declare_gamescope_screenshot() {
 }
 
 # Start the watch now if Gaming Mode is running (units that changed were restarted already).
+# Usage: post_gamescope_screenshot <os> <profile> <enabled> <changed>
 post_gamescope_screenshot() {
   if ! systemctl --user is-active --quiet gamescope-session.target 2>/dev/null; then
     info "gamescope-screenshot.service starts with Gaming Mode."

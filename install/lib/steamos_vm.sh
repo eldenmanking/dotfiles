@@ -50,7 +50,8 @@ STEAMOS_VM_TIMEOUT=120
 
 # Run a command from the virt-manager Flatpak (virsh, qemu-img, socat) with its arguments, giving up after
 # STEAMOS_VM_TIMEOUT. The QEMU tools are in the extension's bin directory.
-#   $1: command
+# Usage: steamos_vm_flatpak <cmd> [<arg>...]
+#   <cmd>: command
 steamos_vm_flatpak() {
   local cmd="$1"
   shift
@@ -61,24 +62,28 @@ steamos_vm_flatpak() {
 }
 
 # Run virsh on the session connection.
+# Usage: steamos_vm_virsh [<arg>...]
 steamos_vm_virsh() {
   steamos_vm_flatpak virsh -c "$STEAMOS_VM_URI" "$@"
 }
 
 # Return 0 if virt-manager and its QEMU extension are installed.
+# Usage: steamos_vm_app_installed
 steamos_vm_app_installed() {
   command -v flatpak &>/dev/null && flatpak info "$STEAMOS_VM_APP" &>/dev/null \
     && flatpak info "$STEAMOS_VM_QEMU_EXT" &>/dev/null
 }
 
 # Return 0 if the VM is defined. Reads libvirt's saved definition instead of asking virsh, which is slow to start.
+# Usage: steamos_vm_defined
 steamos_vm_defined() {
   [[ -f "$STEAMOS_VM_DEFINITION" ]]
 }
 
 # Print a domain's state as virsh names it ("running", "shut off", "pmsuspended", "paused", ...), or nothing when it
 # doesn't exist.
-#   $1: domain name
+# Usage: steamos_vm_state <domain>
+#   <domain>: domain name
 steamos_vm_state() {
   steamos_vm_virsh domstate "$1" 2>/dev/null | head -1
 }
@@ -87,6 +92,7 @@ steamos_vm_state() {
 # context opens its device with libdrm's drmOpenWithType("amdgpu"), which tries renderD128 upward and takes the first
 # match; QEMU's rendernode setting only picks the GPU SPICE draws with. So with an eGPU that came up first it is the
 # eGPU, and the display has to use the same one, or every frame crosses between GPUs. Prints nothing without one.
+# Usage: steamos_vm_render_node
 steamos_vm_render_node() {
   local minor node driver
   for minor in $(seq 128 191); do
@@ -106,7 +112,8 @@ steamos_vm_render_node() {
 # Framework's, framework_tool (orei_switch) polls for an embedded controller the VM doesn't have, and the boot waits on
 # it. No CPU topology: 2 threads per core would need the topoext CPU feature, which QEMU warns AMD hosts don't pass
 # through.
-#   $1: render node
+# Usage: steamos_vm_domain_xml <render>
+#   <render>: render node
 steamos_vm_domain_xml() {
   local render="$1"
   cat <<EOF
@@ -184,7 +191,8 @@ EOF
 # draws only on screen, with no timeout to interrupt), with a serial console and systemd.run= set to run the setup
 # script from its own disk with bash, then power off. The kernel arguments are GRUB's for the image, plus what its steamenv
 # module adds (steamos.efi=, the efi-A partition the initramfs finds the rest by) and minus quiet and splash.
-#   $1: efi-A partition UUID
+# Usage: steamos_vm_installer_xml <efi>
+#   <efi>: efi-A partition UUID
 steamos_vm_installer_xml() {
   local efi="$1"
   cat <<EOF
@@ -259,6 +267,7 @@ EOF
 #   VM offline after every Steam start.
 # System units, their links and .service drop-ins survive SteamOS updates. REBOOTPROMPT makes the installer's final
 # reboot prompt unconditional; with no display, it fails and returns instead of rebooting, so the setup can follow.
+# Usage: steamos_vm_setup_script
 steamos_vm_setup_script() {
   cat <<'EOF'
 #!/bin/bash
@@ -328,18 +337,21 @@ EOF
 }
 
 # Print the efi-A partition UUID of a recovery image, in lower case as GRUB passes it.
-#   $1: image
+# Usage: steamos_vm_efi_uuid <image>
+#   <image>: image
 steamos_vm_efi_uuid() {
   sfdisk -d "$1" | sed -n 's/.*uuid=\([0-9A-Fa-f-]*\), name="efi-A".*/\1/p' | tr '[:upper:]' '[:lower:]'
 }
 
 # Print "start size" in sectors of a recovery image's rootfs-A partition.
-#   $1: image
+# Usage: steamos_vm_rootfs_extent <image>
+#   <image>: image
 steamos_vm_rootfs_extent() {
   sfdisk -d "$1" | sed -n 's/.*start= *\([0-9]*\), size= *\([0-9]*\),.*name="rootfs-A".*/\1 \2/p'
 }
 
 # Print the VM's domain XML for this host as it is now, with its render node (see steamos_vm_render_node).
+# Usage: steamos_vm_current_xml
 steamos_vm_current_xml() {
   steamos_vm_domain_xml "$(steamos_vm_render_node)"
 }
@@ -347,6 +359,7 @@ steamos_vm_current_xml() {
 # Define the VM with its domain XML for this host (steamos_vm_current_xml), replacing an earlier definition.
 # The XML has no UUID, so libvirt would refuse it as a second domain of the same name: undefine the old one first,
 # keeping its UEFI variables. Takes effect on the next start.
+# Usage: steamos_vm_define
 steamos_vm_define() {
   local new="$STEAMOS_VM_XML.new"
   run mkdir -p "$STEAMOS_VM_CACHE"
@@ -359,6 +372,7 @@ steamos_vm_define() {
 }
 
 # Print the render node the defined VM uses, from libvirt's saved definition.
+# Usage: steamos_vm_defined_render_node
 steamos_vm_defined_render_node() {
   sed -n "s/.*rendernode='\([^']*\)'.*/\1/p" "$STEAMOS_VM_DEFINITION" 2>/dev/null | head -1
 }

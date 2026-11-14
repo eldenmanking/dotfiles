@@ -1,5 +1,7 @@
 # Feature, OS, profile and variant registry helpers.
 
+# Print the --help text of feature <feature> (or all, for --all), or an empty line for an unknown one.
+# Usage: feature_description <feature>
 feature_description() {
   case "$1" in
     all)         echo "install all options" ;;
@@ -50,14 +52,16 @@ FEATURE_MACHINES="any laptop framework16"
 FEATURE_OSES="any linux macos arch steamos"
 FEATURE_GUIS="any desktop gnome kde"
 
-# Outputs: doc, the comment block directly above feature $1's feature_<name> (or declare_<name>) function in
-# install/features, with each line's leading '#' and one space removed. A feature's doc is a description, a bare '#'
-# line, then its tags:
+# Read the doc comment of feature <feature>: the comment block directly above its feature_<name> (or
+# declare_<name>) function in install/features. A feature's doc is a description, a bare '#' line, then its tags:
 #   # Install the thing for x.
 #   #
 #   # @machine any
 #   # @os linux
 #   # @gui gnome
+# Usage: f_call feature_doc doc -- <feature>
+# Returns: doc
+#   doc: the comment block, with each line's leading '#' and one space removed
 feature_doc() {
   local fn line doc="" nl=$'\n' first=true
   fn="${1//-/_}"
@@ -75,16 +79,18 @@ feature_doc() {
   f_return doc
 }
 
-# Where feature $1 works and which features it needs, read from the tags in its doc (see feature_doc). Outputs
-# (space-separated lists, empty when the tag is missing):
-#  machine: @machine, hardware it is for: any, laptop, framework16. Features for specific hardware live in
-#             install/features/<os>_<machine>/ and are left out of --all on other machines (see machine_supported)
-#  os: @os, any, linux, macos, arch, steamos (linux covers arch and steamos)
-#  gui: @gui, any (also headless), desktop (any graphical session), gnome, kde
-#  requires: @requires (optional), features that must run before it in the same OS and profile
-# Each OS returns the platforms (@os values) and each OS and profile the gui it targets; tests/validation/features.sh
-# requires the description and tags on every feature, checks the features of every OS and profile against them and
-# that each feature's requires come earlier in its features.
+# Where feature <feature> works and which features it needs, read from the tags in its doc (see feature_doc), each a
+# space-separated list, empty when the tag is missing. Each OS returns the platforms (@os values) and each OS and
+# profile the gui it targets; tests/validation/features.sh requires the description and tags on every feature,
+# checks the features of every OS and profile against them and that each feature's requires come earlier in its
+# features.
+# Usage: f_call feature_requirements machine os gui requires -- <feature>
+# Returns: machine os gui requires
+#   machine: @machine, hardware it is for: any, laptop, framework16. Features for specific hardware live in
+#     install/features/<os>_<machine>/ and are left out of --all on other machines (see machine_supported)
+#   os: @os, any, linux, macos, arch, steamos (linux covers arch and steamos)
+#   gui: @gui, any (also headless), desktop (any graphical session), gnome, kde
+#   requires: @requires (optional), features that must run before it in the same OS and profile
 feature_requirements() {
   local line machine="" os="" gui="" requires="" doc
   f_call feature_doc doc -- "$1"
@@ -100,18 +106,21 @@ feature_requirements() {
 }
 
 # Return 0 if a feature for OSes $1 works on platform $2 (one of an OS's platforms).
+# Usage: os_supported <oses> <platform>
 os_supported() {
   list_contains "$1" any || list_contains "$1" "$2" \
     || { list_contains "$1" linux && list_contains "arch steamos" "$2"; }
 }
 
 # Return 0 if a feature for machines $1 suits machine $2 (one of MACHINES, in install/lib/infer.sh).
+# Usage: machine_supported <machines> <machine>
 machine_supported() {
   list_contains "$1" any || list_contains "$1" "$2" \
     || { list_contains "$1" laptop && [[ "$2" == framework16 ]]; }
 }
 
 # Return 0 if a feature for GUIs $1 works with GUI $2 (none for headless).
+# Usage: gui_supported <guis> <gui>
 gui_supported() {
   list_contains "$1" any || list_contains "$1" "$2" \
     || { list_contains "$1" desktop && [[ "$2" != none ]]; }
@@ -130,34 +139,41 @@ FEATURES_PORTABLE="binaries link zsh shell starship tmux"
 # Features that honor --dry-run; others are only announced.
 DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link desktop manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
 
+# Print the name of feature <feature>'s function, feature_<name> with any - as _.
+# Usage: feature_function <feature>
 feature_function() {
   fn_name feature_ "$1"
 }
 
 # Features can define uninstall_feature_<name>, run by --uninstall and before
 # feature_<name> by --reinstall. It must be idempotent and honor --dry-run.
+# Usage: uninstall_function <feature>
 uninstall_function() {
   fn_name uninstall_feature_ "$1"
 }
 
-# Return 0 if feature $1 can be uninstalled: it declares its changes (see install/lib/hooks.sh), which --uninstall
-# undoes, or defines an uninstall function.
+# Return 0 if feature <feature> can be uninstalled: it declares its changes (see install/lib/hooks.sh), which
+# --uninstall undoes, or defines an uninstall function.
+# Usage: feature_uninstallable <feature>
 feature_uninstallable() {
   fn_defined "$(fn_name declare_ "$1")" || fn_defined "$(uninstall_function "$1")"
 }
 
 # Features can define capture_feature_<name>, run by --capture to copy settings changed on this system (e.g. in a settings app)
 # back into the repo's files. It must honor --dry-run.
+# Usage: capture_function <feature>
 capture_function() {
   fn_name capture_feature_ "$1"
 }
 
 # Return 0 if feature $1 defines a capture function.
+# Usage: feature_capturable <feature>
 feature_capturable() {
   fn_defined "$(capture_function "$1")"
 }
 
 # Print the names of the definitions in install/$1 (variants, os or profiles), from their file names.
+# Usage: available_names <dir>
 available_names() {
   local f names=""
   for f in "$INSTALL_DIR/$1"/*.sh; do
@@ -168,26 +184,31 @@ available_names() {
 }
 
 # Return 0 if a variant_<name> function is defined.
+# Usage: variant_exists <variant>
 variant_exists() {
   [[ -n "$1" ]] && fn_defined "variant_$1"
 }
 
 # Return 0 if an os_<name> function is defined.
+# Usage: os_exists <os>
 os_exists() {
   [[ -n "$1" ]] && fn_defined "os_$1"
 }
 
 # Return 0 if a profile_<name> function is defined.
+# Usage: profile_exists <profile>
 profile_exists() {
   [[ -n "$1" ]] && fn_defined "profile_$1"
 }
 
 # Return 0 if OS $1 supports profile $2, which it does by defining os_<os>_<profile>.
+# Usage: os_supports_profile <os> <profile>
 os_supports_profile() {
   os_exists "$1" && profile_exists "$2" && fn_defined "os_$1_$2"
 }
 
 # Print the profiles OS $1 supports.
+# Usage: os_profiles <os>
 os_profiles() {
   local profile profiles=""
   for profile in $(available_names profiles); do
@@ -196,28 +217,41 @@ os_profiles() {
   printf '%s' "$profiles"
 }
 
-# Call variant_<name>, which returns os and profile, the OS and profile it stands for.
+# Call variant_<variant>, which returns the OS and profile it stands for.
+# Usage: f_call variant_config os profile -- <variant>
+# Returns: os profile
 variant_config() {
   variant_exists "$1" || error "Unknown variant '$1'"
   "variant_$1"
 }
 
-# Call os_<name>, which returns description, platforms (the @os values its features must suit) and machines (the
-# machines it supports, from MACHINES).
+# Call os_<os>, which returns its config.
+# Usage: f_call os_config description platforms machines -- <os>
+# Returns: description platforms machines
+#   platforms: the @os values its features must suit
+#   machines: the machines it supports, from MACHINES
 os_config() {
   os_exists "$1" || error "Unknown OS '$1'"
   "os_$1"
 }
 
-# Call profile_<name>, which returns description and git_fsmonitor.
+# Call profile_<profile>, which returns its config.
+# Usage: f_call profile_config description git_fsmonitor -- <profile>
+# Returns: description git_fsmonitor
 profile_config() {
   profile_exists "$1" || error "Unknown profile '$1'"
   "profile_$1"
 }
 
-# Outputs the config of OS $1 with profile $2: os_config's and profile_config's outputs (description is the OS's),
-# then os_<os>_<profile>'s: features (in the order they run), optional (the ones --all skips), gui (the GUI they
-# target, none for headless) and link_paths (what the link feature links).
+# Read the config of OS <os> with profile <profile>: what profile_config, os_config and os_<os>_<profile> return.
+# Usage: f_call os_profile_config description git_fsmonitor platforms machines features gui optional link_paths -- \
+#   <os> <profile>
+# Returns: description git_fsmonitor platforms machines features gui optional link_paths
+#   description: the OS's
+#   features: in the order they run
+#   gui: the GUI they target, none for headless
+#   optional: the ones --all skips
+#   link_paths: what the link feature links
 os_profile_config() {
   os_supports_profile "$1" "$2" || error "OS '$1' has no profile '$2'"
   "profile_$2"

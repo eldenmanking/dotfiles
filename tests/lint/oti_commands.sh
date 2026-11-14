@@ -11,6 +11,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../lib.sh"
 
 # Print "file:line: text" for each bare state-changing command in file $1.
+# Usage: bare_state_changes <file>
 bare_state_changes() {
   awk -v file="$1" '
     # Commands that change state, when they start a command (or follow sudo).
@@ -45,6 +46,8 @@ bare_state_changes() {
   ' "$1"
 }
 
+# Check every one-time install, then fail if any has a bare state-changing command.
+# Usage: main
 main() {
   local failed=0 file found
   cd "$REPO_ROOT"

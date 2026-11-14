@@ -6,6 +6,7 @@
 STEAMOS_VM_INSTALL_TIMEOUT=1200
 
 # Install virt-manager and its QEMU extension per-user from flathub, unless installed.
+# Usage: install_steamos_vm_app
 install_steamos_vm_app() {
   if steamos_vm_app_installed; then
     return
@@ -17,6 +18,7 @@ install_steamos_vm_app() {
 
 # Point virt-manager at the session connection the VM is on. Without a saved connection it looks for the system one,
 # finds no libvirtd, and says "Could not detect a default hypervisor".
+# Usage: configure_steamos_vm_app
 configure_steamos_vm_app() {
   local key value="['$STEAMOS_VM_URI']"
   for key in uris autoconnect; do
@@ -29,6 +31,7 @@ configure_steamos_vm_app() {
 }
 
 # Print the newest Valve recovery image in ~/Downloads (steamdeck-*repair*.img.bz2), or nothing.
+# Usage: find_steamos_vm_recovery_download
 find_steamos_vm_recovery_download() {
   local f newest=""
   for f in "$STEAMOS_VM_DOWNLOADS"/steamdeck-*repair*.img.bz2; do
@@ -41,6 +44,7 @@ find_steamos_vm_recovery_download() {
 
 # Download Valve's latest recovery image into ~/Downloads under its dated name, and print its path. Valve publishes no
 # checksums; bzip2 checks its own CRCs when it is decompressed.
+# Usage: download_steamos_vm_recovery
 download_steamos_vm_recovery() {
   local name
   name="$(curl -fsSIL -o /dev/null -w '%{url_effective}' "$STEAMOS_VM_RECOVERY_URL")" || return 1
@@ -54,6 +58,7 @@ download_steamos_vm_recovery() {
 
 # Decompress the recovery image to $STEAMOS_VM_RECOVERY, from ~/Downloads or downloaded, unless it is there. Delete it
 # to use a newer image on the next install.
+# Usage: prepare_steamos_vm_recovery
 prepare_steamos_vm_recovery() {
   local source
   if [[ -f "$STEAMOS_VM_RECOVERY" ]]; then
@@ -76,6 +81,7 @@ prepare_steamos_vm_recovery() {
 # Copy the recovery image's kernel and initramfs out of its rootfs-A partition (btrfs, read without mounting by btrfs
 # restore) into $STEAMOS_VM_BOOT_DIR, and save its efi-A partition UUID there, unless they are there. The initrd is
 # AMD's microcode followed by the initramfs, as GRUB loads them.
+# Usage: extract_steamos_vm_boot
 extract_steamos_vm_boot() {
   local dir="$STEAMOS_VM_BOOT_DIR" tmp extent f kernel="" initramfs=""
   if [[ -f "$dir/vmlinuz" && -f "$dir/initrd" && -s "$dir/efi-uuid" ]]; then
@@ -115,6 +121,7 @@ extract_steamos_vm_boot() {
 # Install SteamOS onto a new blank disk, unattended: boot the recovery image as a transient domain that runs the setup
 # script (steamos_vm_setup_script) and powers off, then check its serial log for the done marker. Takes about a minute;
 # the log is $STEAMOS_VM_INSTALL_LOG.
+# Usage: install_steamos_vm_disk
 install_steamos_vm_disk() {
   local end size
   if [[ -f "$STEAMOS_VM_DISK" ]]; then
@@ -167,6 +174,7 @@ install_steamos_vm_disk() {
 }
 
 # Define the VM, unless it is. steamos-vm start redefines it when its XML for this host changes (e.g. the render node).
+# Usage: define_steamos_vm
 define_steamos_vm() {
   if steamos_vm_defined; then
     info "VM '$STEAMOS_VM_NAME' already defined (use --reinstall to recreate it)"

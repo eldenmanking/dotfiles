@@ -24,6 +24,7 @@ for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/fea
 done
 
 # Print the words of $1, one per line and sorted.
+# Usage: sorted_words <words>
 sorted_words() {
   local word
   for word in $1; do
@@ -33,6 +34,7 @@ sorted_words() {
 
 # Print the table's rows from README.md, one per OS: the cells of each row separated by '|', with backticks removed
 # and surrounding spaces trimmed, e.g. "arch|desktop, minimal|generic, framework16|arch (desktop)".
+# Usage: table_rows
 table_rows() {
   awk -F'|' '
     /^\| OS \| Profiles/ { in_table = 1; next }
@@ -52,7 +54,10 @@ table_rows() {
   ' "$REPO_ROOT/README.md"
 }
 
-# Outputs: variants, the variants of OS $1 as space-separated "name:profile" words.
+# Find the variants of OS <os>.
+# Usage: f_call os_variants variants -- <os>
+# Returns: variants
+#   variants: space-separated "name:profile" words
 os_variants() {
   local os="$1" variants="" variant v_os v_profile
   for variant in $(available_names variants); do
@@ -64,11 +69,15 @@ os_variants() {
 
 # Turn a README variants cell like "`portable` (minimal), `coder` (workspace)" (backticks already removed) into
 # space-separated "name:profile" words.
+# Usage: cell_variants <cell>
 cell_variants() {
   printf '%s' "$1" | sed 's/ (\([a-z]*\))/:\1/g; s/, / /g'
 }
 
-# Outputs: problems, a line if column $2 of OS $1's README row lists words $3 where the code defines words $4.
+# Check that column <column> of OS <os>'s README row lists the words <listed> the code defines, <defined>.
+# Usage: f_call check_column problems -- <os> <column> <listed> <defined>
+# Returns: problems
+#   problems: a line if it doesn't
 check_column() {
   local problems=""
   if [[ "$(sorted_words "$3")" != "$(sorted_words "$4")" ]]; then
@@ -77,8 +86,11 @@ check_column() {
   f_return problems
 }
 
-# Outputs: problems, a line for each way README row $2 of OS $1 differs from the code. $2 is empty if the table has
-# no row for it.
+# Check README row <row> of OS <os> against the code.
+# Usage: f_call check_row problems -- <os> <row>
+#   <row>: empty if the table has no row for it
+# Returns: problems
+#   problems: a line for each way it differs
 check_row() {
   local os="$1" row="$2" problems="" profiles="" machines="" variants="" found machines_want variants_want
   if [[ -z "$row" ]]; then
@@ -98,6 +110,8 @@ check_row() {
   f_return problems
 }
 
+# Check the README's OS table against every OS, then fail with the problems found, if any.
+# Usage: main
 main() {
   local os row rows problems="" found listed
   rows="$(table_rows)"

@@ -20,12 +20,17 @@
 # Installed into /etc/dotfiles/bin by the orei_switch feature of ~/dotfiles/install.sh.
 BUDGET_MS=4000
 
+# Log a message to the journal, tagged orei-switch like the rest of the display handling.
+# Usage: log <message>...
 log() { logger -t orei-switch "login screen: $*"; }
 
+# Print the current time in milliseconds.
+# Usage: now_ms
 now_ms() { echo $(( ${EPOCHREALTIME/./} / 1000 )); }
 
 # Print the id and VT of the user session SDDM opened on seat0 after session $1 (the login screen's), if any: the one
 # logging in. Other user sessions, older or opened elsewhere (e.g. a text login on another VT), belong to other logins.
+# Usage: new_user_session <session>
 new_user_session() {
   local since id class service state vt ts key value
   since="$(loginctl show-session "$1" --property=TimestampMonotonic --value 2>/dev/null)"
@@ -48,9 +53,12 @@ new_user_session() {
   done
 }
 
+# Return 0 if tty<vt> is the active VT.
+# Usage: vt_active <vt>
 vt_active() { [[ "$(cat /sys/class/tty/tty0/active)" == "tty$1" ]]; }
 
 # Return 0 if a process holds tty$1 as its controlling tty, as the session does before it asks for the switch.
+# Usage: vt_held <vt>
 vt_held() { [[ -n "$(ps -t "tty$1" -o pid=)" ]]; }
 
 deadline=$(( $(now_ms) + BUDGET_MS ))
