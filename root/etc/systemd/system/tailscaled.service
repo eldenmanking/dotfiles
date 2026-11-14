@@ -1,6 +1,6 @@
 [Unit]
 Description=Tailscale node agent
-Documentation=https://tailscale.com/kb/
+Documentation=https://tailscale.com/docs/
 # Installed to /etc/systemd/system by the tailscale feature of ~/dotfiles/install.sh, from upstream's
 # systemd/tailscaled.service with the paths and flags written in rather than read from /etc/default/tailscaled. SteamOS
 # keeps services in /etc/systemd/system across updates; the binaries in /etc/dotfiles/bin are on dotfiles' keep list.

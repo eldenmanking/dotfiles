@@ -2,7 +2,7 @@
 # tailscaled runs as a system service from boot, so its binaries go into SYSTEM_BIN_DIR, outside a possibly encrypted
 # home, and its state into /var/lib/tailscale, which SteamOS updates keep. See Tailscale in README.md.
 
-TAILSCALE_VERSION=@TAILSCALE_VERSION@
+TAILSCALE_VERSION=1.104.7
 TAILSCALE_UNITS_SRC="root/etc/systemd/system"
 TAILSCALE_UNIT=tailscaled.service
 TAILSCALE_BINARIES="tailscale tailscaled"
@@ -17,8 +17,8 @@ TAILSCALE_STATE_DIR=/var/lib/tailscale
 # <tarball>.sha256). Outputs: _tarball, _sha256.
 tailscale_tarball() {
   case "$(uname -m)" in
-    x86_64)  _tarball="tailscale_${TAILSCALE_VERSION}_amd64.tgz" _sha256=@TAILSCALE_SHA256_AMD64@ ;;
-    aarch64) _tarball="tailscale_${TAILSCALE_VERSION}_arm64.tgz" _sha256=@TAILSCALE_SHA256_ARM64@ ;;
+    x86_64)  _tarball="tailscale_${TAILSCALE_VERSION}_amd64.tgz" _sha256=e56693ff74a64f2591b7e819c280635a100aae1ddfb0ef058fcd052b7cd8d16c ;;
+    aarch64) _tarball="tailscale_${TAILSCALE_VERSION}_arm64.tgz" _sha256=d6bed2720310b328b861f943d7b4016c5358a9bad60575eb51e8143b79068484 ;;
     *)       error "no Tailscale build pinned for $(uname -m)" ;;
   esac
 }
