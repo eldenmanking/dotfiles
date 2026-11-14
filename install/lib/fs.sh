@@ -2,6 +2,7 @@
 
 # Create a symlink at $target pointing to $src, backing up any existing file
 # or stale symlink. Third arg is an optional sudo-style prefix.
+# Usage: make_symlink <src> <target> [<sudo_cmd>]
 make_symlink() {
   local src="$1" target="$2" sudo_cmd="${3:-}"
 
@@ -81,11 +82,11 @@ system_file_targets() {
   return 0
 }
 
-# Copy each file in $src_dir matching $glob into $dst_dir with sudo, replacing
-# any old symlink. For system files read at boot, before an encrypted home is
-# mounted, where a symlink into ~ would dangle. Outputs: changed, the
-# space-separated targets that were copied (empty if all were up to date).
+# Copy each file in <src_dir> matching <glob> into <dst_dir> with sudo, replacing any old symlink. For system files
+# read at boot, before an encrypted home is mounted, where a symlink into ~ would dangle.
 # Usage: f_call copy_system_files changed -- <src_dir> <glob> <dst_dir>
+# Returns: changed
+#   changed: the space-separated targets that were copied (empty if all were up to date)
 copy_system_files() {
   local src_dir="$1" glob="$2" dst_dir="$3" file target changed=""
   for file in "$src_dir"/$glob; do
@@ -98,10 +99,11 @@ copy_system_files() {
   f_return changed
 }
 
-# Copy the files in $src_dir matching $glob into $dst_dir (copy_system_files) and keep them across SteamOS updates
-# under keep list subblock $name (keep_across_steamos_updates). Outputs: changed, the space-separated targets that
-# were copied.
+# Copy the files in <src_dir> matching <glob> into <dst_dir> (copy_system_files) and keep them across SteamOS updates
+# under keep list subblock <name> (keep_across_steamos_updates).
 # Usage: f_call install_system_dir changed -- <name> <src_dir> <glob> <dst_dir>
+# Returns: changed
+#   changed: the space-separated targets that were copied
 install_system_dir() {
   local name="$1" src_dir="$2" glob="$3" dst_dir="$4" targets changed
   targets="$(system_file_targets "$src_dir" "$glob" "$dst_dir")"
@@ -110,9 +112,11 @@ install_system_dir() {
   f_return changed
 }
 
-# Remove the files install_system_dir copied (those installed from $src_dir matching $glob) and stop keeping them
-# across SteamOS updates. Outputs: removed, the space-separated targets that were removed.
+# Remove the files install_system_dir copied (those installed from <src_dir> matching <glob>) and stop keeping them
+# across SteamOS updates.
 # Usage: f_call uninstall_system_dir removed -- <name> <src_dir> <glob> <dst_dir>
+# Returns: removed
+#   removed: the space-separated targets that were removed
 uninstall_system_dir() {
   local name="$1" src_dir="$2" glob="$3" dst_dir="$4" target removed=""
   for target in $(system_file_targets "$src_dir" "$glob" "$dst_dir"); do
@@ -143,12 +147,14 @@ DOTFILES_OLD_BLOCK_END="# /Managed by dotfiles"
 DOTFILES_OLD_SUBBLOCK_PREFIX="# feature "
 
 # Print the 1-based line numbers of lines in $1 exactly equal to $2.
+# Usage: _line_numbers <file> <line>
 _line_numbers() {
   awk -v s="$2" '$0 == s { print NR }' "$1"
 }
 
 # Return 0 if $file is a symlink into the dotfiles repo, where edits would
 # land in tracked files.
+# Usage: _links_into_dotfiles <file>
 _links_into_dotfiles() {
   local file="$1" target dir root
   [[ -L "$file" ]] || return 1
@@ -160,6 +166,7 @@ _links_into_dotfiles() {
 }
 
 # Return 0 if line $1 is a section marker, old or current.
+# Usage: _is_marker_line <line>
 _is_marker_line() {
   [[ "$1" == "$DOTFILES_BLOCK_START" || "$1" == "$DOTFILES_BLOCK_END" || "$1" == "$DOTFILES_SUBBLOCK_PREFIX"* \
     || "$1" == "$DOTFILES_OLD_BLOCK_START" || "$1" == "$DOTFILES_OLD_BLOCK_END" \
@@ -168,6 +175,7 @@ _is_marker_line() {
 
 # Print file $1 with the markers of an old-style section (starting with a single
 # '#') changed to the current ones. Everything else is printed unchanged.
+# Usage: _convert_old_section <file>
 _convert_old_section() {
   awk -v os="$DOTFILES_OLD_BLOCK_START" -v oe="$DOTFILES_OLD_BLOCK_END" -v op="$DOTFILES_OLD_SUBBLOCK_PREFIX" \
       -v ns="$DOTFILES_BLOCK_START" -v ne="$DOTFILES_BLOCK_END" -v np="$DOTFILES_SUBBLOCK_PREFIX" '
@@ -181,6 +189,7 @@ _convert_old_section() {
 # Overwrite $file with $tmp in place (keeping its mode and any symlink), creating
 # its directory as needed, then remove $tmp. Third arg is an optional sudo-style
 # prefix for the write.
+# Usage: _replace_contents <file> <tmp> [<sudo_cmd>]
 _replace_contents() {
   local file="$1" tmp="$2" sudo_cmd="${3:-}"
   ${sudo_cmd:+"$sudo_cmd"} mkdir -p "$(dirname "$file")"
@@ -363,6 +372,7 @@ forget_across_steamos_updates() {
 # --- File writing and downloads (honor DRY_RUN) ---
 
 # Write stdin to $dest, or just announce it under --dry-run.
+# Usage: write_file <dest>
 write_file() {
   local dest="$1"
   if $DRY_RUN; then
@@ -373,7 +383,9 @@ write_file() {
   fi
 }
 
-# Outputs: sha256, the SHA-256 of file $1 (sha256sum on Linux, shasum on macOS).
+# Compute the SHA-256 of file <file> (sha256sum on Linux, shasum on macOS).
+# Usage: f_call file_sha256 sha256 -- <file>
+# Returns: sha256
 file_sha256() {
   local sha256
   if command -v sha256sum >/dev/null; then
@@ -386,6 +398,7 @@ file_sha256() {
 }
 
 # Return 0 if $file exists and has SHA-256 $sha256.
+# Usage: sha256_matches <file> <sha256>
 sha256_matches() {
   local file="$1" sha256="$2" actual
   [[ -f "$file" ]] || return 1
@@ -395,6 +408,7 @@ sha256_matches() {
 
 # Download $url to $out and check it against $sha256 ($name is for messages). With DOWNLOAD_CACHE set, a file there
 # named $sha256 that matches it is copied instead, and a download is stored there for next time.
+# Usage: download_verified <url> <sha256> <out> <name>
 download_verified() {
   local url="$1" sha256="$2" out="$3" name="$4"
   local cached="$DOWNLOAD_CACHE/$sha256"
@@ -473,6 +487,7 @@ with_tmpdir() {
 
 # Check out commit $2 of the git repository $1 into $3 (cloning it first if needed) and check that HEAD is that
 # commit, so a moved tag or a hijacked remote can't change what runs afterwards. $2 must be a full commit hash.
+# Usage: clone_pinned <url> <commit> <dest>
 clone_pinned() {
   local url="$1" commit="$2" dest="$3" head
   [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || error "clone_pinned: '$commit' is not a full commit hash"

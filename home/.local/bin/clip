@@ -14,8 +14,12 @@ set -euo pipefail
 CLIP_FILE="/tmp/clip.50eb42db-6835-4960-89dd-3813a9adeec3"
 CLIP_HOST_FILE="$HOME/.cache/clip.last_host"
 
+# Print a message on stderr, tagged [clip].
+# Usage: log <message>...
 log() { printf '[clip] %s\n' "$*" >&2; }
 
+# Print the help.
+# Usage: usage
 usage() {
     cat <<EOF
 Usage: <command> | clip
@@ -42,6 +46,7 @@ EOF
 # Read $CLIP_FILE, write to the system clipboard using whichever backend
 # is available. Native tools are preferred because they handle arbitrary
 # bytes without size limits.
+# Usage: copy_to_clipboard
 copy_to_clipboard() {
     if command -v pbcopy >/dev/null 2>&1; then
         log "using pbcopy"
@@ -64,6 +69,9 @@ copy_to_clipboard() {
     fi
 }
 
+# Copy $CLIP_FILE to the clipboard of the terminal with an OSC 52 escape sequence, wrapped for tmux
+# inside tmux.
+# Usage: copy_via_osc52
 copy_via_osc52() {
     # base64 output is plain ASCII so the shell variable round-trip is
     # lossless; the raw bytes never pass through a shell variable.
@@ -78,6 +86,9 @@ copy_via_osc52() {
     fi
 }
 
+# Pull the clip file from <host> into the local clipboard, remembering <host> for next time; without
+# one, from the remembered host.
+# Usage: remote_pull [<host>]
 remote_pull() {
     local host="${1:-}"
     if [ -z "$host" ]; then

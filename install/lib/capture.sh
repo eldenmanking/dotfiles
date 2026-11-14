@@ -5,6 +5,7 @@
 # with /, e.g. org/gnome/desktop/interface/color-scheme or Keyboard/RepeatDelay (KDE's nested groups, [A][B], keep
 # their brackets: A][B/key). An entry ending in / selects every key whose path starts with it (for dconf, a directory with its
 # subdirectories; for KDE, a group), any other entry the one key it names, and an entry starting with ! leaves out what it names, wherever it is in the list.
+# Usage: capture_filter [<entry>...]
 capture_filter() {
   local IFS=$'\n'
   awk -v entries="$*" '
@@ -36,6 +37,7 @@ capture_filter() {
 
 
 # Write text $2 into the repo's file $1, or under --dry-run print the change as a diff. Leaves an unchanged file alone.
+# Usage: write_captured <file> <text>
 write_captured() {
   local file="$1" text="$2"
   if [[ -f "$file" && "$text" == "$(cat "$file")" ]]; then

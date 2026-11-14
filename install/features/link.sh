@@ -61,6 +61,7 @@ LINK_DESKTOP_PATHS=(
 )
 
 # Link one repo-relative file: root/* goes to / and home/* to $HOME.
+# Usage: link_dotfile <rel>
 link_dotfile() {
   local rel="$1"
   case "$rel" in

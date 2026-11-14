@@ -25,7 +25,9 @@ feature_shell() {
 
 STARSHIP_VERSION=v1.27.0
 
-# Return the pinned starship release asset for $1 (os) and $2 (arch), and its SHA-256.
+# Look up the pinned starship release asset for <os> and <arch>.
+# Usage: f_call starship_asset asset sha256 -- <os> <arch>
+# Returns: asset sha256
 starship_asset() {
   case "$1-$2" in
     linux-x86_64) f_return asset=starship-x86_64-unknown-linux-musl.tar.gz sha256=10c8eb4cb3b761d9bf59ea828444c2dab36c900b7d69a69e08814b286969df89 ;;
@@ -38,6 +40,7 @@ starship_asset() {
 
 # Download the verified starship release $1 (asset name) with SHA-256 $2 into the temp dir $4 and install it into the
 # directory $3.
+# Usage: _install_starship_in <asset> <sha256> <bin_dir> <tmp>
 _install_starship_in() {
   local asset="$1" sha256="$2" bin_dir="$3" tmp="$4"
   download_verified "https://github.com/starship/starship/releases/download/$STARSHIP_VERSION/$asset" \
@@ -48,6 +51,7 @@ _install_starship_in() {
 }
 
 # Install the pinned starship into the directory $1 if it's missing.
+# Usage: install_starship_binary <bin_dir>
 install_starship_binary() {
   local bin_dir="$1" os arch asset sha256
   if command -v starship &>/dev/null; then

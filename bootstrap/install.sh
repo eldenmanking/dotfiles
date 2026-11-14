@@ -20,6 +20,7 @@ PINNED_COMMIT=""
 DOTFILES_ROOT="$HOME/dotfiles"
 
 # Print an error and exit.
+# Usage: die <message>...
 die() {
   printf '[error] %s\n' "$*" >&2
   exit 1
@@ -27,6 +28,7 @@ die() {
 
 # Clone PINNED_REPO into $DOTFILES_ROOT and check out PINNED_COMMIT, on the repo's default branch so it can be pulled
 # later (detached if the repo's HEAD is).
+# Usage: clone_pinned
 clone_pinned() {
   local branch checkout_args=(--detach)
   command -v git >/dev/null || die "git is required to clone $PINNED_REPO"
@@ -40,6 +42,7 @@ clone_pinned() {
 
 # Stdin is reattached to the terminal when it isn't one (as with 'curl ... | bash -s -- ARGS'), so features that prompt
 # still can.
+# Usage: main [<arg>...]
 main() {
   [[ -n "$PINNED_REPO" && -n "$PINNED_COMMIT" ]] \
     || die "this is the bootstrap's template; use the install.sh on the install branch (see README.md)"

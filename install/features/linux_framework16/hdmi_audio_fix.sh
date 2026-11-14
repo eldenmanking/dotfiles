@@ -6,6 +6,7 @@ HDMI_AUDIO_FIX_UNIT="hdmi-audio-fix.service"
 HDMI_AUDIO_FIX_ID="0x1002:0x15bf"
 
 # Print the sysfs directory of each PCI device with ID $1 (vendor:device).
+# Usage: pci_devices_with_id <id>
 pci_devices_with_id() {
   local dev
   for dev in /sys/bus/pci/devices/*; do

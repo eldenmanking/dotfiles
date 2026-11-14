@@ -11,11 +11,13 @@ fn_name() {
 }
 
 # Return 0 if a function named $1 is defined.
+# Usage: fn_defined <name>
 fn_defined() {
   declare -F "$1" >/dev/null
 }
 
 # Return 0 if $1 is a variable name that doesn't start with an underscore, which f_call keeps for its own variables.
+# Usage: _f_is_name <name>
 _f_is_name() {
   [[ "$1" == [a-zA-Z]* && "$1" != *[!a-zA-Z0-9_]* ]]
 }
@@ -79,6 +81,7 @@ f_return() {
 }
 
 # Return 0 if space-separated list $1 contains word $2.
+# Usage: list_contains <list> <word>
 list_contains() {
   case " $1 " in
     *" $2 "*) return 0 ;;

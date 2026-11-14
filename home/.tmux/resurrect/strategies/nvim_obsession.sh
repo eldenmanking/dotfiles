@@ -12,6 +12,8 @@ ORIGINAL_COMMAND="$1"
 DIRECTORY="${2//\\ / }"
 DIRECTORY="${DIRECTORY/#\~/$HOME}"
 
+# Print the session file the pane's nvim was started with (-S <file>), if it still exists.
+# Usage: session_from_command
 session_from_command() {
   local args i
   read -r -a args <<< "$ORIGINAL_COMMAND"
@@ -23,12 +25,17 @@ session_from_command() {
   done
 }
 
+# Print the Session.vim in the pane's directory, if there is one.
+# Usage: session_from_directory
 session_from_directory() {
   if [[ "$DIRECTORY" == /* && -f "$DIRECTORY/Session.vim" ]]; then
     echo "${DIRECTORY%/}/Session.vim"
   fi
 }
 
+# Print the command that restores the pane: vi on its session file if it has one, else its command (without
+# a -S whose file is gone).
+# Usage: main
 main() {
   local session
   session="$(session_from_command)"

@@ -9,11 +9,13 @@ FONT_DEST="$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
 FONT_STAMP="$FONT_DEST/.version"
 
 # True when FONT_DEST holds exactly the pinned release.
+# Usage: font_up_to_date
 font_up_to_date() {
   [[ -f "$FONT_STAMP" && "$(cat "$FONT_STAMP")" == "$FONT_NF_VERSION $FONT_SHA256" ]]
 }
 
 # True when the family comes from somewhere else (e.g. a system package), which we leave alone.
+# Usage: font_installed_elsewhere
 font_installed_elsewhere() {
   local families
   [[ ! -d "$FONT_DEST" ]] && command -v fc-list >/dev/null || return 1
@@ -43,6 +45,7 @@ feature_font() {
 }
 
 # Download the verified font into the temp dir $1 and unpack it into FONT_DEST.
+# Usage: _install_font_in <tmp>
 _install_font_in() {
   local tmp="$1"
   download_verified \
@@ -64,6 +67,7 @@ LOGIOPS_VERSION=v0.3.5
 LOGIOPS_COMMIT=628ab937a25724c1f21e7edf25c8e5aaff82c691
 
 # Build and install logiops from a pinned commit cloned into the temp dir $1.
+# Usage: _build_logiops_in <tmp>
 _build_logiops_in() {
   local tmp="$1"
   clone_pinned https://github.com/PixlOne/logiops "$LOGIOPS_COMMIT" "$tmp/logiops"
@@ -179,11 +183,13 @@ DCONF_CAPTURE=(
 DCONF_DUMP="$DOTFILES_ROOT/dump/dconf/arch.dconf"
 
 # Print text $1 with each path under home directory $2 written as ${HOME}/..., for the repo.
+# Usage: dconf_unexpand_home <text> <home>
 dconf_unexpand_home() {
   printf '%s\n' "${1//"$2/"/\$\{HOME\}/}"
 }
 
 # Print text $1 with each ${HOME}/... written as a path under home directory $2, for dconf.
+# Usage: dconf_expand_home <text> <home>
 dconf_expand_home() {
   printf '%s\n' "${1//"\${HOME}/"/$2/}"
 }

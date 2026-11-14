@@ -25,6 +25,7 @@ DOWNLOAD_CACHE="${DOTFILES_DOWNLOAD_CACHE:-}"
 # install.sh only runs from a dotfiles checkout, beside its install/ directory; to install from scratch, use the
 # bootstrap on the repo's install branch (see README.md). From a git checkout elsewhere, clone_checkout_to_root moves
 # the install to $DOTFILES_ROOT. Runs before install/lib is loaded, so it prints its own messages.
+# Usage: bootstrap [<arg>...]
 bootstrap() {
   if [[ ! -f "$INSTALL_DIR/lib/fn.sh" ]]; then
     printf '[error] install.sh must run from a dotfiles checkout. To install from scratch, use the install.sh on\n' >&2
@@ -37,6 +38,7 @@ bootstrap() {
 # When run from a git checkout elsewhere (e.g. Coder's ~/.config/coderv2/dotfiles) and $DOTFILES_ROOT doesn't exist,
 # clone that checkout's current commit to $DOTFILES_ROOT, point its origin at the checkout's origin, then re-run its
 # install.sh with the same arguments. Uncommitted changes aren't copied. Anything else is left to enter_dotfiles_root.
+# Usage: clone_checkout_to_root [<arg>...]
 clone_checkout_to_root() {
   local top head branch origin
   [[ ! -e "$DOTFILES_ROOT" && ! -L "$DOTFILES_ROOT" ]] || return 0
@@ -62,6 +64,7 @@ clone_checkout_to_root() {
 
 # Source install/lib, features, OSes, profiles and variants. They only define functions and constants, so their
 # globals stay global.
+# Usage: load_install_deps
 load_install_deps() {
   local f
   for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
@@ -73,6 +76,7 @@ load_install_deps() {
 }
 
 # Print feature $1's --help line, with the machines it is for and the features it requires.
+# Usage: usage_feature <feature>
 usage_feature() {
   local machine requires
   f_call feature_requirements machine requires -- "$1"
@@ -82,6 +86,7 @@ usage_feature() {
 }
 
 # Print the variants, OSes and profiles, then the options of OS $1 with profile $2 on machine $3 if they can run.
+# Usage: usage <os> <profile> [<machine>]
 usage() {
   local os="$1" profile="$2" machine="${3:-generic}" v features optional other="" uninstallable="" capturable=""
   local variant_os variant_profile description os_machines feature_machine
@@ -175,6 +180,7 @@ EOF
 }
 
 # Warn with message $1, print usage (of OS $2 with profile $3 on machine $4, if given) and exit.
+# Usage: usage_error <message> [<os>] [<profile>] [<machine>]
 usage_error() {
   local message="$1" os="${2:-}" profile="${3:-}" machine="${4:-}"
   warn "$message"
@@ -182,6 +188,12 @@ usage_error() {
   exit 1
 }
 
+# Parse install.sh's command line, exiting with usage on a bad one.
+# Usage: f_call parse_args variant os profile machine infer flags mode all dry_run help oti -- [<arg>...]
+# Returns: variant os profile machine infer flags mode all dry_run help oti
+#   infer: true with --infer; all, dry_run and help likewise for --all, --dry-run and --help
+#   flags: the feature options given, without their --, as a space-separated list starting and ending with a space
+#   mode: install, reinstall or uninstall
 parse_args() {
   local variant="" os="" profile="" machine="" infer=false flags=" " mode=install all=false dry_run=false help=false
   local oti="" opt value
@@ -230,9 +242,12 @@ parse_args() {
   f_return variant os profile machine infer flags mode all dry_run help oti
 }
 
-# Outputs: default_variant, default_os, default_profile, default_machine and default_features, from
-# DOTFILES_VARIANT, DOTFILES_OS, DOTFILES_PROFILE, DOTFILES_MACHINE and DOTFILES_FEATURES in the environment or, for
-# each one unset there, in config file $1. The file is sourced in a subshell so it can't change this shell's state.
+# Read the install defaults from DOTFILES_VARIANT, DOTFILES_OS, DOTFILES_PROFILE, DOTFILES_MACHINE and
+# DOTFILES_FEATURES in the environment or, for each one unset there, in config file <conf>. The file is sourced in a
+# subshell so it can't change this shell's state.
+# Usage: f_call load_install_defaults default_variant default_os default_profile default_machine default_features -- \
+#   <conf>
+# Returns: default_variant default_os default_profile default_machine default_features
 load_install_defaults() {
   local conf="$1" file_variant="" file_os="" file_profile="" file_machine="" file_features=""
   if [[ -f "$conf" ]]; then
@@ -253,8 +268,10 @@ load_install_defaults() {
     default_features="${DOTFILES_FEATURES:-$file_features}"
 }
 
-# Outputs: os and profile, OS $2 and profile $3, with each one left empty filled in from variant $1 (if given). $4
-# says where the variant came from, for the error if it doesn't exist.
+# Fill in OS <os> and profile <profile>, each one left empty, from variant <variant> (if given).
+# Usage: f_call variant_dimensions os profile -- <variant> <os> <profile> [<origin>]
+#   <origin>: where the variant came from, for the error if it doesn't exist
+# Returns: os profile
 variant_dimensions() {
   local variant="$1" os="$2" profile="$3" origin="${4:-}" variant_os variant_profile
   if [[ -n "$variant" ]]; then
@@ -267,9 +284,12 @@ variant_dimensions() {
   f_return os profile
 }
 
-# Outputs: flags and all, flags $1 and --all $2 with default features $4 (feature names, and all for --all) added
-# when the command line selects none, unless mode $3 is uninstall or the OS and profile to install for ($5, $6) aren't
-# the ones the defaults name ($7, $8; both empty when the defaults name none).
+# Add default features <default_features> (feature names, and all for --all) to <flags> and <all> when the command
+# line selects none, unless <mode> is uninstall or the OS and profile to install for (<os>, <profile>) aren't the
+# ones the defaults name (<default_os>, <default_profile>; both empty when the defaults name none).
+# Usage: f_call apply_default_features flags all -- <flags> <all> <mode> <default_features> <os> <profile> \
+#   <default_os> <default_profile>
+# Returns: flags all
 apply_default_features() {
   local flags="$1" all="$2" mode="$3" default_features="$4" os="$5" profile="$6" default_os="$7"
   local default_profile="$8" word
@@ -284,11 +304,13 @@ apply_default_features() {
   f_return flags all
 }
 
-# Outputs: os, profile and machine to install for: OS $1, profile $2 and machine $3 as given (by options or
-# defaults), with each one left empty inferred from this system when $4 (--infer) is true, to suit the given ones:
-# an OS that lacks the given profile becomes portable if that has it (portable runs anywhere), and a machine the OS
-# doesn't support becomes generic. Without --infer, an empty machine is generic and an empty OS or profile stays
-# empty, for exit_with_usage_unless_runnable to report.
+# Resolve the OS, profile and machine to install for: <os>, <profile> and <machine> as given (by options or
+# defaults), with each one left empty inferred from this system when <infer> (--infer) is true, to suit the given
+# ones: an OS that lacks the given profile becomes portable if that has it (portable runs anywhere), and a machine
+# the OS doesn't support becomes generic. Without --infer, an empty machine is generic and an empty OS or profile
+# stays empty, for exit_with_usage_unless_runnable to report.
+# Usage: f_call resolve_dimensions os profile machine -- <os> <profile> <machine> <infer>
+# Returns: os profile machine
 resolve_dimensions() {
   local os="$1" profile="$2" machine="$3" infer="$4" inferred="" system_os system_machine coder reason os_machines
   if $infer && [[ -z "$os" || -z "$profile" || -z "$machine" ]]; then
@@ -321,6 +343,7 @@ resolve_dimensions() {
 # Print usage and exit unless OS $5 with profile $6 can run on machine $7: with no OS and profile, or with no
 # features selected ($1 flags, $2 --all) or --help ($3). Without an OS and profile this is an error unless --help was
 # given or there were no arguments ($4), as is an OS, profile or machine that doesn't exist or doesn't go together.
+# Usage: exit_with_usage_unless_runnable <flags> <all> <help> <no_args> <os> <profile> <machine>
 exit_with_usage_unless_runnable() {
   local flags="$1" all="$2" help="$3" no_args="$4" os="$5" profile="$6" machine="$7" os_machines
   list_contains "$MACHINES" "$machine" || usage_error "Unknown machine '$machine'. Available machines: $MACHINES"
@@ -349,10 +372,13 @@ exit_with_usage_unless_runnable() {
   fi
 }
 
-# Outputs: enabled, the selected features of OS $1 with profile $2 on machine $6. --all leaves out optional features
-# and those whose @machine doesn't suit $6; named features run either way (with a warning for the latter). Under
-# --uninstall, features without an uninstall function are dropped (with a warning if named), and under --capture those
-# without a capture function.
+# Select the features of OS <os> with profile <profile> on machine <machine> to run, from feature options <flags>
+# and --all <all>. --all leaves out optional features and those whose @machine doesn't suit <machine>; named
+# features run either way (with a warning for the latter). Under --uninstall (<mode>), features without an uninstall
+# function are dropped (with a warning if named), and under --capture those without a capture function.
+# Usage: f_call resolve_features enabled -- <os> <profile> <flags> <all> <mode> <machine>
+# Returns: enabled
+#   enabled: the selected features, in the order they run
 resolve_features() {
   local os="$1" profile="$2" flags="$3" all="$4" mode="$5" machine="$6" features optional enabled=" " k default
   local feature_machine
@@ -397,6 +423,7 @@ resolve_features() {
 # Run one-time install $1 and exit, after checking that nothing else was asked for: --oti can't be combined with a
 # variant, OS, profile, machine, --infer ($2, a list of those given), features or --all ($3, $4), or --reinstall or
 # --uninstall ($5). --help ($6) prints the usage instead. Defaults from the environment and install.conf don't apply.
+# Usage: run_oti_and_exit <oti> <dimensions> <flags> <all> <mode> <help>
 run_oti_and_exit() {
   local oti="$1" dimensions="$2" flags="$3" all="$4" mode="$5" help="$6"
   ! $help || { usage "" ""; exit 0; }
@@ -412,6 +439,7 @@ run_oti_and_exit() {
 # Print why install.sh in $1 can't install from $2, or nothing if it can. Everything it links points into $2, so it
 # must run from that checkout ($2 may be a symlink to it), and the checkout must be named dotfiles, which the startup
 # files and lint (.shellcheckrc) rely on.
+# Usage: explain_checkout_problem <script_dir> <root>
 explain_checkout_problem() {
   local script_dir="$1" root="$2" script_real root_real
   script_real="$(cd "$script_dir" && pwd -P)"
@@ -428,6 +456,8 @@ explain_checkout_problem() {
   fi
 }
 
+# cd into $DOTFILES_ROOT, or exit with why install.sh can't install from it.
+# Usage: enter_dotfiles_root
 enter_dotfiles_root() {
   local problem
   problem="$(explain_checkout_problem "$SCRIPT_DIR" "$DOTFILES_ROOT")"
@@ -437,6 +467,7 @@ enter_dotfiles_root() {
 }
 
 # Print the words of $1 in reverse order.
+# Usage: reverse_words <words>
 reverse_words() {
   local word reversed=""
   for word in $1; do
@@ -448,6 +479,7 @@ reverse_words() {
 # Run the enabled features ($3, already in the order of OS $1 with profile $2): install runs feature_<name> in order,
 # uninstall runs uninstall_feature_<name> (where defined) in reverse order, and reinstall does the uninstalls then
 # the installs. capture runs capture_feature_<name> instead. Each gets the OS, the profile and the enabled features.
+# Usage: run_features <os> <profile> <enabled> <mode> <machine>
 run_features() {
   local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" feature
 
@@ -477,6 +509,8 @@ run_features() {
   info "dotfiles $mode complete."
 }
 
+# Install, reinstall or uninstall what the command line asks for (see usage), or run a one-time install.
+# Usage: main [<arg>...]
 main() {
   bootstrap "$@"
   load_install_deps

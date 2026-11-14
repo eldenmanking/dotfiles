@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Lint the code: shell, zsh, Python and TOML syntax, shellcheck, one-time installs' bare commands and actionlint. Run via `make lint`.
+# Lint the code: shell, zsh, Python and TOML syntax, function doc comments, shellcheck, one-time installs' bare
+# commands and actionlint. Run via `make lint`.
 
 set -euo pipefail
 
@@ -8,12 +9,16 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib.sh"
 
 # Print the tracked files matching the git pathspecs $@ (all with none), one per line, but symlinks: those are checked
 # through their targets, and fixtures' after/ holds links into the containers' homes, which don't exist here.
+# Usage: tracked_files [<pathspec>...]
 tracked_files() {
   git ls-files -s -- "$@" | awk -F '\t' '$1 !~ /^120000 / { print $2 }'
 }
 
-# Outputs: sh, bash, sourced, zsh and python, newline-separated tracked files of each language. Files under
-# install/ without a shebang are sourced by install.sh, and fixtures' case.sh by tests/fixtures.sh, so they are bash.
+# Sort the tracked files by language, as newline-separated lists. Files under install/ without a shebang are
+# sourced by install.sh, and fixtures' case.sh by tests/fixtures.sh, so they are bash.
+# Usage: f_call classify_files sh bash sourced zsh python
+# Returns: sh bash sourced zsh python
+#   sourced: bash files without a shebang
 classify_files() {
   local sh="" bash="" sourced="" zsh="" python="" file first
   while IFS= read -r file; do
@@ -37,6 +42,7 @@ classify_files() {
 }
 
 # Run "$@" <file> for each file in newline-separated list $1, reporting each failure. Returns 1 if any failed.
+# Usage: each_file <files> <command> [<arg>...]
 each_file() {
   local files="$1" file failed=0
   shift
@@ -50,6 +56,7 @@ each_file() {
 # Print the names that f_return statements in file $1 return bare (f_return name), one per line, joining lines continued
 # with a backslash. Each reads the variable of that name, which shellcheck doesn't see. This approximates shell syntax:
 # a quoted value that spans lines hides the names after it, which then fail lint as unused.
+# Usage: bare_returns <file>
 bare_returns() {
   awk '
     { line = (cont ? cont " " : "") $0; cont = "" }
@@ -91,14 +98,20 @@ unused_variables() {
   [[ -z "$found" ]] || { printf '%s' "$found"; return 1; }
 }
 
+# Check the syntax of Python file <file>.
+# Usage: python_syntax <file>
 python_syntax() {
   python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read(), sys.argv[1])' "$1"
 }
 
+# Check the syntax of TOML file <file>.
+# Usage: toml_syntax <file>
 toml_syntax() {
   python3 -c 'import sys, tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$1"
 }
 
+# Run every lint check, then fail if any failed.
+# Usage: main
 main() {
   local failed=0 shellcheck actionlint sh bash sourced zsh python
   cd "$REPO_ROOT"
@@ -116,6 +129,11 @@ main() {
   if have_or_skip python3 "Python and TOML syntax checks"; then
     each_file "$python" python_syntax || failed=1
     each_file "$(tracked_files '*.toml')" toml_syntax || failed=1
+  fi
+
+  info "Function doc comments (Usage lines, and Returns lines for f_return)"
+  if have_or_skip python3 "the function doc comment check"; then
+    python3 tests/lint/function_docs.py $(printf '%s' "$sh$bash$sourced") || failed=1
   fi
 
   info "shellcheck $SHELLCHECK_VERSION"

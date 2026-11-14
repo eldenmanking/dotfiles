@@ -6,6 +6,7 @@ TOOLS_DEFAULT_REPO="https://github.com/eldenmanking/tools.git"
 # Print one "repo<TAB>dir<TAB>ref" line per tools repo, highest priority first. DOTFILES_TOOLS lists any
 # number of repos; without it, DOTFILES_TOOLS_{REPO,DIR,REF} describe a single one. Each variable in the environment
 # wins over the same variable set in the config file ($DOTFILES_TOOLS_CONFIG, default ~/.config/dotfiles/tools.conf).
+# Usage: load_tools_config
 load_tools_config() {
   local conf="${DOTFILES_TOOLS_CONFIG:-$HOME/.config/dotfiles/tools.conf}"
   local file_tools="" file_repo="" file_dir="" file_ref="" spec dir
@@ -38,6 +39,7 @@ load_tools_config() {
 
 # Parse a DOTFILES_TOOLS list and print it as load_tools_config does. Each line is "<repo> [dir] [ref]"; blank lines and
 # '#' comments are ignored. dir defaults to ~/<repo name>, and "-" keeps that default while still giving a ref.
+# Usage: parse_tools_spec <spec>
 parse_tools_spec() {
   local spec="$1" nl=$'\n' line repo dir ref extra name dirs="" out=""
   while IFS= read -r line; do
@@ -62,6 +64,7 @@ parse_tools_spec() {
 }
 
 # Print a git remote URL as host/path so https and ssh forms of the same repo compare equal.
+# Usage: normalize_git_url <url>
 normalize_git_url() {
   local url="${1%.git}"
   url="${url#*://}"
@@ -71,6 +74,7 @@ normalize_git_url() {
 
 # --- Clone or update the tools repo ---
 # A tools_dir that exists but isn't a git checkout is used as-is, so a local copy can stand in for the repo.
+# Usage: sync_tools_repo <tools_repo> <tools_dir> <tools_ref>
 sync_tools_repo() {
   local tools_repo="$1" tools_dir="$2" tools_ref="$3"
   if [[ -d "$tools_dir/.git" ]]; then
@@ -100,6 +104,7 @@ sync_tools_repo() {
 
 # --- Link Claude scripts and skills ---
 # Takes the tools dirs in priority order: when two repos ship an entry with the same name, the earlier one is linked.
+# Usage: configure_claude_dirs <tools_dir>...
 configure_claude_dirs() {
   # Symlink each entry within scripts/ and skills/ so that environment-specific entries in ~/.claude are preserved.
   local dirs=(scripts skills) dir tools_dir
@@ -151,6 +156,7 @@ configure_claude_dirs() {
 # --- Merge hooks and permissions into ~/.claude/settings.json ---
 # Takes the tools dirs in priority order. Their settings are combined first (earlier repos win scalar conflicts), then
 # merged into ~/.claude/settings.json, where the tools values win.
+# Usage: configure_claude_settings <tools_dir>...
 configure_claude_settings() {
   local dst="$HOME/.claude/settings.json" srcs=() tools_dir
   for tools_dir in "$@"; do
@@ -239,6 +245,7 @@ EOF
 # --- Merge CLAUDE.md block ---
 # Takes the tools dirs in priority order and joins their claude/CLAUDE.md files, in that order, into the claude
 # subblock of the target CLAUDE.md.
+# Usage: configure_claude_md <tools_dir>...
 configure_claude_md() {
   local dst="$HOME/git/.claude/CLAUDE.md"
 

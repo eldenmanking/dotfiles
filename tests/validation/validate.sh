@@ -14,6 +14,7 @@ PLATFORMS="linux_x86_64 linux_arm64 macos_x86_64 macos_arm64"
 
 # Print the Arch Linux image and archive date that file $1 pins, as "image date": what sed scripts $2 and $3 print
 # (a field is empty if its line is missing).
+# Usage: arch_pins <file> <image_script> <date_script>
 arch_pins() {
   local file="$1" image date
   image="$(sed -n "$2" "$file" | head -1)"
@@ -23,6 +24,7 @@ arch_pins() {
 
 # Print each <TOOL>_SHA256_<platform> that tests/versions.env is missing or that isn't a SHA-256, for every tool it
 # pins a <TOOL>_VERSION of.
+# Usage: missing_checksums
 missing_checksums() {
   local tool platform var
   while IFS= read -r tool; do
@@ -33,6 +35,8 @@ missing_checksums() {
   done < <(sed -n 's/^\([A-Z]*\)_VERSION=.*/\1/p' "$TEST_DIR/versions.env")
 }
 
+# Run every validation, then fail if any failed.
+# Usage: main
 main() {
   local failed=0 missing ci image dockerfile
   cd "$REPO_ROOT"

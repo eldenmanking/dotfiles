@@ -7,6 +7,8 @@ if ! command -pv cmus &>/dev/null || ! command -pv tmux &>/dev/null; then
   exit 1
 fi
 
+# Print the help.
+# Usage: usage
 usage() {
   echo "$COMMAND_NAME"
   echo "Usage: $COMMAND_NAME [-p playlists] [-l library]"
@@ -55,6 +57,8 @@ if tmux has-session -t $TMUX_SESSION &> /dev/null; then
 fi
 tmux new-session -A -d -s $TMUX_SESSION "cd \"$(pwd)\"; cmus"  # Note: calling cmus-remote too early will result in a noop
 
+# Clear the playlist view in cmus, answering its confirmation prompt through tmux until it is empty.
+# Usage: win_remove
 win_remove() {
   while true; do
     cmus-remote -C "view playlist"
