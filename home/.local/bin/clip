@@ -12,8 +12,8 @@
 set -euo pipefail
 umask 077
 
-# Private to the user: the runtime dir is mode 700 (macOS TMPDIR is per-user too), and umask 077 makes the file 600.
-CLIP_FILE="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/clip.$(id -u)"
+# A fixed path, so clip -r can read it from another machine; umask 077 keeps the file private to the user.
+CLIP_FILE="/tmp/clip.50eb42db-6835-4960-89dd-3813a9adeec3"
 CLIP_HOST_FILE="$HOME/.cache/clip.last_host"
 
 # Print a message on stderr, tagged [clip].
@@ -33,7 +33,7 @@ $CLIP_FILE so the payload is recoverable (e.g. for clip -r from
 another machine).
 
 Options:
-  -r [HOST]   Pull HOST's clip file into the local clipboard via ssh.
+  -r [HOST]   Pull HOST:$CLIP_FILE into the local clipboard via scp.
               HOST defaults to the last -r host (remembered in
               $CLIP_HOST_FILE).
   -h          Show this help.
@@ -111,11 +111,13 @@ remote_pull() {
         printf '%s\n' "$host" > "$CLIP_HOST_FILE"
     fi
     log "pulling clip from $host"
-    # The remote shell works out the remote path (its runtime dir and uid may differ from ours).
-    ssh -- "$host" 'cat "${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/clip.$(id -u)"' > "$CLIP_FILE"
+    mkdir -p "$(dirname "$CLIP_FILE")"
+    scp -q "$host:$CLIP_FILE" "$CLIP_FILE"
     log "received $(wc -c < "$CLIP_FILE") bytes"
     copy_to_clipboard
 }
+
+mkdir -p "$(dirname "$CLIP_FILE")"
 
 case "${1:-}" in
     -h|--help)
