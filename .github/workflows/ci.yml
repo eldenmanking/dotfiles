@@ -1,4 +1,5 @@
-# Validation and lint, plus install tests and fixtures on Linux. macOS runs in macos.yml, only when files it tests change.
+# Validation and lint, plus install tests and fixtures on Linux, and install tests on macOS when files they test change.
+# The install branch is published only when this whole workflow passes (see install-branch.yml).
 name: CI
 
 on:
@@ -14,6 +15,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # macOS minutes cost more, so the macOS tests run only when files they test change. This job decides, and the macOS
+  # job is skipped otherwise: a skipped job doesn't fail the workflow, so the install branch still moves for a change
+  # that macOS has nothing to test. When it can't tell what changed (a new branch, a forced push), macOS runs.
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      macos: ${{ steps.filter.outputs.macos }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          macos=true
+          if [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            if git diff --name-only "$BASE" HEAD | grep -qE '^(install\.sh|install/|bootstrap/|scripts/|home/|tests/|Makefile|\.shellcheckrc|\.github/workflows/ci\.yml)'; then
+              macos=true
+            else
+              macos=false
+            fi
+          fi
+          echo "macos=$macos" >> "$GITHUB_OUTPUT"
+          echo "macOS tests run: $macos"
+
+  macos:
+    needs: changes
+    if: needs.changes.outputs.macos == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # /bin/bash is 3.2; bash from PATH may be a newer Homebrew one.
+      - run: INSTALL_BASH=/bin/bash make test
+
   validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
