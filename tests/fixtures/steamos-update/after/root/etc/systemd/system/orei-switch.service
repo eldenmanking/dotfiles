@@ -8,6 +8,8 @@ StopWhenUnneeded=yes
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/etc/dotfiles/bin/orei-switch sleep
+# A hung start would otherwise block suspend.
+TimeoutStartSec=30
 ExecStop=/etc/dotfiles/bin/orei-switch wake
 # Reconnecting and retrying the projector can take about 100s.
 TimeoutStopSec=3min

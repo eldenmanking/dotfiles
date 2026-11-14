@@ -5,7 +5,7 @@
 # Description: Takes a pdf file as an argument with (1x) and (5x) A4 pages, and
 #              produces an output pdf file with standard A4 pages. Uses mutool
 #              to modify pdfs.
-# Location: /usr/.local/bin/squidpdf
+# Location: ~/.local/bin/squidpdf
 ################################################################################
 
 # Print the command line this script takes.
@@ -32,15 +32,16 @@ if ! command -v mutool &> /dev/null; then
   exit 1
 fi
 
-SHORT=o:
-LONG=output:
-OPTS=$(getopt --options $SHORT --long $LONG --name "$0" -- "$@")
+SHORT=ho:
+LONG=help,output:
+OPTS=$(getopt --options $SHORT --long $LONG --name "$0" -- "$@") || { usage >&2; exit 2; }
 
 if [[ $# -eq 0 ]]; then
   usage
   exit 0
 fi
 
+outfile=
 eval set -- "$OPTS"
 while true; do
   case "$1" in
@@ -71,14 +72,16 @@ one_length=842
 five_length=4210
 pages=()
 pagenum=1
+trap 'rm -f "${pages[@]}"' EXIT
 
 while read -r line; do
   lo=$(sed -E 's/.*b="([0-9.]+)".*/\1/' <<< "$line")
   hi=$(sed -E 's/.*t="([0-9.]+)".*/\1/' <<< "$line")
   length=$(bc <<< "$hi - $lo")
 
-  pages+=( "$(mktemp --suffix=".pdf")" )
-  mutool clean -ggggz "$infile" "${pages[-1]}" $pagenum
+  page=$(mktemp "${TMPDIR:-/tmp}/squidpdf.XXXXXX")
+  pages+=( "$page" )
+  mutool clean -ggggz "$infile" "$page" $pagenum
 
   partnum=1
   case $length in
@@ -95,14 +98,14 @@ while read -r line; do
 
   esac
 
-  [[ $partnum -gt 1 ]] && mutool poster -y "$partnum" "${pages[-1]}" "${pages[-1]}"
+  [[ $partnum -gt 1 ]] && mutool poster -y "$partnum" "$page" "$page"
   pagenum=$((pagenum+1))
 
 done <<< "$(mutool pages "$infile" | grep -E "<MediaBox.*/>")"
 
 if [[ -z $(mutool merge -o "$outfile" "${pages[@]}" 2>&1) ]] ; then 
-  rm "${pages[@]}"
   echo "Merge successful at $outfile."
 else
-  echo "Merge failed with ${pages[*]}"
+  echo "Merge failed."
+  exit 5
 fi

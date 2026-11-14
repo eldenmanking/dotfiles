@@ -2,10 +2,12 @@
 
 COMMAND_NAME=cmus-reload
 
-if ! command -pv cmus &>/dev/null || ! command -pv tmux &>/dev/null; then
-  echo "$COMMAND_NAME: cmus not found. Exiting."
-  exit 1
-fi
+for tool in cmus tmux; do
+  if ! command -pv "$tool" &>/dev/null; then
+    echo "$COMMAND_NAME: $tool not found. Exiting."
+    exit 1
+  fi
+done
 
 # Print the help.
 # Usage: usage
@@ -21,9 +23,9 @@ usage() {
   echo ""
 }
 
-SHORT=p:l:
-LONG=playlists:,library:
-OPTS=$(getopt --options $SHORT --long $LONG --name $COMMAND_NAME -- "$@")
+SHORT=hp:l:
+LONG=help,playlists:,library:
+OPTS=$(getopt --options $SHORT --long $LONG --name $COMMAND_NAME -- "$@") || { usage >&2; exit 1; }
 
 TMUX_SESSION=cmus
 PLAYLISTS=Playlists

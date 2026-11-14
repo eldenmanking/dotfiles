@@ -9,9 +9,9 @@ new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root b0fd815e55bf5a37
 new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 3a45f82ce67017c3
 new     /etc/sddm.conf.d d 755 root:root
 new     /etc/sddm.conf.d/orei-switch.conf f 644 root:root d605e909e9754daf
-new     /etc/systemd/system/orei-switch-boot.service f 644 root:root 3511f52781077efd
-new     /etc/systemd/system/orei-switch-poweroff.service f 644 root:root c601bc26ae6abf27
-new     /etc/systemd/system/orei-switch.service f 644 root:root 730ffcbd84068139
+new     /etc/systemd/system/orei-switch-boot.service f 644 root:root c0ae9a8636ddfb33
+new     /etc/systemd/system/orei-switch-poweroff.service f 644 root:root d4263c84c011eefe
+new     /etc/systemd/system/orei-switch.service f 644 root:root c30aa1ac2d9091f4
 new     /etc/systemd/system/systemd-suspend.service.d d 755 root:root
 new     /etc/systemd/system/systemd-suspend.service.d/light-sleep.conf f 644 root:root 0f2a8f889164a8c1
 kept    /etc/systemd/user d 755 root:root
