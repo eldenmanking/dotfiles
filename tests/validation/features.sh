@@ -26,13 +26,13 @@ for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/fea
   source "$f"
 done
 
-# Find every feature with a feature_<name> function in install/features.
+# Find every feature with a feature_<name> or declare_<name> function in install/features.
 # Usage: f_call scan_features features
 # Returns: features
 scan_features() {
   local features
-  features="$(sed -n 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
-    | tr '\n' ' ')"
+  features="$(sed -n -e 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' -e 's/^declare_\([a-z0-9_]*\)() *{.*/\1/p' \
+    "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | tr '\n' ' ')"
   f_return features
 }
 
@@ -41,7 +41,8 @@ scan_features() {
 # Usage: feature_dir <feature>
 feature_dir() {
   local file
-  file="$(grep -l "^$(feature_function "$1")()" "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | head -1)"
+  file="$(grep -lE "^(feature|declare)_${1//-/_}\(\)" "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
+    | head -1)"
   file="${file#"$INSTALL_DIR"/features/}"
   [[ "$file" != */* ]] || printf '%s' "${file%%/*}"
 }
@@ -145,7 +146,7 @@ check_feature() {
   local setup="$1" feature="$2" platforms="$3" gui="$4" os_machines="$5" earlier="$6" nl=$'\n' problems="" v dep suited
   local machine os feature_gui requires
 
-  if ! declare -F "$(feature_function "$feature")" >/dev/null; then
+  if ! declare -F "$(feature_function "$feature")" >/dev/null && ! feature_declared "$feature"; then
     f_return problems="$setup: --$feature has no $(feature_function "$feature") function$nl"
     return
   fi

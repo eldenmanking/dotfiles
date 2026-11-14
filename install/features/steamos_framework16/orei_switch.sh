@@ -18,59 +18,27 @@ OREI_SWITCH_FILES=(
   "644 root/etc/sddm.conf.d/orei-switch.conf"
 )
 
-# Print the path of each file the feature installs besides the units, framework_tool last, one per line.
-# Usage: orei_switch_paths
-orei_switch_paths() {
-  local entry mode src
-  for entry in "${OREI_SWITCH_FILES[@]}"; do
-    read -r mode src <<<"$entry"
-    printf '%s\n' "/${src#root/}"
-  done
-  printf '%s\n' "$FRAMEWORK_TOOL"
-}
-
-# Download the pinned framework_tool into SYSTEM_BIN_DIR unless it is already there.
-# Usage: install_framework_tool
-install_framework_tool() {
-  local dest="$FRAMEWORK_TOOL" tmp
-  if sha256_matches "$dest" "$FRAMEWORK_TOOL_SHA256"; then
-    info "framework_tool $FRAMEWORK_TOOL_VERSION already installed"
-    return
-  fi
-  info "Downloading framework_tool $FRAMEWORK_TOOL_VERSION"
-  tmp="$(mktemp)"
-  download_verified \
-    "https://github.com/FrameworkComputer/framework-system/releases/download/$FRAMEWORK_TOOL_VERSION/framework_tool" \
-    "$FRAMEWORK_TOOL_SHA256" "$tmp" framework_tool \
-    || { rm -f "$tmp"; error "Failed to download framework_tool"; }
-  run sudo install -Dm755 "$tmp" "$dest"
-  rm -f "$tmp"
-}
-
-# Download framework_tool and install the orei-switch scripts, the SDDM config and the sleep, boot and poweroff units
-# into /etc (sudo). The units are enabled but not started: starting the sleep unit cuts power to the left ports, and
-# the poweroff one turns the projector off.
+# Install the orei-switch scripts, the SDDM config, framework_tool and the sleep, boot and poweroff units into /etc
+# (needs sudo). The units are enabled but not started: starting the sleep unit cuts power to the left ports, and the
+# poweroff one turns the projector off.
 #
 # @machine framework16
 # @os steamos
 # @gui any
-feature_orei_switch() {
+declare_orei_switch() {
   local entry mode src
-  # The default keep list covers the units, but not these files.
-  keep_across_steamos_updates orei_switch $(orei_switch_paths) \
-    $(unit_keep_paths "$SYSTEM_UNITS_DIR" "$DOTFILES_ROOT/$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS)
-  install_framework_tool
   for entry in "${OREI_SWITCH_FILES[@]}"; do
     read -r mode src <<<"$entry"
-    copy_system_file "$mode" "$src"
+    hook_file "$mode" "$src"
   done
-  install_system_units --no-start "$DOTFILES_ROOT/$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS
-  info "Keep the charger on a right-side port: sleep cuts power to ports 2 and 3. Logs: journalctl -t orei-switch -b"
+  hook_download 755 "$FRAMEWORK_TOOL" \
+    "https://github.com/FrameworkComputer/framework-system/releases/download/$FRAMEWORK_TOOL_VERSION/framework_tool" \
+    "$FRAMEWORK_TOOL_SHA256"
+  hook_units system --no-start "$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS
 }
 
-# Disable and remove the units, then the installed files.
-uninstall_feature_orei_switch() {
-  uninstall_system_units $OREI_SWITCH_UNITS
-  remove_system_files $(orei_switch_paths)
-  forget_across_steamos_updates orei_switch
+# Remind where the charger must go, and where the logs are.
+# Usage: post_orei_switch <os> <profile> <enabled> <changed>
+post_orei_switch() {
+  info "Keep the charger on a right-side port: sleep cuts power to ports 2 and 3. Logs: journalctl -t orei-switch -b"
 }

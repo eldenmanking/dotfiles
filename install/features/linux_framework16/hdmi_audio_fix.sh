@@ -21,23 +21,24 @@ pci_devices_with_id() {
 # @machine framework16
 # @os linux
 # @gui any
-feature_hdmi_audio_fix() {
-  local changed
-  keep_across_steamos_updates hdmi_audio_fix \
-    $(unit_keep_paths "$SYSTEM_UNITS_DIR" "$DOTFILES_ROOT/$HDMI_AUDIO_FIX_SRC" "$HDMI_AUDIO_FIX_UNIT")
-  f_call install_system_units changed -- "$DOTFILES_ROOT/$HDMI_AUDIO_FIX_SRC" "$HDMI_AUDIO_FIX_UNIT"
+declare_hdmi_audio_fix() {
+  hook_units system "$HDMI_AUDIO_FIX_SRC" "$HDMI_AUDIO_FIX_UNIT"
+}
+
+# Say how to check the socclk floor if the unit changed.
+# Usage: post_hdmi_audio_fix <os> <profile> <enabled> <changed>
+post_hdmi_audio_fix() {
+  local changed="$4"
   [[ -n "$changed" ]] || return 0
   info "Check with: cat /sys/bus/pci/devices/*/pp_dpm_socclk (no level below 720 MHz should be active)"
 }
 
-# Remove hdmi-audio-fix.service, then reset the 780M's clock range and set it back to the auto performance level,
-# which also lifts the socclk floor.
-uninstall_feature_hdmi_audio_fix() {
-  local removed
-  f_call uninstall_system_units removed -- "$HDMI_AUDIO_FIX_UNIT"
-  forget_across_steamos_updates hdmi_audio_fix
+# Once the unit is removed, reset the 780M's clock range and set it back to the auto performance level, which also
+# lifts the socclk floor.
+# Usage: post_uninstall_hdmi_audio_fix <os> <profile> <enabled> <removed>
+post_uninstall_hdmi_audio_fix() {
+  local removed="$4" dev
   [[ -n "$removed" ]] || return 0
-  local dev
   for dev in $(pci_devices_with_id "$HDMI_AUDIO_FIX_ID"); do
     run sudo sh -c "echo r > $dev/pp_od_clk_voltage; echo c > $dev/pp_od_clk_voltage
       echo auto > $dev/power_dpm_force_performance_level"
