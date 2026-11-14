@@ -256,6 +256,7 @@ check_oti() {
 # one doesn't (a file listed here may still call keep_across_steamos_updates). Each is "path reason".
 KEEP_EXEMPT="
 desktop.sh edits /etc/bluetooth/main.conf, which only the arch and other Linux desktops use; SteamOS keeps its own
+console.sh copies boot-time console settings, which only the arch desktop profile installs; SteamOS keeps its own
 "
 
 # Find the problems with the hooks of the features: every uninstall_feature_<x> and capture_feature_<x> must name a
