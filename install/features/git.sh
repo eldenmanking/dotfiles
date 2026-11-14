@@ -20,6 +20,8 @@ feature_gitconfig() {
     run git config --global core.fsmonitor true
   fi
   run git config --global core.untrackedCache true
+  # Deliberate: "store" keeps tokens in plaintext in ~/.git-credentials, chosen over a keyring helper so it works
+  # the same on headless, SteamOS and macOS machines. Keep the home directory private (or encrypted).
   run git config --global credential.helper store
   run git config --global feature.manyFiles true
   run git config --global fetch.prune true

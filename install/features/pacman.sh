@@ -97,14 +97,17 @@ ensure_yay() {
     info "[dry-run] would clone and build yay from AUR"
     return
   fi
+  with_tmpdir _build_yay_in
+}
+
+# Clone yay from the AUR into the temp dir $1 and build and install it.
+_build_yay_in() {
+  local tmp="$1"
+  git clone https://aur.archlinux.org/yay.git "$tmp/yay"
   (
-    cd /tmp || exit
-    rm -rf yay
-    git clone https://aur.archlinux.org/yay.git
-    cd yay || exit
+    cd "$tmp/yay" || exit
     makepkg -si
   )
-  rm -rf /tmp/yay
 }
 
 # Install the terminal, GNOME and LaTeX pacman packages.

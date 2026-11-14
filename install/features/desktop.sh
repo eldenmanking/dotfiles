@@ -38,26 +38,46 @@ feature_font() {
   require_commands curl sha256sum tar xz
 
   info "Downloading JetBrainsMono Nerd Font $FONT_NF_VERSION"
-  local tmp
-  tmp="$(mktemp -d)"
+  with_tmpdir _install_font_in
+  info "Installed $FONT_FAMILY to $FONT_DEST (restart the browser if it was open)"
+}
+
+# Download the verified font into the temp dir $1 and unpack it into FONT_DEST.
+_install_font_in() {
+  local tmp="$1"
   download_verified \
     "https://github.com/ryanoasis/nerd-fonts/releases/download/$FONT_NF_VERSION/JetBrainsMono.tar.xz" \
     "$FONT_SHA256" "$tmp/font.tar.xz" font \
-    || { rm -rf "$tmp"; error "could not download the font"; }
+    || { error "could not download the font"; }
   # Extract aside and swap in, so a failed extract keeps the old fonts and files dropped by a newer release don't linger.
   run mkdir -p "$tmp/new"
   run tar -xJf "$tmp/font.tar.xz" -C "$tmp/new" --wildcards '*.ttf' OFL.txt \
-    || { rm -rf "$tmp"; error "could not extract the font"; }
+    || { error "could not extract the font"; }
   run rm -rf "$FONT_DEST"
   run mkdir -p "$(dirname "$FONT_DEST")"
   run mv "$tmp/new" "$FONT_DEST"
   if command -v fc-cache >/dev/null; then run fc-cache -f "$FONT_DEST"; fi
   $DRY_RUN || printf '%s\n' "$FONT_NF_VERSION $FONT_SHA256" > "$FONT_STAMP"
-  rm -rf "$tmp"
-  info "Installed $FONT_FAMILY to $FONT_DEST (restart the browser if it was open)"
 }
 
-# Build logiops (Logitech mouse and keyboard daemon) from source and enable logid.service, which reads
+LOGIOPS_VERSION=v0.3.5
+LOGIOPS_COMMIT=628ab937a25724c1f21e7edf25c8e5aaff82c691
+
+# Build and install logiops from a pinned commit cloned into the temp dir $1.
+_build_logiops_in() {
+  local tmp="$1"
+  clone_pinned https://github.com/PixlOne/logiops "$LOGIOPS_COMMIT" "$tmp/logiops"
+  (
+    cd "$tmp/logiops" || exit
+    mkdir -p build
+    cd build || exit
+    cmake ..
+    make
+    sudo make install
+  )
+}
+
+# Build logiops (Logitech mouse and keyboard daemon) from a pinned release and enable logid.service, which reads
 # root/etc/logid.cfg.
 #
 # @machine any
@@ -68,20 +88,12 @@ feature_logiops() {
   # No systemctl (a macOS dry run) or a failing one just means logid.service isn't known to be installed.
   unit_files="$(systemctl list-unit-files 2>/dev/null || true)"
   if [[ "$unit_files" != *logid.service* ]]; then
-    info "Installing PixlOne/logiops..."
+    info "Installing PixlOne/logiops $LOGIOPS_VERSION..."
     run sudo pacman --needed -S cmake libevdev libconfig pkgconf
     if $DRY_RUN; then
       info "[dry-run] would build and install PixlOne/logiops from source"
     else
-      (
-        cd /tmp && rm -rf logiops && git clone https://github.com/PixlOne/logiops && cd logiops || exit
-        mkdir -p build
-        cd build || exit
-        cmake ..
-        make
-        sudo make install
-      )
-      rm -rf /tmp/logiops
+      with_tmpdir _build_logiops_in
     fi
   fi
 

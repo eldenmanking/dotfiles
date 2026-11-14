@@ -1000,6 +1000,56 @@ test_lib_helpers() {
   check "file_sha256 and sha256_matches compare a file's SHA-256" test ! -s "$LOG"
 }
 
+# Run bash code $1 with the install library's output.sh and fs.sh loaded and the remaining args as $1.., its output
+# going to LOG. Returns its status.
+run_fs_lib() {
+  local code="$1"
+  shift
+  "$INSTALL_BASH" -c 'set -euo pipefail; DRY_RUN=false; source "$0/output.sh"; source "$0/fs.sh"; code="$1"; shift; eval "$code"' \
+    "$REPO_ROOT/install/lib" "$code" "$@" >"$LOG" 2>&1
+}
+
+# with_tmpdir removes its directory however the command ends, and clone_pinned only accepts the commit it was given.
+test_tmpdir_and_pinned_clone() {
+  local dir commit
+  info "with_tmpdir and clone_pinned"
+  dir="$(mktemp -d "$SCRATCH/tmpdir.XXXXXX")"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  run_fs_lib 'w() { printf "%s" "${@: -1}" > "$1"; }; with_tmpdir w "$1"' "$dir/ok" || true
+  check "with_tmpdir passes a directory and removes it afterwards" test -n "$(cat "$dir/ok")" -a ! -e "$(cat "$dir/ok")"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  if run_fs_lib 'f() { printf "%s" "$2" > "$1"; false; }; with_tmpdir f "$1"; touch "$1.after"' "$dir/fail"; then
+    fail "with_tmpdir returns the command's failure"
+  else
+    pass "with_tmpdir returns the command's failure"
+  fi
+  check "  ...and removes its directory" test ! -e "$(cat "$dir/fail")"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  run_fs_lib 'f() { printf "%s" "$2" > "$1"; error boom; }; with_tmpdir f "$1"' "$dir/err" || true
+  check "with_tmpdir removes its directory when the command calls error" test ! -e "$(cat "$dir/err")"
+
+  git init -q "$dir/repo"
+  git -C "$dir/repo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m one
+  commit="$(git -C "$dir/repo" rev-parse HEAD)"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  check "clone_pinned checks out the pinned commit" \
+    run_fs_lib 'clone_pinned "$1" "$2" "$3"; test "$(git -C "$3" rev-parse HEAD)" = "$2"' "$dir/repo" "$commit" "$dir/clone"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  check "  ...again, unchanged" run_fs_lib 'clone_pinned "$1" "$2" "$3"' "$dir/repo" "$commit" "$dir/clone"
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  if run_fs_lib 'clone_pinned "$1" "$2" "$3"' "$dir/repo" "0000000000000000000000000000000000000000" "$dir/clone2"; then
+    fail "clone_pinned rejects a commit the remote doesn't have"
+  else
+    pass "clone_pinned rejects a commit the remote doesn't have"
+  fi
+  # shellcheck disable=SC2016 # expanded by the inner bash
+  if run_fs_lib 'clone_pinned "$1" v1 "$2"' "$dir/repo" "$dir/clone3"; then
+    fail "clone_pinned rejects a ref that isn't a full commit hash"
+  else
+    pass "clone_pinned rejects a ref that isn't a full commit hash"
+  fi
+}
+
 main() {
   local setup
   info "install.sh runs under $("$INSTALL_BASH" -c 'echo "bash $BASH_VERSION"')"
@@ -1022,6 +1072,7 @@ main() {
   test_capture
   test_download_cache
   test_lib_helpers
+  test_tmpdir_and_pinned_clone
   test_f_call
   test_env_sh
   test_vm_usb
