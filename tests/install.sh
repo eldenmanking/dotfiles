@@ -50,7 +50,7 @@ new_home() {
 
 # Run install.sh with home $1 and the remaining args, in a clean environment with no terminal. Its output goes to
 # LOG. Returns install.sh's status. XDG_RUNTIME_DIR is set as in a login session, since without one dconf (read by
-# --capture --dconf) keeps its runtime state in ~/.cache instead.
+# --capture --desktop_settings) keeps its runtime state in ~/.cache instead.
 # Usage: run_install <home> [<arg>...]
 run_install() {
   local home="$1"
@@ -908,8 +908,9 @@ test_f_call() {
     'f() { f_return "=1"; }; ! (f_call f a) && f() { f_return _a; } && ! (f_call f a)'
 }
 
-# --capture --dconf writes the keys DCONF_CAPTURE selects from dconf into dump/dconf/arch.dconf, with paths under the home
-# directory written as ${HOME}/...: here one selected key, one left out with ! and one in a directory it doesn't select.
+# --capture --desktop_settings writes the keys DCONF_CAPTURE selects from dconf into dump/dconf/arch.dconf, with paths
+# under the home directory written as ${HOME}/...: here one selected key, one left out with ! and one in a directory it
+# doesn't select.
 # Usage: test_capture_dconf
 test_capture_dconf() {
   local home saved="$SCRATCH/arch.dconf.saved" file="$REPO_ROOT/dump/dconf/arch.dconf" expected
@@ -925,15 +926,15 @@ test_capture_dconf() {
   expected="$(printf '%s\n' '[org/gnome/desktop/peripherals/keyboard]' 'delay=uint32 123' '' \
     '[org/gnome/desktop/screensaver]' "picture-uri='file://\${HOME}/wallpaper.jpg'")"
   cp "$file" "$saved"
-  install_ok "$home" --variant arch --capture --dconf --dry-run \
+  install_ok "$home" --variant arch --capture --desktop_settings --dry-run \
     && check "  ...--dry-run leaves arch.dconf alone" cmp -s "$saved" "$file"
-  install_ok "$home" --variant arch --capture --dconf \
+  install_ok "$home" --variant arch --capture --desktop_settings \
     && check "  ...arch.dconf holds just the selected keys, with \${HOME}" [ "$(cat "$file")" = "$expected" ]
   cp "$saved" "$file"
 }
 
-# --capture --kde writes home/.config/kcminputrc from ~/.config/kcminputrc, keeping the groups KDE_CAPTURE selects:
-# here [Keyboard], and not [Mouse]. Needs no KDE tools, so it runs everywhere.
+# --capture --desktop_settings writes home/.config/kcminputrc from ~/.config/kcminputrc, keeping the groups KDE_CAPTURE
+# selects: here [Keyboard], and not [Mouse]. Needs no KDE tools, so it runs everywhere.
 # Usage: test_capture_kde
 test_capture_kde() {
   local dir="$SCRATCH/kde.saved" file="$REPO_ROOT/home/.config/kcminputrc" nested="$REPO_ROOT/home/.config/powerdevilrc"
@@ -949,10 +950,10 @@ test_capture_kde() {
   expected_nested="$(printf '%s\n' '[AC][SuspendAndShutdown]' 'LidAction=64')"
   cp "$file" "$dir/kcminputrc"
   cp "$nested" "$dir/powerdevilrc"
-  install_ok "$home" --variant steamos --capture --kde --dry-run \
+  install_ok "$home" --variant steamos --capture --desktop_settings --dry-run \
     && check "  ...--dry-run leaves the files alone" cmp -s "$dir/kcminputrc" "$file" \
     && check "  ...--dry-run leaves the nested one alone" cmp -s "$dir/powerdevilrc" "$nested"
-  install_ok "$home" --variant steamos --capture --kde \
+  install_ok "$home" --variant steamos --capture --desktop_settings \
     && check "  ...kcminputrc holds just the selected group" [ "$(cat "$file")" = "$expected" ] \
     && check "  ...powerdevilrc holds just the selected key of the nested group" [ "$(cat "$nested")" = "$expected_nested" ]
   cp "$dir/kcminputrc" "$file"
@@ -968,6 +969,61 @@ test_capture() {
   else
     warn "dconf not found; skipping the dconf capture test"
   fi
+}
+
+# Print what resolve_implementation picks for feature <feature> on platforms <platforms> with GUI <gui> on machine
+# <machine>, as "<impl>|<suited>|<problem>", with the install/ in <install_dir> loaded the way install.sh loads it.
+# Usage: resolve_with <install_dir> <feature> <platforms> <gui> <machine>
+resolve_with() {
+  (
+    set +u
+    INSTALL_DIR="$1"
+    for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh; do
+      # shellcheck source=/dev/null
+      source "$f"
+    done
+    local impl suited problem
+    f_call resolve_implementation impl suited problem -- "$2" "$3" "$4" "$5"
+    printf '%s|%s|%s' "$impl" "$suited" "$problem"
+  )
+}
+
+# A feature with several implementations (feature_<name>__<dir>) runs the one whose tags suit the OS's platforms, the
+# profile's GUI and the machine: desktop_settings loads dconf on GNOME and KDE's config files on KDE. With none for the
+# machine, the one for another machine runs only when named.
+# Usage: test_implementations
+test_implementations() {
+  local dir="$SCRATCH/implementations" home got
+  info "implementations: picked by platforms, GUI and machine"
+  got="$(resolve_with "$REPO_ROOT/install" desktop_settings arch gnome generic)"
+  check "desktop_settings on arch with GNOME is the linux_gnome one" [ "$got" = "desktop_settings__linux_gnome|true|" ]
+  got="$(resolve_with "$REPO_ROOT/install" desktop_settings steamos kde framework16)"
+  check "desktop_settings on steamos with KDE is the linux_kde one" [ "$got" = "desktop_settings__linux_kde|true|" ]
+  got="$(resolve_with "$REPO_ROOT/install" desktop_settings "linux macos" none generic)"
+  check "desktop_settings has none headless, and says why" test -z "${got%%|*}" -a -n "${got##*|}"
+
+  # A feature with one implementation for the framework16 machine on Linux and one for macOS on any machine.
+  cp -R "$REPO_ROOT/install" "$dir"
+  mkdir -p "$dir/features/linux_framework16" "$dir/features/macos"
+  printf '%s\n' '# Test.' '#' '# @machine framework16' '# @os linux' '# @gui any' 'feature_zz__linux_framework16() { :; }' \
+    > "$dir/features/linux_framework16/zz.sh"
+  printf '%s\n' '# Test.' '#' '# @machine any' '# @os macos' '# @gui any' 'feature_zz__macos() { :; }' \
+    > "$dir/features/macos/zz.sh"
+  got="$(resolve_with "$dir" zz arch none framework16)"
+  check "the framework16 implementation suits framework16" [ "$got" = "zz__linux_framework16|true|" ]
+  got="$(resolve_with "$dir" zz arch none generic)"
+  check "  ...and is the fallback on generic, for when it's named" [ "$got" = "zz__linux_framework16|false|" ]
+  got="$(resolve_with "$dir" zz macos none generic)"
+  check "the macos implementation suits macos" [ "$got" = "zz__macos|true|" ]
+  got="$(resolve_with "$dir" zz "linux macos" none generic)"
+  check "neither suits an OS for both platforms" [ "${got%%|*}" = "" ]
+
+  f_call new_home home
+  install_ok "$home" --variant arch --desktop_settings --dry-run \
+    && check "  ...runs the dconf implementation" grep -q "would load dconf" "$LOG"
+  install_ok "$home" --variant steamos --desktop_settings --dry-run \
+    && check "  ...runs the KDE implementation" grep -q "KDE" "$LOG"
+  install_refused "$home" --variant portable --desktop_settings --dry-run
 }
 
 # Run download_verified with DOWNLOAD_CACHE $1 and the remaining args (url, sha256, out) in a fresh bash, its output
@@ -1130,6 +1186,7 @@ main() {
   test_infer
   test_oti
   test_machine
+  test_implementations
   test_steam
   test_capture
   test_download_cache

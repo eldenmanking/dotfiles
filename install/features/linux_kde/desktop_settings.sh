@@ -1,6 +1,7 @@
-# Feature: KDE Plasma settings (steamos desktop mode). KDE rewrites its config files, which would break symlinks, so
-# each file listed here is merged into its ~/.config counterpart key by key with kwriteconfig, leaving other keys alone.
-# --capture writes each file back from its ~/.config counterpart, keeping the keys KDE_CAPTURE selects.
+# Feature: desktop settings on KDE Plasma (steamos desktop mode). KDE rewrites its config files, which would break
+# symlinks, so each file listed here is merged into its ~/.config counterpart key by key with kwriteconfig, leaving
+# other keys alone. --capture writes each file back from its ~/.config counterpart, keeping the keys KDE_CAPTURE
+# selects. linux_gnome/desktop_settings.sh does the same on GNOME.
 
 # Partial KDE config files, home/-relative like the link paths. Nested groups ([A][B]) are supported. --capture rewrites
 # them, so keep notes about their settings here, not in comments in them:
@@ -16,9 +17,9 @@ KDE_CONFIG_FILES=(
   home/.config/powerdevilrc
 )
 
-# The KDE settings the files in KDE_CONFIG_FILES keep: --capture --kde writes the keys of each ~/.config file that these
-# select, as <file>/<group>/<key> (see capture_filter): an entry ending in / selects a whole group, any other a single
-# key, and an entry starting with ! leaves out what it names.
+# The KDE settings the files in KDE_CONFIG_FILES keep: --capture --desktop_settings writes the keys of each ~/.config
+# file that these select, as <file>/<group>/<key> (see capture_filter): an entry ending in / selects a whole group, any
+# other a single key, and an entry starting with ! leaves out what it names.
 KDE_CAPTURE=(
   kcminputrc/Keyboard/
   kxkbrc/Layout/Options
@@ -71,7 +72,7 @@ kde_parse_ini() {
 # @machine any
 # @os linux
 # @gui kde
-feature_kde() {
+feature_desktop_settings__linux_kde() {
   local writer reader rel file entries group key value rest group_args
   f_call kde_config_tools writer=write reader=read
   if [[ -z "$writer" ]]; then
@@ -105,7 +106,7 @@ feature_kde() {
 
 # For --capture: write each file in KDE_CONFIG_FILES from its ~/.config counterpart, keeping only the keys KDE_CAPTURE
 # selects for it, e.g. after changing them in System Settings. A file with none of them set is left alone.
-capture_feature_kde() {
+capture_feature_desktop_settings__linux_kde() {
   local rel name live entry entries text
   for rel in "${KDE_CONFIG_FILES[@]}"; do
     name="${rel##*/}"

@@ -1,6 +1,6 @@
 # SteamOS stand-in for tests/fixtures.sh. SteamOS 3 is built on Arch Linux and has no container image, so this is the
 # Arch image CI tests on (same pins as tests/images/arch; make validate checks they match CI's) with KDE's kconfig
-# tools (kwriteconfig6, for the kde feature). It also comes with the tools install.sh would otherwise download
+# tools (kwriteconfig6, for desktop_settings on KDE). It also comes with the tools install.sh would otherwise download
 # (neovim, starship, tmux), so fixtures only reach GitHub (tpm, tools repos).
 FROM archlinux:base-20261018.0.612668@sha256:52dfbd5afb23a220d5ee92dafcb4c788d96c026ed04179890c23adef4c897fa0
 
