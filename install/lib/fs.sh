@@ -454,13 +454,21 @@ confirmsed() {
 # command fails or calls error. Its status is with_tmpdir's. The command runs in a subshell, so it can't set the caller's variables.
 # Usage: with_tmpdir cmd [args...]   (cmd is called as: cmd args... tmpdir)
 with_tmpdir() {
-  local tmp
+  local tmp status errexit=false
   tmp="$(mktemp -d)" || return 1
-  # The subshell's EXIT trap removes the directory however the command ends, and keeps set -e in force inside it.
+  # The directory is removed here and not by an EXIT trap in the subshell, which bash 3.2 (macOS) doesn't run when
+  # the command fails. errexit is switched off around the subshell so its status can be read without ending this
+  # function, and switched on inside it, which bash only honors when the subshell isn't on the left of || or if.
+  [[ $- == *e* ]] && errexit=true
+  set +e
   (
-    trap 'rm -rf "$tmp"' EXIT
+    set -e
     "$@" "$tmp"
   )
+  status=$?
+  rm -rf "$tmp"
+  ! $errexit || set -e
+  return "$status"
 }
 
 # Check out commit $2 of the git repository $1 into $3 (cloning it first if needed) and check that HEAD is that
