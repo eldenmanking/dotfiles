@@ -289,12 +289,13 @@ Features copy the systemd units they install, never link them, with the helpers 
 
 | Feature | Machine | OS | GUI | Requires |
 |---|---|---|---|---|
-| `pacman`, `terminal`, `printer`, `logiops` | any | arch | any | |
+| `terminal`, `printer`, `logiops`, `manual` | any | arch | any | |
+| `pacman` | any | arch | gnome | |
 | `yay` | any | arch | gnome | |
-| `font`, `manual`, `distrobox` | any | linux | any | |
+| `font`, `distrobox` | any | linux | any | |
 | `link`, `info`, `shell`, `starship`, `zsh`, `gng`, `tre`, `claude`, `gitconfig` | any | any | any | |
-| `dconf` | any | linux | gnome | |
-| `xdg` | any | linux | gnome | `pacman` |
+| `dconf` | any | arch | gnome | |
+| `xdg` | any | arch | gnome | `pacman` |
 | `desktop` | any | arch | gnome | `pacman` |
 | `console` | any | arch | any | |
 | `tmux` | any | any | any | `link` |
@@ -303,8 +304,8 @@ Features copy the systemd units they install, never link them, with the helpers 
 | `udev`, `tmpfiles`, `hdmi_audio_fix` | framework16 | linux | any | |
 | `logind` | laptop | linux | any | |
 | `orei_switch`, `light_sleep` | framework16 | steamos | any | |
-| `steamos_xclip` | any | steamos | desktop | |
-| `steamos_make` | any | steamos | any | |
+| `steamos_xclip` | any | steamos | desktop | `distrobox` |
+| `steamos_make` | any | steamos | any | `distrobox` |
 | `steamos_arch_vm`, `steamos_vm` | any | steamos | desktop | `flatpak` |
 | `webterm` | any | linux | any | `link` |
 | `steam` | any | steamos | any | |

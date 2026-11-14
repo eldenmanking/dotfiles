@@ -155,7 +155,7 @@ feature_desktop() {
 # Edit files that can't be symlinked in place, e.g. turn on bluetooth at boot in /etc/bluetooth/main.conf.
 #
 # @machine any
-# @os linux
+# @os arch
 # @gui any
 feature_manual() {
   confirmsed /etc/bluetooth/main.conf "#AutoEnable=false" "AutoEnable=true" sudo
@@ -205,7 +205,7 @@ dconf_expand_home() {
 # home directory. The first backup is kept, since later ones would hold what an earlier install loaded.
 #
 # @machine any
-# @os linux
+# @os arch
 # @gui gnome
 feature_dconf() {
   local backup="$BACKUPS_ROOT$DCONF_DUMP" tmp
@@ -251,7 +251,7 @@ capture_feature_dconf() {
 # Create the XDG user directories and set default apps for PDFs, images, audio and text.
 #
 # @machine any
-# @os linux
+# @os arch
 # @gui gnome
 # @requires pacman
 feature_xdg() {
@@ -289,4 +289,25 @@ Configurations that must be loaded manually include:
 Files are available in $DOTFILES_ROOT/dump/<application>
 
 EOF
+}
+
+# Remove the font installed to ~/.local/share/fonts, after asking, since the directory is replaced wholesale on
+# install. A font installed elsewhere is left alone.
+uninstall_feature_font() {
+  if [[ ! -d "$FONT_DEST" ]]; then
+    info "$FONT_DEST does not exist"
+    return
+  fi
+  if $DRY_RUN; then
+    info "[dry-run] would ask to remove $FONT_DEST"
+  elif ! has_tty; then
+    warn "No terminal to confirm removing $FONT_DEST; keeping it"
+    return
+  elif ! confirm "Remove $FONT_DEST and everything in it?"; then
+    info "Keeping $FONT_DEST"
+    return
+  fi
+  info "Removing $FONT_DEST..."
+  run rm -rf "$FONT_DEST"
+  if command -v fc-cache >/dev/null; then run fc-cache -f; fi
 }

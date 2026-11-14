@@ -96,7 +96,7 @@ feature_zsh() {
     zsh-users/zsh-history-substring-search
   )
 
-  mkdir -p "$plugins_dir"
+  run mkdir -p "$plugins_dir"
 
   local repo name
   for repo in "${repos[@]}"; do
@@ -105,9 +105,54 @@ feature_zsh() {
       info "zsh plugin already cloned: $name"
     else
       info "Cloning $name..."
-      git clone --depth 1 "https://github.com/$repo" "$plugins_dir/$name"
+      run git clone --depth 1 "https://github.com/$repo" "$plugins_dir/$name"
     fi
   done
 
   upsert_sources "$HOME/.zshrc" zsh home/.config/zsh/plugins.zsh
+}
+
+# Remove the shell block from the profiles, .bashrc and .zshrc. The files stay, even if now empty.
+uninstall_feature_shell() {
+  local file
+  for file in .profile .zprofile .bash_profile .bashrc .zshrc; do
+    remove_block "$HOME/$file" shell
+  done
+}
+
+# Remove the starship block from .bashrc and .zshrc. The starship binary stays, as it may have been installed before
+# this feature ran.
+uninstall_feature_starship() {
+  remove_block "$HOME/.bashrc" starship
+  remove_block "$HOME/.zshrc" starship
+}
+
+# Remove the zsh block from .zshrc and, after asking, the plugins cloned into ~/.zsh/plugins, since they may hold local
+# changes. Plugins other than the ones this feature clones stay.
+uninstall_feature_zsh() {
+  local plugins_dir="$HOME/.zsh/plugins" name found=""
+  remove_block "$HOME/.zshrc" zsh
+
+  # Keep in sync with the plugin list in feature_zsh.
+  for name in zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search; do
+    [[ -d "$plugins_dir/$name" ]] && found+="${found:+ }$name"
+  done
+  if [[ -z "$found" ]]; then
+    info "No zsh plugins to remove in $plugins_dir"
+    return
+  fi
+  if $DRY_RUN; then
+    info "[dry-run] would ask to remove the zsh plugins in $plugins_dir: $found"
+  elif ! has_tty; then
+    warn "No terminal to confirm removing the zsh plugins in $plugins_dir; keeping them"
+    return
+  elif ! confirm "Remove the zsh plugins in $plugins_dir ($found)?"; then
+    info "Keeping the zsh plugins"
+    return
+  fi
+  for name in $found; do
+    info "Removing $plugins_dir/$name..."
+    run rm -rf "${plugins_dir:?}/$name"
+  done
+  if [[ -d "$plugins_dir" ]]; then run rmdir "$plugins_dir" 2>/dev/null || true; fi
 }

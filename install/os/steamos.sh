@@ -33,5 +33,3 @@ os_steamos_minimal() {
   f_return optional=""
   f_return link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]}"
 }
-
-# TODO(andywang): add steamos-specific features (e.g. read-only rootfs handling, pacman packages)
