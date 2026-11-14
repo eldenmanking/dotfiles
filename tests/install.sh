@@ -861,6 +861,42 @@ test_steam() {
   rmdir -p "$(dirname "$REPO_ROOT/.backup$SCRATCH")" 2>/dev/null || true
 }
 
+# The steamgrid feature copies each dump/steamgrid file to the config/grid of every Steam user who has its app: a
+# shortcut in that user's shortcuts.vdf, or an app installed in a library (for all users). It backs up a different file
+# it replaces and changes nothing on a second run.
+# Usage: test_steamgrid
+test_steamgrid() {
+  local home steam grid_a grid_b chrome=2293441873 discord=2333229111 first i
+  info "steamgrid: artwork copied for the apps each Steam user has"
+  f_call new_home home
+  steam="$home/.local/share/Steam"
+  grid_a="$steam/userdata/1/config/grid"
+  grid_b="$steam/userdata/2/config/grid"
+  mkdir -p "$grid_a" "$grid_b" "$steam/steamapps"
+  # User 1 has a Chrome shortcut: shortcuts.vdf holds its app id as 4 little-endian bytes after the key "appid".
+  {
+    printf '\000shortcuts\000\0000\000\002appid\000'
+    for i in 0 8 16 24; do printf '%b' "\\0$(printf '%03o' $(((chrome >> i) & 255)))"; done
+    printf '\001AppName\000Google Chrome\000\010\010\010\010'
+  } > "$steam/userdata/1/config/shortcuts.vdf"
+  # Discord is installed in the library, for every user.
+  : > "$steam/steamapps/appmanifest_$discord.acf"
+  printf 'old' > "$grid_a/${chrome}p.png"
+
+  install_ok "$home" --variant steamos --steamgrid || return
+  check "shortcut's artwork copied" cmp -s "$REPO_ROOT/dump/steamgrid/${chrome}p.png" "$grid_a/${chrome}p.png"
+  check "  ...hero too" cmp -s "$REPO_ROOT/dump/steamgrid/${chrome}_hero.png" "$grid_a/${chrome}_hero.png"
+  check "installed app's artwork copied for the first user" test -f "$grid_a/${discord}p.png"
+  check "  ...and the second" test -f "$grid_b/${discord}p.png"
+  check "a shortcut the user lacks is skipped" test ! -e "$grid_b/${chrome}p.png"
+  check "replaced file backed up" grep -qx old "$REPO_ROOT/.backup$grid_a/${chrome}p.png"
+  first="$(snapshot "$home")"
+  install_ok "$home" --variant steamos --steamgrid || true
+  check_unchanged "  ...the second install changed nothing" "$first" "$(snapshot "$home")"
+  rm -rf "$REPO_ROOT/.backup$SCRATCH"
+  rmdir -p "$(dirname "$REPO_ROOT/.backup$SCRATCH")" 2>/dev/null || true
+}
+
 # Run bash snippet $1 under INSTALL_BASH with install/lib/output.sh and fn.sh loaded and these test functions defined:
 # pair returns a and b, nested returns a after an f_call of pair, half returns only a, and tricky returns a value
 # with = signs, spaces, quotes and a newline. Its output goes to LOG.
@@ -1127,6 +1163,7 @@ main() {
   test_oti
   test_machine
   test_steam
+  test_steamgrid
   test_capture
   test_download_cache
   test_lib_helpers

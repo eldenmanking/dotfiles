@@ -37,6 +37,7 @@ feature_description() {
     steamos_vm) echo "create a virt-manager VM running SteamOS with GPU acceleration, installed unattended from Valve's recovery image; start it with steamos-vm" ;;
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of the 'arch' distrobox (created if missing, then kept)" ;;
     steam)       echo "write Steam settings (game mode menu hotkeys) into localconfig.vdf, while Steam is closed" ;;
+    steamgrid)   echo "copy the custom artwork in dump/steamgrid into each Steam user's config/grid, for the shortcuts and installed apps they have" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units into /etc (browser shell on localhost)" ;;
     hdmi_audio_fix) echo "install hdmi-audio-fix.service into /etc (sudo): a socclk floor on the Framework 16 780M, for HDMI audio" ;;
     gamescope_screenshot) echo "install systemd user units into /etc (sudo) that save a Gaming Mode screenshot on Print Screen or Shift+Meta+4" ;;
@@ -138,7 +139,7 @@ FEATURES_TOOLS="tmux claude gitconfig"
 FEATURES_PORTABLE="binaries link zsh shell starship tmux"
 
 # Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops console link desktop manual shell starship zsh claude binaries gng tre tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops console link desktop manual shell starship zsh claude binaries gng tre tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam steamgrid udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
 
 # Print the name of feature <feature>'s function, feature_<name> with any - as _.
 # Usage: feature_function <feature>
