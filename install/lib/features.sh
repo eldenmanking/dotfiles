@@ -37,7 +37,7 @@ feature_description() {
     steamos_vm) echo "create a virt-manager VM running SteamOS with GPU acceleration, installed unattended from Valve's recovery image; start it with steamos-vm" ;;
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of the 'arch' distrobox (created if missing, then kept)" ;;
     steam)       echo "write Steam settings (game mode menu hotkeys) into localconfig.vdf, while Steam is closed" ;;
-    steamgrid)   echo "copy the custom artwork in dump/steamgrid into each Steam user's config/grid, for the shortcuts and installed apps they have" ;;
+    steamgrid)   echo "copy the custom artwork in dump/steamgrid (Chrome, Discord) into each Steam user's config/grid" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units into /etc (browser shell on localhost)" ;;
     hdmi_audio_fix) echo "install hdmi-audio-fix.service into /etc (sudo): a socclk floor on the Framework 16 780M, for HDMI audio" ;;
     gamescope_screenshot) echo "install systemd user units into /etc (sudo) that save a Gaming Mode screenshot on Print Screen or Shift+Meta+4" ;;

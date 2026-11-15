@@ -861,34 +861,23 @@ test_steam() {
   rmdir -p "$(dirname "$REPO_ROOT/.backup$SCRATCH")" 2>/dev/null || true
 }
 
-# The steamgrid feature copies each dump/steamgrid file to the config/grid of every Steam user who has its app: a
-# shortcut in that user's shortcuts.vdf, or an app installed in a library (for all users). It backs up a different file
-# it replaces and changes nothing on a second run.
+# The steamgrid feature copies the artwork of each STEAMGRID_APPS app in dump/steamgrid into every Steam user's
+# config/grid. It backs up a different file it replaces and changes nothing on a second run.
 # Usage: test_steamgrid
 test_steamgrid() {
-  local home steam grid_a grid_b chrome=2293441873 discord=2333229111 first i
-  info "steamgrid: artwork copied for the apps each Steam user has"
+  local home grid_a grid_b chrome=2293441873 file first
+  info "steamgrid: artwork copied into every Steam user's config/grid"
   f_call new_home home
-  steam="$home/.local/share/Steam"
-  grid_a="$steam/userdata/1/config/grid"
-  grid_b="$steam/userdata/2/config/grid"
-  mkdir -p "$grid_a" "$grid_b" "$steam/steamapps"
-  # User 1 has a Chrome shortcut: shortcuts.vdf holds its app id as 4 little-endian bytes after the key "appid".
-  {
-    printf '\000shortcuts\000\0000\000\002appid\000'
-    for i in 0 8 16 24; do printf '%b' "\\0$(printf '%03o' $(((chrome >> i) & 255)))"; done
-    printf '\001AppName\000Google Chrome\000\010\010\010\010'
-  } > "$steam/userdata/1/config/shortcuts.vdf"
-  # Discord is installed in the library, for every user.
-  : > "$steam/steamapps/appmanifest_$discord.acf"
+  grid_a="$home/.local/share/Steam/userdata/1/config/grid"
+  grid_b="$home/.local/share/Steam/userdata/2/config/grid"
+  mkdir -p "$grid_a" "$grid_b"
   printf 'old' > "$grid_a/${chrome}p.png"
 
   install_ok "$home" --variant steamos --steamgrid || return
-  check "shortcut's artwork copied" cmp -s "$REPO_ROOT/dump/steamgrid/${chrome}p.png" "$grid_a/${chrome}p.png"
-  check "  ...hero too" cmp -s "$REPO_ROOT/dump/steamgrid/${chrome}_hero.png" "$grid_a/${chrome}_hero.png"
-  check "installed app's artwork copied for the first user" test -f "$grid_a/${discord}p.png"
-  check "  ...and the second" test -f "$grid_b/${discord}p.png"
-  check "a shortcut the user lacks is skipped" test ! -e "$grid_b/${chrome}p.png"
+  for file in "$REPO_ROOT"/dump/steamgrid/*; do
+    check "${file##*/} copied for both users" sh -c 'cmp -s "$1" "$2/${1##*/}" && cmp -s "$1" "$3/${1##*/}"' \
+      sh "$file" "$grid_a" "$grid_b"
+  done
   check "replaced file backed up" grep -qx old "$REPO_ROOT/.backup$grid_a/${chrome}p.png"
   first="$(snapshot "$home")"
   install_ok "$home" --variant steamos --steamgrid || true
