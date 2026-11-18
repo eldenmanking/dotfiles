@@ -66,7 +66,8 @@ about 2 s. There is no terminal:
 ## 5. Finish
 - `steamos-vm stop` powers it off through its agent (it falls back to forcing it off).
 - Report what ran in the VM and what was checked, and what couldn't be (hardware, Steam sign-in, Desktop Mode, which
-  screenshots don't cover).
+  screenshots don't cover). "Compared with the Framework 16" under SteamOS test VM in `README.md` lists what the VM
+  matches and where it differs; keep it in sync when a change brings the VM closer.
 
 ## Things that look like bugs but aren't
 - Suspend never reaches the VM's kernel (the GPU doesn't survive a guest suspend): sleep hooks run, and then either
