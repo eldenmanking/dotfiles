@@ -4,8 +4,8 @@
 # dotfiles.conf, and the system units of hdmi_audio_fix and orei_switch and their links through SteamOS's default
 # list. gamescope_screenshot's user units and their global enable links in /etc/systemd/user survive
 # through dotfiles.conf. light_sleep's script survives through dotfiles.conf, and its systemd-suspend drop-in through
-# SteamOS's default list. tailscale's binaries survive through dotfiles.conf, and tailscaled.service and its link
-# through SteamOS's default list. webterm is left out: it needs a systemd user session and downloads ttyd, which this
+# SteamOS's default list. tailscale's binaries and /etc/default/tailscaled survive through dotfiles.conf, and tailscaled.service, its
+# drop-in and its link through SteamOS's default list. webterm is left out: it needs a systemd user session and downloads ttyd, which this
 # container has neither of. See tests/images/steamos/steamos-update.
 IMAGE=steamos
 ARGS="--variant steamos --machine framework16 --link --udev --tmpfiles --logind --hdmi_audio_fix --orei_switch --light_sleep --gamescope_screenshot --tailscale"
@@ -23,6 +23,7 @@ for target in multi-user suspend hibernate hybrid-sleep suspend-then-hibernate; 
 done
 ROOT_FILES="$ROOT_FILES /etc/systemd/system/sleep.target.wants/orei-switch.service"
 ROOT_FILES="$ROOT_FILES /etc/systemd/system/multi-user.target.wants/tailscaled.service"
+ROOT_FILES="$ROOT_FILES /etc/systemd/system/tailscaled.service.d /etc/default/tailscaled"
 ROOT_FILES="$ROOT_FILES /etc/systemd/system/multi-user.target.wants/orei-switch-boot.service"
 ROOT_FILES="$ROOT_FILES /etc/systemd/system/poweroff.target.wants/orei-switch-poweroff.service"
 for unit in hdmi-audio-fix orei-switch orei-switch-boot orei-switch-poweroff tailscaled; do

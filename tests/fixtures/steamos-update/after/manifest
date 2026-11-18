@@ -1,6 +1,7 @@
 kept    /etc/atomic-update.conf.d d 755 root:root
-new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root f87a957ce4398002
+new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 80873c3553bda130
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
+new     /etc/default/tailscaled f 644 root:root dccbbcb1f19cf455
 new     /etc/dotfiles/bin/light-sleep f 755 root:root e823d6825bee4edd
 new     /etc/dotfiles/bin/orei-switch f 755 root:root 53ab745ba7965ccc
 new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root b0fd815e55bf5a37
@@ -27,7 +28,9 @@ new     /etc/systemd/system/suspend-then-hibernate.target.wants/hdmi-audio-fix.s
 new     /etc/systemd/system/suspend.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
 new     /etc/systemd/system/systemd-suspend.service.d d 755 root:root
 new     /etc/systemd/system/systemd-suspend.service.d/light-sleep.conf f 644 root:root 0f2a8f889164a8c1
-new     /etc/systemd/system/tailscaled.service f 644 root:root 4a05f13f5bd6d7a3
+new     /etc/systemd/system/tailscaled.service f 644 root:root b975caad21103ab3
+new     /etc/systemd/system/tailscaled.service.d d 755 root:root
+new     /etc/systemd/system/tailscaled.service.d/dotfiles.conf f 644 root:root 41e0c1b4023b6314
 kept    /etc/systemd/user d 755 root:root
 new     /etc/systemd/user/gamescope-screenshot.service f 644 root:root eccaf6fa2414876c
 new     /etc/systemd/user/gamescope-session.target.wants d 755 root:root
