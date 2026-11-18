@@ -7,5 +7,7 @@ After=vpower.service
 
 [Service]
 ExecStart=/etc/dotfiles/bin/vpower-filter
+# Where it prepares each copy before renaming it into /run/vpower.
+RuntimeDirectory=vpower-filter
 Restart=always
 RestartSec=2

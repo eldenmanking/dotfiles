@@ -4,43 +4,16 @@
 # Installed into /etc/dotfiles/bin by the quiet_slow_charger feature of ~/dotfiles/install.sh and run by
 # vpower-filter.service. vpower writes /run/vpower/ac_status as "Connected slow" whenever the charger is plugged in but
 # the battery drains, and Steam opens its Slow Charger dialog every time that value appears. vpower's drop-in
-# (vpower.service.d/vpower-filter.conf) makes it write into /run/vpower-raw instead; this copies each file from there to
-# /run/vpower as it changes, the same way vpower writes them (a temporary file renamed over the old one), with
-# "Connected slow" changed to "Connected". Every other file and value passes through unchanged, so battery percentage,
-# low-battery warnings and vpower's shutdown request work as before.
-#
-# It polls with bash built-ins only (no command substitutions, which fork), so it starts a process only to write a file
-# or to note that vpower wrote one.
+# (vpower.service.d/vpower-filter.conf) makes it write into /run/vpower-raw instead; whenever vpower writes there (every
+# 2 s), this copies its files to /run/vpower with "Connected slow" changed to "Connected". Every other file and value
+# passes through unchanged, so battery percentage, low-battery warnings and vpower's shutdown request work as before.
 
 RAW=/run/vpower-raw
 OUT=/run/vpower
-SEEN="$OUT/.seen" # touched whenever vpower has written a file since, to tell when it stopped
-POLL=0.5          # seconds between checks; vpower rewrites its files every 2 s
-STALE=60          # copy only while vpower has written a file within this many seconds
-
-# Copy each of vpower's files that differs into /run/vpower, with "Connected slow" changed to "Connected", and remove
-# the ones vpower no longer writes.
-# Usage: sync_files
-sync_files() {
-  local raw out name text value old
-  for raw in "$RAW"/*; do
-    [[ -f "$raw" ]] || continue
-    name="${raw##*/}" text="" old=""
-    # read -d '' reads the whole file; it fails at the end, which is expected.
-    IFS= read -r -d '' text < "$raw"
-    value="${text%$'\n'}"
-    if [[ "$name" == ac_status && "$value" == "Connected slow" ]]; then
-      text="Connected${text#"$value"}"
-    fi
-    [[ ! -e "$OUT/$name" ]] || IFS= read -r -d '' old < "$OUT/$name"
-    if [[ ! -e "$OUT/$name" || "$old" != "$text" ]]; then
-      printf '%s' "$text" > "$OUT/.$name.tmp" && mv -f "$OUT/.$name.tmp" "$OUT/$name"
-    fi
-  done
-  for out in "$OUT"/*; do
-    [[ -e "$out" && ! -e "$RAW/${out##*/}" ]] && rm -f "$out"
-  done
-}
+# The service's own folder (RuntimeDirectory=), on the same filesystem as OUT so files move into OUT by renaming.
+STAGE="${RUNTIME_DIRECTORY:-/run/vpower-filter}"
+SEEN="$STAGE/.seen" # emptied before each copy, to tell which of vpower's files are newer than it
+POLL=0.5            # seconds between checks
 
 # Succeed if vpower wrote any file since SEEN was last touched.
 # Usage: vpower_wrote
@@ -52,30 +25,36 @@ vpower_wrote() {
   return 1
 }
 
-# Copy vpower's files every POLL seconds while vpower is writing them: from its first write, and until it hasn't written
-# any for STALE seconds. If vpower ever writes to /run/vpower directly again (a SteamOS update changes it, or the
-# drop-in's bind mount no longer applies), /run/vpower-raw stops changing, and copying it would delete or freeze the
-# values vpower writes there itself.
+# Copy vpower's files into /run/vpower, with "Connected slow" in ac_status changed to "Connected", and delete copies of
+# files vpower no longer writes. The files are copied and edited in STAGE first, then each is renamed over its old copy,
+# so Steam never reads a half-written or unfiltered file.
+# Usage: copy_files
+copy_files() {
+  local out
+  cp -f "$RAW"/* "$STAGE"/
+  [[ ! -e "$STAGE/ac_status" ]] || sed -i 's/^Connected slow$/Connected/' "$STAGE/ac_status"
+  mv -f "$STAGE"/* "$OUT"/
+  for out in "$OUT"/*; do
+    [[ -e "$out" && ! -e "$RAW/${out##*/}" ]] && rm -f "$out"
+  done
+}
+
+# Copy vpower's files each time it writes them. Only a write triggers a copy, so if vpower ever writes /run/vpower
+# directly again (a SteamOS update changes it, or the drop-in's bind mount no longer applies), its files there are left
+# alone rather than overwritten from a /run/vpower-raw that stopped changing.
 # Usage: main
 main() {
-  local last=0 copying=false
-  mkdir -p "$OUT" && : > "$SEEN" || exit 1
+  local wait
+  mkdir -p "$OUT" "$STAGE" && : > "$SEEN" || exit 1
+  # A pipe nothing writes to: reading it with a timeout waits like sleep, without starting a process each time.
+  exec {wait}<> <(:)
   while true; do
     if vpower_wrote; then
-      touch "$SEEN"
-      last="$EPOCHSECONDS"
+      # Before copying, so a write during the copy is copied on the next check. Truncating sets its time, like touch.
+      : > "$SEEN"
+      copy_files
     fi
-    if (( EPOCHSECONDS - last < STALE )); then
-      if ! $copying; then
-        echo "vpower is writing $RAW; copying it to $OUT" >&2
-        copying=true
-      fi
-      sync_files
-    elif $copying; then
-      echo "vpower hasn't written $RAW for $STALE s; not copying until it does" >&2
-      copying=false
-    fi
-    sleep "$POLL"
+    read -r -t "$POLL" -u "$wait"
   done
 }
 
