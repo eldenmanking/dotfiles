@@ -7,7 +7,8 @@ After=vpower.service
 
 [Service]
 ExecStart=/etc/dotfiles/bin/vpower-filter
-# Where it prepares each copy before renaming it into /run/vpower.
+# Holds the filtered ac_status that /run/vpower/ac_status links to; kept across restarts, so the link never breaks.
 RuntimeDirectory=vpower-filter
+RuntimeDirectoryPreserve=restart
 Restart=always
 RestartSec=2
