@@ -23,6 +23,10 @@ STEAMOS_VM_APP_DIR="$HOME/.var/app/$STEAMOS_VM_APP"
 STEAMOS_VM_DIR="$STEAMOS_VM_APP_DIR/data/steamos-vm"
 STEAMOS_VM_CACHE="$STEAMOS_VM_APP_DIR/cache/steamos-vm"
 STEAMOS_VM_DISK="$STEAMOS_VM_DIR/disk.qcow2"
+# The virtual TPM's state (swtpm, from the Flatpak's QEMU extension), kept here rather than under the domain's UUID,
+# which changes each time steamos_vm_define redefines it: what the guest sealed to the TPM (e.g. tailscaled's state)
+# would be lost.
+STEAMOS_VM_TPM="$STEAMOS_VM_DIR/tpm"
 # The recovery image, decompressed (kept across --reinstall), and the kernel, initramfs and efi-A partition UUID taken
 # out of it, to boot it with a serial console and an install command (see steamos_vm_installer_xml).
 STEAMOS_VM_RECOVERY="$STEAMOS_VM_DIR/recovery.img"
@@ -173,6 +177,9 @@ steamos_vm_domain_xml() {
     <video><model type='virtio' heads='1' primary='yes'><acceleration accel3d='yes'/></model></video>
     <memballoon model='none'/>
     <rng model='virtio'><backend model='random'>/dev/urandom</backend></rng>
+    <tpm model='tpm-crb'>
+      <backend type='emulator' version='2.0'><source type='dir' path='$STEAMOS_VM_TPM'/></backend>
+    </tpm>
   </devices>
   <qemu:override>
     <qemu:device alias='video0'>
@@ -377,14 +384,14 @@ steamos_vm_current_xml() {
 
 # Define the VM with its domain XML for this host (steamos_vm_current_xml), replacing an earlier definition.
 # The XML has no UUID, so libvirt would refuse it as a second domain of the same name: undefine the old one first,
-# keeping its UEFI variables. Takes effect on the next start.
+# keeping its UEFI variables and TPM state. Takes effect on the next start.
 # Usage: steamos_vm_define
 steamos_vm_define() {
   local new="$STEAMOS_VM_XML.new"
   run mkdir -p "$STEAMOS_VM_CACHE"
   steamos_vm_current_xml | write_file "$new"
   if steamos_vm_defined; then
-    run steamos_vm_virsh undefine --keep-nvram "$STEAMOS_VM_NAME" >/dev/null || return 1
+    run steamos_vm_virsh undefine --keep-nvram --keep-tpm "$STEAMOS_VM_NAME" >/dev/null || return 1
   fi
   # Saved only once defined, since steamos-vm compares it with what the VM should be.
   run steamos_vm_virsh define "$new" >/dev/null && run mv "$new" "$STEAMOS_VM_XML"

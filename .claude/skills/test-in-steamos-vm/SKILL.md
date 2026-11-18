@@ -77,4 +77,7 @@ about 2 s. There is no terminal:
 - There is a virtual Wi-Fi radio (`mac80211_hwsim`) with no networks; the VM's network is the wired `enp1s0`.
 - `/etc` (with the `deck` password) is per A/B slot. If a boot fails to reach the login screen a few times, SteamOS
   switches slots, and earlier `/etc` changes and the password seem gone. See `debug-steamos-vm`.
+- A SteamOS update (`steamos-vm run --root steamos-update`, then `steamos-vm restart`) keeps the VM's own units and
+  dotfiles' files, but moves files no keep list names into `/etc/previous`, such as the passwordless sudo file: add it
+  again.
 - The guest renders on the eGPU when one is attached (the lowest-numbered amdgpu render node), not the 780M.
