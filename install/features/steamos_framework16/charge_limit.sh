@@ -40,22 +40,22 @@ _charge_limit_set_steam_setting() {
   f_call steam_set_vdf written=changed missing -- "$CHARGE_LIMIT_STEAM_CONFIG" "${CHARGE_LIMIT_STEAM_SETTINGS[@]}"
   [[ -z "$missing" ]] ||
     warn "Steam hasn't saved a charge limit yet; turn on its battery charge limit once (Settings > Power), then rerun."
-  [[ -z "$written" ]] || info "Steam's charge limit is now on at $CHARGE_LIMIT_PERCENT%, from the next time Steam starts"
+  [[ -z "$written" ]] || info "Steam's charge limit is now on at $CHARGE_LIMIT_PERCENT% from when Steam next starts"
 }
 
 # Copy the cros_charge_control option into /etc/modprobe.d, the steamos-manager device file into
 # /etc/dotfiles/steamos-manager/devices and the mount unit that adds it to steamos-manager's into /etc/systemd/system
 # (sudo), then reload cros_charge_control with the option if it was loaded without it, and restart steamos-manager if
 # anything changed. Copied, not linked: they are read at boot, while the home may be locked. Then turn on Steam's
-# charge limit at CHARGE_LIMIT_PERCENT in its config.vdf (only while Steam is closed), and after a reload, which resets
-# the limit to 100% until Steam next starts, set it now through steamos-manager.
+# charge limit at CHARGE_LIMIT_PERCENT in its config.vdf (only while Steam is closed). Loading the module resets the
+# limit to 100% until Steam next starts and sets its own, so the first install takes effect after a reboot.
 #
 # @machine framework16
 # @os steamos
 # @gui any
 feature_charge_limit() {
-  local modprobe_dest="/${CHARGE_LIMIT_MODPROBE#root/}" device_dest="/${CHARGE_LIMIT_DEVICE#root/}" changed="" reloaded=""
-  local units
+  local modprobe_dest="/${CHARGE_LIMIT_MODPROBE#root/}" device_dest="/${CHARGE_LIMIT_DEVICE#root/}" changed=""
+  local reloaded="" units
   # SteamOS's default keep list covers the mount unit, but not the others.
   keep_across_steamos_updates charge_limit "$modprobe_dest" "$device_dest"
   copy_system_file 644 "$CHARGE_LIMIT_MODPROBE"
@@ -69,13 +69,12 @@ feature_charge_limit() {
     reloaded=1
   fi
   [[ -z "$changed$reloaded$units" ]] || _charge_limit_restart_steamos_manager
-  if [[ -n "$reloaded" ]] && has_user_session; then
-    run busctl --user set-property com.steampowered.SteamOSManager1 /com/steampowered/SteamOSManager1 \
-      com.steampowered.SteamOSManager1.BatteryChargeLimit1 MaxChargeLevel i "$CHARGE_LIMIT_PERCENT" ||
-      warn "Couldn't set the charge limit through steamos-manager; Steam sets it the next time it starts"
-  fi
   _charge_limit_set_steam_setting
-  info "Steam's battery charge limit (Settings > Power) now sets the Framework 16's; Steam applies it when it starts"
+  if [[ -n "$reloaded" ]]; then
+    info "Steam's battery charge limit (Settings > Power) now sets the Framework 16's, from the next reboot"
+  else
+    info "Steam's battery charge limit (Settings > Power) sets the Framework 16's; Steam applies it when it starts"
+  fi
 }
 
 # Unmount and remove the mount unit and restart steamos-manager, then remove the option and reload cros_charge_control
