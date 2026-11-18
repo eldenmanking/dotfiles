@@ -1,12 +1,12 @@
 # Feature: idle with the displays off instead of suspending while an eGPU is on the Framework 16 expansion bay, whose
-# PCIe link doesn't survive s2idle (see root/etc/dotfiles/bin/light-sleep and docs/light-sleep.md).
+# PCIe link doesn't survive s2idle (see root/opt/dotfiles/bin/light-sleep and docs/light-sleep.md).
 
-LIGHT_SLEEP_SCRIPT="root/etc/dotfiles/bin/light-sleep"
+LIGHT_SLEEP_SCRIPT="root/opt/dotfiles/bin/light-sleep"
 LIGHT_SLEEP_DROPIN_SRC="root/etc/systemd/system/systemd-suspend.service.d"
 LIGHT_SLEEP_DROPIN_DIR="$SYSTEM_UNITS_DIR/systemd-suspend.service.d"
 LIGHT_SLEEP_DROPIN="light-sleep.conf"
 
-# Install light-sleep into /etc/dotfiles/bin, and a systemd-suspend.service drop-in that suspends through it, into
+# Install light-sleep into /opt/dotfiles/bin, and a systemd-suspend.service drop-in that suspends through it, into
 # /etc (sudo). Copied, not linked: systemd runs them while the home may be locked.
 #
 # @machine framework16
@@ -14,8 +14,6 @@ LIGHT_SLEEP_DROPIN="light-sleep.conf"
 # @gui any
 feature_light_sleep() {
   local changed
-  # SteamOS's default keep list covers the drop-in (*.service.d/), but not the script.
-  keep_across_steamos_updates light_sleep "/${LIGHT_SLEEP_SCRIPT#root/}"
   copy_system_file 755 "$LIGHT_SLEEP_SCRIPT"
   f_call copy_system_files changed -- "$DOTFILES_ROOT/$LIGHT_SLEEP_DROPIN_SRC" "$LIGHT_SLEEP_DROPIN" \
     "$LIGHT_SLEEP_DROPIN_DIR"
@@ -33,5 +31,4 @@ uninstall_feature_light_sleep() {
     run sudo systemctl daemon-reload
   fi
   remove_system_files "/${LIGHT_SLEEP_SCRIPT#root/}"
-  forget_across_steamos_updates light_sleep
 }

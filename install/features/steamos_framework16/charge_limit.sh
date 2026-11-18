@@ -5,7 +5,7 @@
 # root/etc/systemd/system/usr-share-steamos\x2dmanager-devices.mount) and sets Steam's to 80%, the BIOS's default.
 
 CHARGE_LIMIT_MODPROBE="root/etc/modprobe.d/framework-charge-control.conf"
-CHARGE_LIMIT_DEVICE="root/etc/dotfiles/steamos-manager/devices/framework-laptop-16.toml"
+CHARGE_LIMIT_DEVICE="root/opt/dotfiles/steamos-manager/devices/framework-laptop-16.toml"
 CHARGE_LIMIT_UNIT_SRC="root/etc/systemd/system"
 CHARGE_LIMIT_UNIT='usr-share-steamos\x2dmanager-devices.mount'
 CHARGE_LIMIT_MODULE="cros_charge_control"
@@ -44,7 +44,7 @@ _charge_limit_set_steam_setting() {
 }
 
 # Copy the cros_charge_control option into /etc/modprobe.d, the steamos-manager device file into
-# /etc/dotfiles/steamos-manager/devices and the mount unit that adds it to steamos-manager's into /etc/systemd/system
+# /opt/dotfiles/steamos-manager/devices and the mount unit that adds it to steamos-manager's into /etc/systemd/system
 # (sudo), then reload cros_charge_control with the option if it was loaded without it, and restart steamos-manager if
 # anything changed. Copied, not linked: they are read at boot, while the home may be locked. Then turn on Steam's
 # charge limit at CHARGE_LIMIT_PERCENT in its config.vdf (only while Steam is closed). Loading the module resets the

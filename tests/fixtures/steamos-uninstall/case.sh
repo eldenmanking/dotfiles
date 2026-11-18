@@ -7,17 +7,17 @@
 IMAGE=steamos
 FEATURES="--orei_switch --light_sleep --gamescope_screenshot"
 ARGS="--variant steamos --machine framework16 --link $FEATURES"
-ROOT_FILES="/etc/atomic-update.conf.d /etc/previous /etc/dotfiles/bin /etc/sddm.conf.d /etc/systemd/user"
+ROOT_FILES="/etc/atomic-update.conf.d /etc/previous /opt/dotfiles/bin /etc/sddm.conf.d /etc/systemd/user"
 ROOT_FILES="$ROOT_FILES /etc/systemd/system/systemd-suspend.service.d"
 for unit in orei-switch orei-switch-boot orei-switch-poweroff; do
   ROOT_FILES="$ROOT_FILES /etc/systemd/system/$unit.service"
 done
 INSTALL="bash \$HOME/dotfiles/install.sh --variant steamos --machine framework16"
 # Fail unless none of the features' files is installed.
-GONE='! test -e /etc/dotfiles/bin/light-sleep && ! test -e /etc/dotfiles/bin/orei-switch'
+GONE='! test -e /opt/dotfiles/bin/light-sleep && ! test -e /opt/dotfiles/bin/orei-switch'
 GONE="$GONE && ! test -e /etc/systemd/system/orei-switch.service"
 GONE="$GONE && ! test -e /etc/systemd/system/systemd-suspend.service.d/light-sleep.conf"
 GONE="$GONE && ! test -e /etc/systemd/user/gamescope-screenshot.service"
 GONE="$GONE && ! grep -q -e light_sleep -e orei_switch /etc/atomic-update.conf.d/dotfiles.conf"
 AFTER_INSTALL="$INSTALL --uninstall $FEATURES && $INSTALL --uninstall $FEATURES && $GONE"
-AFTER_INSTALL="$AFTER_INSTALL && $INSTALL --reinstall $FEATURES && test -x /etc/dotfiles/bin/light-sleep"
+AFTER_INSTALL="$AFTER_INSTALL && $INSTALL --reinstall $FEATURES && test -x /opt/dotfiles/bin/light-sleep"

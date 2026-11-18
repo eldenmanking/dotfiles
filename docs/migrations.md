@@ -213,3 +213,28 @@ linked those directories to a tools repo, or from `~/dotfiles/.claude`, before p
 - **Check:** `find ~/.claude/scripts ~/.claude/skills ~/.claude/commands -maxdepth 1 -xtype l -lname "$HOME/dotfiles/.claude/*" 2>/dev/null`
 - **Fix:** `rm` each link the check printed.
 - **Verify:** the check prints nothing.
+
+## Move system files from /etc/dotfiles to /opt/dotfiles
+The scripts, `framework_tool` and the steamos-manager device file that system units, the login screen and boot use
+moved from `/etc/dotfiles` to `/opt/dotfiles`, which SteamOS keeps across updates without a keep list (it bind-mounts
+`/opt` from `/home/.steamos/offload/opt`, outside the dirlock-encrypted `/home/deck`). The units, the light-sleep and
+vpower drop-ins and the SDDM config point at the new paths, and the keep list no longer names those files. Applies to
+Framework 16 machines that ran `--orei_switch`, `--light_sleep`, `--quiet_slow_charger` or `--charge_limit` (steamos).
+
+### Old copies in /etc/dotfiles (steamos)
+- **Check:** `ls -d /etc/dotfiles 2>/dev/null`
+- **Fix:** rerun each of those features the machine has, so the new files, units and SDDM config are in place, e.g.
+  `~/dotfiles/install.sh --variant steamos --machine framework16 --orei_switch --light_sleep --quiet_slow_charger --charge_limit`.
+  Once `grep -rl /etc/dotfiles /etc/systemd/system /etc/sddm.conf.d 2>/dev/null` prints nothing, after asking,
+  `sudo rm -rf /etc/dotfiles`.
+- **Verify:** the check prints nothing, `/opt/dotfiles/bin/framework_tool --version` runs (if `--orei_switch` ran),
+  `systemctl status orei-switch-boot.service vpower-filter.service --no-pager` shows no missing-file errors, and
+  `findmnt /usr/share/steamos-manager/devices` shows `lowerdir=/opt/dotfiles/steamos-manager/devices` (if
+  `--charge_limit` ran).
+
+### Keep list still names /etc/dotfiles (steamos)
+- **Check:** `grep -nE '^/etc/dotfiles/|^## feature (light_sleep|quiet_slow_charger)$' /etc/atomic-update.conf.d/dotfiles.conf 2>/dev/null`
+- **Fix:** after the step above (which rewrites the `orei_switch` and `charge_limit` subblocks), after asking, delete
+  the `## feature light_sleep` and `## feature quiet_slow_charger` subblocks (each heading and the path lines under it)
+  from `/etc/atomic-update.conf.d/dotfiles.conf` with `sudoedit`, leaving the `## Managed by dotfiles` markers.
+- **Verify:** the check prints nothing.

@@ -1,16 +1,18 @@
 # Installed by the charge_limit feature of ~/dotfiles/install.sh. steamos-manager offers Steam the battery charge limit
 # only on devices it has a device file for, and reads those from the read-only /usr/share/steamos-manager/devices,
-# which has none for the Framework 16. This lays /etc/dotfiles/steamos-manager/devices over it, read-only, so both the
+# which has none for the Framework 16. This lays /opt/dotfiles/steamos-manager/devices over it, read-only, so both the
 # system and the user daemon find ours beside SteamOS's own. systemd names a mount unit after its path ("\x2d" is "-").
 [Unit]
 Description=Add the Framework Laptop 16 to steamos-manager's device files
 Before=steamos-manager.service
+# /opt is a bind mount on SteamOS.
+RequiresMountsFor=/opt/dotfiles
 
 [Mount]
 What=overlay
 Where=/usr/share/steamos-manager/devices
 Type=overlay
-Options=ro,lowerdir=/etc/dotfiles/steamos-manager/devices:/usr/share/steamos-manager/devices
+Options=ro,lowerdir=/opt/dotfiles/steamos-manager/devices:/usr/share/steamos-manager/devices
 
 [Install]
 WantedBy=steamos-manager.service

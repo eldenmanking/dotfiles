@@ -1,6 +1,6 @@
 #!/bin/bash
 # Suspend, or idle with the displays off while an eGPU sits on the Framework 16 expansion bay. Installed into
-# /etc/dotfiles/bin by the light_sleep feature of ~/dotfiles/install.sh, and run by systemd-suspend.service in place of
+# /opt/dotfiles/bin by the light_sleep feature of ~/dotfiles/install.sh, and run by systemd-suspend.service in place of
 # systemd-sleep (see its drop-in light-sleep.conf). See docs/light-sleep.md.
 #
 # An eGPU on the bay's M.2 slot loses its PCIe link whenever the SoC reaches hardware sleep (S0i3) and never gets it

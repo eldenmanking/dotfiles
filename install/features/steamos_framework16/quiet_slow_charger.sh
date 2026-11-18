@@ -1,14 +1,14 @@
 # Feature: stop Steam's Slow Charger dialog by reporting a charger that can't keep up as an ordinary one (see
-# root/etc/dotfiles/bin/vpower-filter).
+# root/opt/dotfiles/bin/vpower-filter).
 
-QUIET_SLOW_CHARGER_SCRIPT="root/etc/dotfiles/bin/vpower-filter"
+QUIET_SLOW_CHARGER_SCRIPT="root/opt/dotfiles/bin/vpower-filter"
 QUIET_SLOW_CHARGER_UNIT_SRC="root/etc/systemd/system"
 QUIET_SLOW_CHARGER_UNIT="vpower-filter.service"
 QUIET_SLOW_CHARGER_DROPIN_SRC="root/etc/systemd/system/vpower.service.d"
 QUIET_SLOW_CHARGER_DROPIN_DIR="$SYSTEM_UNITS_DIR/vpower.service.d"
 QUIET_SLOW_CHARGER_DROPIN="vpower-filter.conf"
 
-# Install vpower-filter into /etc/dotfiles/bin, its service, and a vpower.service drop-in that makes vpower write its
+# Install vpower-filter into /opt/dotfiles/bin, its service, and a vpower.service drop-in that makes vpower write its
 # state for vpower-filter to pass on, into /etc (sudo), then restart vpower if any of them changed. Copied, not
 # linked: systemd starts them at boot, while the home may be locked.
 #
@@ -17,8 +17,6 @@ QUIET_SLOW_CHARGER_DROPIN="vpower-filter.conf"
 # @gui any
 feature_quiet_slow_charger() {
   local script_dest="/${QUIET_SLOW_CHARGER_SCRIPT#root/}" changed="" units dropin
-  # SteamOS's default keep list covers the unit and the drop-in (*.service.d/), but not the script.
-  keep_across_steamos_updates quiet_slow_charger "$script_dest"
   cmp -s "$DOTFILES_ROOT/$QUIET_SLOW_CHARGER_SCRIPT" "$script_dest" || changed="$script_dest"
   copy_system_file 755 "$QUIET_SLOW_CHARGER_SCRIPT"
   f_call install_system_units units=changed -- "$DOTFILES_ROOT/$QUIET_SLOW_CHARGER_UNIT_SRC" \
@@ -49,5 +47,4 @@ uninstall_feature_quiet_slow_charger() {
   # After vpower-filter has stopped, so nothing copies over vpower's own files.
   [[ -z "$dropin$removed" ]] || run sudo systemctl try-restart vpower.service
   remove_system_files "/${QUIET_SLOW_CHARGER_SCRIPT#root/}"
-  forget_across_steamos_updates quiet_slow_charger
 }

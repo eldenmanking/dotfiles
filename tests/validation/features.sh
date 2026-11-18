@@ -257,6 +257,8 @@ check_oti() {
 KEEP_EXEMPT="
 desktop.sh edits /etc/bluetooth/main.conf, which only the arch and other Linux desktops use; SteamOS keeps its own
 console.sh copies boot-time console settings, which only the arch desktop profile installs; SteamOS keeps its own
+light_sleep.sh copies only a service drop-in into /etc, which SteamOS's default keep list covers; its script is in /opt
+quiet_slow_charger.sh copies only a service and a drop-in into /etc, which SteamOS's default keep list covers; its script is in /opt
 "
 
 # Find the problems with the hooks of the features: every uninstall_feature_<x> and capture_feature_<x> must name a

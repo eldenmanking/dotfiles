@@ -4,10 +4,12 @@
 Description=Turn the projector off over CEC on poweroff
 DefaultDependencies=no
 Before=shutdown.target
+# /opt is a bind mount on SteamOS.
+RequiresMountsFor=/opt/dotfiles
 
 [Service]
 Type=oneshot
-ExecStart=/etc/dotfiles/bin/orei-switch poweroff
+ExecStart=/opt/dotfiles/bin/orei-switch poweroff
 TimeoutStartSec=30
 
 [Install]

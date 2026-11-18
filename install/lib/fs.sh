@@ -32,8 +32,9 @@ make_symlink() {
 }
 
 # Files that system services, the login screen and boot read or run, copied outside the home, which may be encrypted
-# and locked then. SteamOS updates keep all of SYSTEM_DIR through one keep list entry (keep_across_steamos_updates).
-SYSTEM_DIR=/etc/dotfiles
+# and locked then. On SteamOS, /opt is writable and kept across OS updates (it is bind-mounted from /home/.steamos,
+# outside the dirlock-encrypted /home/deck), so unlike /etc it needs no keep list.
+SYSTEM_DIR=/opt/dotfiles
 # Scripts and binaries among them.
 SYSTEM_BIN_DIR="$SYSTEM_DIR/bin"
 
@@ -59,7 +60,7 @@ copy_system_file() {
 }
 
 # Remove files <path>... with sudo, then SYSTEM_BIN_DIR and SYSTEM_DIR if that left them empty (other features may
-# still have files there), and once SYSTEM_DIR is gone, its keep list entry.
+# still have files there).
 # Usage: remove_system_files [<path>...]
 remove_system_files() {
   local path dir
@@ -72,7 +73,6 @@ remove_system_files() {
       run sudo rmdir "$dir"
     fi
   done
-  [[ -e "$SYSTEM_DIR" ]] || forget_across_steamos_updates "$STEAMOS_KEEP_SYSTEM_DIR_BLOCK"
 }
 
 # Print the paths that copy_system_files would copy each file in $1 matching $2 to in $3, one per line.
@@ -347,27 +347,19 @@ upsert_sources() {
 STEAMOS_KEEP_DIR=/etc/atomic-update.conf.d
 # The keep list dotfiles features share, with one subblock each (see upsert_block).
 STEAMOS_KEEP_LIST="$STEAMOS_KEEP_DIR/dotfiles.conf"
-# The subblock of STEAMOS_KEEP_LIST that keeps all of SYSTEM_DIR, shared by the features with files there.
-STEAMOS_KEEP_SYSTEM_DIR_BLOCK=system_dir
 
 # On SteamOS, set feature <name>'s subblock of STEAMOS_KEEP_LIST to the absolute <path>s (with sudo), so OS updates
-# keep those files, or remove the subblock if no <path> is given. Paths under SYSTEM_DIR are kept by one shared entry
-# for all of it instead, which remove_system_files drops once SYSTEM_DIR is gone. Does nothing where the keep list
-# directory doesn't exist, which is everywhere but SteamOS 3.6 and later.
+# keep those files, or remove the subblock if no <path> is under /etc. Paths outside /etc (such as SYSTEM_DIR) are
+# left out, since updates only reset /etc. Does nothing where the keep list directory doesn't exist, which is
+# everywhere but SteamOS 3.6 and later.
 # Usage: keep_across_steamos_updates <name> [<path>...]
 keep_across_steamos_updates() {
-  local name="$1" content="" path in_system_dir=""
+  local name="$1" content="" path
   shift
   [[ -d "$STEAMOS_KEEP_DIR" ]] || return 0
   for path in "$@"; do
-    if [[ "$path" == "$SYSTEM_DIR"/* ]]; then
-      in_system_dir=1
-    else
-      content+="${content:+$'\n'}$path"
-    fi
+    [[ "$path" == /etc/* ]] && content+="${content:+$'\n'}$path"
   done
-  [[ -z "$in_system_dir" ]] ||
-    upsert_block "$STEAMOS_KEEP_LIST" "$STEAMOS_KEEP_SYSTEM_DIR_BLOCK" "$SYSTEM_DIR/**" "" sudo
   if [[ -z "$content" ]]; then
     forget_across_steamos_updates "$name"
     return

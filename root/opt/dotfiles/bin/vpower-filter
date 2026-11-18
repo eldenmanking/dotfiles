@@ -1,7 +1,7 @@
 #!/bin/bash
 # Show vpower's state files in /run/vpower for Steam, reporting a slow charger as an ordinary one.
 #
-# Installed into /etc/dotfiles/bin by the quiet_slow_charger feature of ~/dotfiles/install.sh and run by
+# Installed into /opt/dotfiles/bin by the quiet_slow_charger feature of ~/dotfiles/install.sh and run by
 # vpower-filter.service. vpower writes /run/vpower/ac_status as "Connected slow" whenever the charger is plugged in but
 # the battery drains, and Steam opens its Slow Charger dialog every time that value appears. vpower's drop-in
 # (vpower.service.d/vpower-filter.conf) makes it write into /run/vpower-raw instead. This fills /run/vpower with links:
