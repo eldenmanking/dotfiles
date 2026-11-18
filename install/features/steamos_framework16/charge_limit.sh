@@ -88,13 +88,13 @@ uninstall_feature_charge_limit() {
     run sudo rm -fv "/${CHARGE_LIMIT_MODPROBE#root/}"
     _charge_limit_reload_module
   fi
-  # Each folder above the device file up to /etc/dotfiles goes if that left it empty.
+  # Each folder above the device file up to SYSTEM_DIR goes if that left it empty.
   [[ ! -e "$dir" ]] || run sudo rm -fv "$dir"
-  while dir="${dir%/*}"; [[ "$dir" == /etc/dotfiles/* ]]; do
+  while dir="${dir%/*}"; [[ "$dir" == "$SYSTEM_DIR"/* ]]; do
     [[ -d "$dir" && -z "$(ls -A "$dir")" ]] || break
     run sudo rmdir "$dir"
   done
-  # With no paths, this only removes /etc/dotfiles if that left it empty.
+  # With no paths, this only removes SYSTEM_DIR (and its keep list entry) if that left it empty.
   remove_system_files
   forget_across_steamos_updates charge_limit
 }

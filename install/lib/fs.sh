@@ -31,9 +31,11 @@ make_symlink() {
   run ${sudo_cmd:+"$sudo_cmd"} ln -snfv "$src" "$target"
 }
 
-# Scripts and binaries that system services and the login screen run, copied outside the home, which may be
-# encrypted and locked when they run.
-SYSTEM_BIN_DIR=/etc/dotfiles/bin
+# Files that system services, the login screen and boot read or run, copied outside the home, which may be encrypted
+# and locked then. SteamOS updates keep all of SYSTEM_DIR through one keep list entry (keep_across_steamos_updates).
+SYSTEM_DIR=/etc/dotfiles
+# Scripts and binaries among them.
+SYSTEM_BIN_DIR="$SYSTEM_DIR/bin"
 
 # Copy file $2 to $3 with sudo and mode $1, replacing any old symlink, unless it is already up to date. Returns 0 if it
 # copied, 1 if it was up to date.
@@ -56,20 +58,21 @@ copy_system_file() {
   _copy_system_file "$1" "$DOTFILES_ROOT/$2" "/${2#root/}" || true
 }
 
-# Remove files $1... with sudo, then SYSTEM_BIN_DIR and its parent if that left them empty (other features may still
-# have files there).
-# Usage: remove_system_files <path>...
+# Remove files <path>... with sudo, then SYSTEM_BIN_DIR and SYSTEM_DIR if that left them empty (other features may
+# still have files there), and once SYSTEM_DIR is gone, its keep list entry.
+# Usage: remove_system_files [<path>...]
 remove_system_files() {
   local path dir
   for path in "$@"; do
     [[ -e "$path" || -L "$path" ]] || continue
     run sudo rm -fv "$path"
   done
-  for dir in "$SYSTEM_BIN_DIR" "${SYSTEM_BIN_DIR%/*}"; do
+  for dir in "$SYSTEM_BIN_DIR" "$SYSTEM_DIR"; do
     if [[ -d "$dir" && -z "$(ls -A "$dir")" ]]; then
       run sudo rmdir "$dir"
     fi
   done
+  [[ -e "$SYSTEM_DIR" ]] || forget_across_steamos_updates "$STEAMOS_KEEP_SYSTEM_DIR_BLOCK"
 }
 
 # Print the paths that copy_system_files would copy each file in $1 matching $2 to in $3, one per line.
@@ -344,22 +347,31 @@ upsert_sources() {
 STEAMOS_KEEP_DIR=/etc/atomic-update.conf.d
 # The keep list dotfiles features share, with one subblock each (see upsert_block).
 STEAMOS_KEEP_LIST="$STEAMOS_KEEP_DIR/dotfiles.conf"
+# The subblock of STEAMOS_KEEP_LIST that keeps all of SYSTEM_DIR, shared by the features with files there.
+STEAMOS_KEEP_SYSTEM_DIR_BLOCK=system_dir
 
 # On SteamOS, set feature <name>'s subblock of STEAMOS_KEEP_LIST to the absolute <path>s (with sudo), so OS updates
-# keep those files, or remove the subblock if no <path> is given. Does nothing where the keep list directory doesn't
-# exist, which is everywhere but SteamOS 3.6 and later.
-# Usage: keep_across_steamos_updates <name> [path...]
+# keep those files, or remove the subblock if no <path> is given. Paths under SYSTEM_DIR are kept by one shared entry
+# for all of it instead, which remove_system_files drops once SYSTEM_DIR is gone. Does nothing where the keep list
+# directory doesn't exist, which is everywhere but SteamOS 3.6 and later.
+# Usage: keep_across_steamos_updates <name> [<path>...]
 keep_across_steamos_updates() {
-  local name="$1" content="" path
+  local name="$1" content="" path in_system_dir=""
   shift
   [[ -d "$STEAMOS_KEEP_DIR" ]] || return 0
-  if [[ $# -eq 0 ]]; then
+  for path in "$@"; do
+    if [[ "$path" == "$SYSTEM_DIR"/* ]]; then
+      in_system_dir=1
+    else
+      content+="${content:+$'\n'}$path"
+    fi
+  done
+  [[ -z "$in_system_dir" ]] ||
+    upsert_block "$STEAMOS_KEEP_LIST" "$STEAMOS_KEEP_SYSTEM_DIR_BLOCK" "$SYSTEM_DIR/**" "" sudo
+  if [[ -z "$content" ]]; then
     forget_across_steamos_updates "$name"
     return
   fi
-  for path in "$@"; do
-    content+="${content:+$'\n'}$path"
-  done
   upsert_block "$STEAMOS_KEEP_LIST" "$name" "$content" "" sudo
 }
 
