@@ -257,10 +257,14 @@ EOF
 # - steamos-vm-agent.service, which answers ping, runs poweroff or reboot, and runs scripts (exec) from the host over
 #   virtio-serial (Game Mode treats the ACPI power button as suspend, so virsh shutdown can't stop the VM; steamos-vm
 #   run and sync use exec);
-# - a systemd-suspend.service drop-in that makes suspend a no-op: after a guest suspend (S3 or s2idle alike), the
-#   virtio-gpu native context loses its host-side state, so processes using the GPU hang in the kernel and the next
-#   shutdown takes minutes. It sorts after light-sleep's drop-in, so it wins in the VM.
-#   Steam's idle suspend still runs the sleep hooks (e.g. orei-switch), and "wakes" at once;
+# - a systemd-suspend.service drop-in that keeps suspend from reaching the kernel: after a guest suspend (S3 or s2idle
+#   alike), the virtio-gpu native context loses its host-side state, so processes using the GPU hang in the kernel and
+#   the next shutdown takes minutes. It sorts after light-sleep's drop-in, so it wins in the VM: on external power, with
+#   light_sleep installed, it runs light-sleep, which then takes a light sleep (freezing the graphical session until a
+#   key press) and never suspends; anything else is a no-op. Steam's idle suspend still runs the sleep hooks (e.g.
+#   orei-switch), and "wakes" at once;
+# - steamos-vm-power.service, which loads test_power for a fake charger (test_ac, a Mains supply like the Framework's
+#   ACAD) and battery, so what depends on the power source can be tested (steamos-vm power ac|battery switches it);
 # - steamos-vm-wifi.service, which loads mac80211_hwsim for a virtual Wi-Fi radio: when Steam starts it sets the Wi-Fi
 #   backend through steamos-manager, which stops NetworkManager, creates wlan0 on phy0 with iw when it is missing, and
 #   gives up before starting NetworkManager again when that fails, as it does without a Wi-Fi device. That left the
@@ -323,11 +327,26 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 UNIT
   ln -sfn /etc/systemd/system/steamos-vm-wifi.service "$etc/systemd/system/multi-user.target.wants/steamos-vm-wifi.service"
+  cat > "$etc/systemd/system/steamos-vm-power.service" <<'UNIT'
+[Unit]
+Description=A fake charger and battery (test_power), for testing what depends on the power source (steamos-vm)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/modprobe test_power
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  ln -sfn /etc/systemd/system/steamos-vm-power.service "$etc/systemd/system/multi-user.target.wants/steamos-vm-power.service"
   cat > "$etc/systemd/system/systemd-suspend.service.d/zz-steamos-vm.conf" <<'UNIT'
-# steamos-vm: suspend is a no-op in this VM, since the GPU doesn't survive a guest suspend.
+# steamos-vm: the GPU doesn't survive a guest suspend, so suspend never reaches the kernel in this VM. On external
+# power, light-sleep (the light_sleep feature of ~/dotfiles/install.sh) takes a light sleep, which never suspends, so
+# it runs then; anything else is a no-op.
 [Service]
 ExecStart=
-ExecStart=/usr/bin/true
+ExecStart=/usr/bin/bash -c 'if [[ -x /etc/dotfiles/bin/light-sleep && "$$(cat /sys/class/power_supply/test_ac/online 2>/dev/null)" == 1 ]]; then exec /etc/dotfiles/bin/light-sleep suspend; fi'
 UNIT
   umount /mnt
 done
