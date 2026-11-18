@@ -1,5 +1,5 @@
 kept    /etc/atomic-update.conf.d d 755 root:root
-new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 583fa3fbcafa991b
+new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root f87a957ce4398002
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
 new     /etc/dotfiles/bin/light-sleep f 755 root:root e823d6825bee4edd
 new     /etc/dotfiles/bin/orei-switch f 755 root:root 53ab745ba7965ccc
@@ -17,6 +17,7 @@ new     /etc/systemd/system/hibernate.target.wants/hdmi-audio-fix.service l 777 
 new     /etc/systemd/system/hybrid-sleep.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
 new     /etc/systemd/system/multi-user.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
 new     /etc/systemd/system/multi-user.target.wants/orei-switch-boot.service l 777 root:root -> /etc/systemd/system/orei-switch-boot.service
+new     /etc/systemd/system/multi-user.target.wants/tailscaled.service l 777 root:root -> /etc/systemd/system/tailscaled.service
 new     /etc/systemd/system/orei-switch-boot.service f 644 root:root c0ae9a8636ddfb33
 new     /etc/systemd/system/orei-switch-poweroff.service f 644 root:root d4263c84c011eefe
 new     /etc/systemd/system/orei-switch.service f 644 root:root c30aa1ac2d9091f4
@@ -26,6 +27,7 @@ new     /etc/systemd/system/suspend-then-hibernate.target.wants/hdmi-audio-fix.s
 new     /etc/systemd/system/suspend.target.wants/hdmi-audio-fix.service l 777 root:root -> /etc/systemd/system/hdmi-audio-fix.service
 new     /etc/systemd/system/systemd-suspend.service.d d 755 root:root
 new     /etc/systemd/system/systemd-suspend.service.d/light-sleep.conf f 644 root:root 0f2a8f889164a8c1
+new     /etc/systemd/system/tailscaled.service f 644 root:root 4a05f13f5bd6d7a3
 kept    /etc/systemd/user d 755 root:root
 new     /etc/systemd/user/gamescope-screenshot.service f 644 root:root eccaf6fa2414876c
 new     /etc/systemd/user/gamescope-session.target.wants d 755 root:root
@@ -60,6 +62,7 @@ new     ~/.local/bin d 755 user
 new     ~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
 new     ~/.local/bin/gamescope-screenshot l 777 user -> ~/dotfiles/home/.local/bin/gamescope-screenshot
 new     ~/.local/bin/steamos-vm l 777 user -> ~/dotfiles/home/.local/bin/steamos-vm
+new     ~/.local/bin/tailscale l 777 user -> /etc/dotfiles/bin/tailscale
 new     ~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
 new     ~/.local/bin/vm-usb l 777 user -> ~/dotfiles/home/.local/bin/vm-usb
 new     ~/.local/bin/webterm-index l 777 user -> ~/dotfiles/home/.local/bin/webterm-index
