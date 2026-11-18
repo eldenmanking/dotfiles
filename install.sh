@@ -14,7 +14,7 @@ set -euo pipefail
 
 # BEGIN GENERATED PIN: written by scripts/bootstrap.sh
 PINNED_REPO="https://github.com/eldenmanking/dotfiles.git"
-PINNED_COMMIT="0637fb8c901ad79459073cd8ea146cab5190b5bd"
+PINNED_COMMIT="ff18774c122a9e5d179afc03c44ef1fa00380726"
 # END GENERATED PIN
 
 DOTFILES_ROOT="$HOME/dotfiles"
