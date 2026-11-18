@@ -1,20 +1,23 @@
 # Feature: Tailscale with Tailscale SSH, so the machine can be reached from your other devices on any network (steamos).
-# tailscaled runs as a system service from boot, so its binaries go into SYSTEM_BIN_DIR, outside a possibly encrypted
-# home, and its state into /var/lib/tailscale, which SteamOS updates keep. See Tailscale in README.md.
+# Installs what Tailscale's own SteamOS installer (github.com/tailscale-dev/deck-tailscale) does, from a pinned release:
+# the binaries in /opt/tailscale, which SteamOS bind-mounts from /home/.steamos/offload/opt (outside any user's
+# encrypted home, so tailscaled starts at boot), upstream's unit and defaults in /etc, and its state in
+# /var/lib/tailscale, which SteamOS updates keep. See Tailscale in README.md.
 
 TAILSCALE_VERSION=1.104.7
 TAILSCALE_UNITS_SRC="root/etc/systemd/system"
 # tailscaled.service and its defaults are upstream's, unchanged, from the release's systemd/ (the feature warns when a
 # downloaded release's differ: copy them in when bumping TAILSCALE_VERSION). The drop-in points them at
-# SYSTEM_BIN_DIR.
+# TAILSCALE_DIR.
 TAILSCALE_UNIT=tailscaled.service
 TAILSCALE_DEFAULTS="root/etc/default/tailscaled"
 TAILSCALE_DROPIN_SRC="root/etc/systemd/system/tailscaled.service.d"
 TAILSCALE_DROPIN_DIR="$SYSTEM_UNITS_DIR/tailscaled.service.d"
 TAILSCALE_DROPIN=dotfiles.conf
 TAILSCALE_BINARIES="tailscale tailscaled"
-TAILSCALE_CLI="$SYSTEM_BIN_DIR/tailscale"
-TAILSCALED="$SYSTEM_BIN_DIR/tailscaled"
+TAILSCALE_DIR=/opt/tailscale
+TAILSCALE_CLI="$TAILSCALE_DIR/tailscale"
+TAILSCALED="$TAILSCALE_DIR/tailscaled"
 # Linked into ~/.local/bin so the CLI is on PATH. sudo's secure_path leaves it out, so run it as root by its full path.
 TAILSCALE_CLI_LINK="$LOCAL_BIN/tailscale"
 # tailscaled.service's StateDirectory: the machine's key and login, which make it this node of your tailnet.
@@ -44,11 +47,11 @@ tailscale_tarball() {
 tailscale_binary_paths() {
   local binary
   for binary in $TAILSCALE_BINARIES; do
-    printf '%s\n' "$SYSTEM_BIN_DIR/$binary"
+    printf '%s\n' "$TAILSCALE_DIR/$binary"
   done
 }
 
-# Download <tarball> into the temp dir <tmp>, check it against <sha256>, and install its binaries into SYSTEM_BIN_DIR
+# Download <tarball> into the temp dir <tmp>, check it against <sha256>, and install its binaries into TAILSCALE_DIR
 # with sudo. Warns when its tailscaled.service or defaults differ from the repo's copies, which must be upstream's.
 # Usage: _install_tailscale_in <tarball> <sha256> <tmp>
 _install_tailscale_in() {
@@ -61,11 +64,11 @@ _install_tailscale_in() {
   cmp -s "$tmp/${tarball%.tgz}/systemd/tailscaled.defaults" "$DOTFILES_ROOT/$TAILSCALE_DEFAULTS" \
     || warn "Tailscale $TAILSCALE_VERSION's systemd/tailscaled.defaults differs from $TAILSCALE_DEFAULTS"
   for binary in $TAILSCALE_BINARIES; do
-    run sudo install -Dm755 "$tmp/${tarball%.tgz}/$binary" "$SYSTEM_BIN_DIR/$binary"
+    run sudo install -Dm755 "$tmp/${tarball%.tgz}/$binary" "$TAILSCALE_DIR/$binary"
   done
 }
 
-# Download the pinned Tailscale and install its binaries into SYSTEM_BIN_DIR (sudo), unless that version is already
+# Download the pinned Tailscale and install its binaries into TAILSCALE_DIR (sudo), unless that version is already
 # there.
 # Usage: f_call install_tailscale_binaries changed
 # Returns: changed
@@ -81,7 +84,7 @@ install_tailscale_binaries() {
     return
   fi
   if $DRY_RUN; then
-    info_dry_run "download Tailscale $TAILSCALE_VERSION ($tarball) and install it into $SYSTEM_BIN_DIR"
+    info_dry_run "download Tailscale $TAILSCALE_VERSION ($tarball) and install it into $TAILSCALE_DIR"
   else
     info "Downloading Tailscale $TAILSCALE_VERSION ($tarball)"
     with_tmpdir _install_tailscale_in "$tarball" "$sha256"
@@ -96,7 +99,7 @@ tailscale_logged_in() {
 }
 
 # Install Tailscale into /etc (needs sudo): its binaries, and upstream's tailscaled.service and /etc/default/tailscaled
-# with a drop-in that runs them from SYSTEM_BIN_DIR, started now and at boot. Then log in with Tailscale SSH on and
+# with a drop-in that runs them from TAILSCALE_DIR, started now and at boot. Then log in with Tailscale SSH on and
 # Tailscale's own auto-updates off (the version is pinned), so your tailnet's devices can ssh in as allowed by its
 # access controls (see Tailscale in README.md); if it is logged in already, just make sure of those settings.
 #
@@ -106,8 +109,8 @@ tailscale_logged_in() {
 feature_tailscale() {
   local binaries_changed units_changed dropin_changed defaults_changed=false user
   user="$(id -un)"
-  # The default keep list covers the unit, its drop-in and its link, but not the binaries or the defaults.
-  keep_across_steamos_updates tailscale $(tailscale_binary_paths) "/${TAILSCALE_DEFAULTS#root/}" \
+  # The default keep list covers the unit, its drop-in and its link, but not the defaults; updates leave /opt alone.
+  keep_across_steamos_updates tailscale "/${TAILSCALE_DEFAULTS#root/}" \
     $(unit_keep_paths "$SYSTEM_UNITS_DIR" "$DOTFILES_ROOT/$TAILSCALE_UNITS_SRC" "$TAILSCALE_UNIT")
   f_call install_tailscale_binaries binaries_changed=changed
   if [[ -e "$TAILSCALE_CLI" ]] || ! $DRY_RUN; then
@@ -152,7 +155,7 @@ feature_tailscale() {
 # machine's identity on your tailnet) is logged out and removed only after asking; kept, a reinstall comes back as the
 # same machine.
 uninstall_feature_tailscale() {
-  local remove_state=false
+  local remove_state=false binary
   if [[ -d "$TAILSCALE_STATE_DIR" ]]; then
     if $DRY_RUN; then
       info_dry_run "ask to log out and remove $TAILSCALE_STATE_DIR"
@@ -178,7 +181,12 @@ uninstall_feature_tailscale() {
   if [[ -L "$TAILSCALE_CLI_LINK" && "$(readlink "$TAILSCALE_CLI_LINK")" == "$TAILSCALE_CLI" ]]; then
     run rm -f "$TAILSCALE_CLI_LINK"
   fi
-  remove_system_files $(tailscale_binary_paths)
+  for binary in $(tailscale_binary_paths); do
+    [[ ! -e "$binary" ]] || run sudo rm -fv "$binary"
+  done
+  if [[ -d "$TAILSCALE_DIR" && -z "$(ls -A "$TAILSCALE_DIR")" ]]; then
+    run sudo rmdir "$TAILSCALE_DIR"
+  fi
   forget_across_steamos_updates tailscale
   ! $remove_state || run sudo rm -rf "$TAILSCALE_STATE_DIR"
 }
