@@ -1,90 +1,80 @@
-#!/usr/bin/env python3
-"""Mirror vpower's state files into /run/vpower for Steam, reporting a slow charger as an ordinary one.
+#!/bin/bash
+# Mirror vpower's state files into /run/vpower for Steam, reporting a slow charger as an ordinary one.
+#
+# Installed into /etc/dotfiles/bin by the quiet_slow_charger feature of ~/dotfiles/install.sh and run by
+# vpower-filter.service. vpower writes /run/vpower/ac_status as "Connected slow" whenever the charger is plugged in but
+# the battery drains, and Steam opens its Slow Charger dialog every time that value appears. vpower's drop-in
+# (vpower.service.d/vpower-filter.conf) makes it write into /run/vpower-raw instead; this copies each file from there to
+# /run/vpower as it changes, the same way vpower writes them (a temporary file renamed over the old one), with
+# "Connected slow" changed to "Connected". Every other file and value passes through unchanged, so battery percentage,
+# low-battery warnings and vpower's shutdown request work as before.
+#
+# It polls with bash built-ins only (no command substitutions, which fork), so it starts a process only to write a file
+# or to note that vpower wrote one.
 
-Installed into /etc/dotfiles/bin by the quiet_slow_charger feature of ~/dotfiles/install.sh and run by
-vpower-filter.service. vpower writes /run/vpower/ac_status as "Connected slow" whenever the charger is plugged in but
-the battery drains, and Steam opens its Slow Charger dialog every time that value appears. vpower's drop-in
-(vpower.service.d/vpower-filter.conf) makes it write into /run/vpower-raw instead; this copies each file from there to
-/run/vpower as it changes, the same way vpower writes them (a temporary file renamed over the old one), with
-"Connected slow" changed to "Connected". Every other file and value passes through unchanged, so battery percentage,
-low-battery warnings and vpower's shutdown request work as before.
-"""
-import os
-import sys
-import time
+RAW=/run/vpower-raw
+OUT=/run/vpower
+SEEN="$OUT/.seen" # touched whenever vpower has written a file since, to tell when it stopped
+POLL=0.5          # seconds between checks; vpower rewrites its files every few seconds
+STALE=60          # stop copying when vpower hasn't written anything for this long
 
-RAW, OUT = "/run/vpower-raw", "/run/vpower"
-REWRITE = {"ac_status": {"Connected slow": "Connected"}}
-POLL = 0.5  # seconds between checks; vpower rewrites its files every few seconds
-STALE = 60  # stop copying when vpower hasn't written anything for this long
+# Copy each of vpower's files that differs into /run/vpower, with "Connected slow" changed to "Connected", and remove
+# the ones vpower no longer writes.
+# Usage: sync_files
+sync_files() {
+  local raw name text value old
+  for raw in "$RAW"/*; do
+    [[ -f "$raw" ]] || continue
+    name="${raw##*/}" text="" old=""
+    # read -d '' reads the whole file; it fails at the end, which is expected.
+    IFS= read -r -d '' text < "$raw"
+    value="${text%$'\n'}"
+    if [[ "$name" == ac_status && "$value" == "Connected slow" ]]; then
+      text="Connected${text#"$value"}"
+    fi
+    [[ ! -e "$OUT/$name" ]] || IFS= read -r -d '' old < "$OUT/$name"
+    if [[ ! -e "$OUT/$name" || "$old" != "$text" ]]; then
+      printf '%s' "$text" > "$OUT/.$name.tmp" && mv -f "$OUT/.$name.tmp" "$OUT/$name"
+    fi
+  done
+  for raw in "$OUT"/*; do
+    [[ -e "$raw" && ! -e "$RAW/${raw##*/}" ]] && rm -f "$raw"
+  done
+}
 
+# Succeed if vpower wrote any file since SEEN was last touched.
+# Usage: vpower_wrote
+vpower_wrote() {
+  local raw
+  for raw in "$RAW"/*; do
+    [[ -f "$raw" && "$raw" -nt "$SEEN" ]] && return 0
+  done
+  return 1
+}
 
-def log(msg):
-    print(msg, file=sys.stderr, flush=True)
+# Copy vpower's files every POLL seconds while vpower keeps writing them, and stop while it hasn't for STALE seconds.
+# Usage: main
+main() {
+  local last="$EPOCHSECONDS" stale=false
+  mkdir -p "$OUT" && : > "$SEEN" || exit 1
+  while true; do
+    if vpower_wrote; then
+      touch "$SEEN"
+      last="$EPOCHSECONDS"
+    fi
+    # A stale copy would hide vpower's own updates if it ever writes /run/vpower directly again.
+    if (( EPOCHSECONDS - last < STALE )); then
+      if $stale; then
+        echo "vpower is writing $RAW again; copying resumed" >&2
+        stale=false
+      fi
+      sync_files
+    elif ! $stale; then
+      echo "vpower hasn't written $RAW for $STALE s; not copying until it does" >&2
+      stale=true
+    fi
+    sleep "$POLL"
+  done
+}
 
-
-def read(path):
-    try:
-        with open(path) as f:
-            return f.read()
-    except OSError:
-        return None
-
-
-def filtered(name, text):
-    value = text.rstrip("\n")
-    return REWRITE.get(name, {}).get(value, value) + text[len(value):]
-
-
-def write(name, text):
-    tmp = os.path.join(OUT, ".%s.tmp" % name)
-    with open(tmp, "w") as f:
-        f.write(text)
-    os.replace(tmp, os.path.join(OUT, name))
-
-
-def sync(raw_names):
-    for name in raw_names:
-        text = read(os.path.join(RAW, name))
-        if text is None:
-            continue
-        text = filtered(name, text)
-        if read(os.path.join(OUT, name)) != text:
-            write(name, text)
-    for name in set(os.listdir(OUT)) - set(raw_names):
-        if not name.startswith("."):
-            os.remove(os.path.join(OUT, name))
-
-
-def newest_mtime(names):
-    times = []
-    for name in names:
-        try:
-            times.append(os.stat(os.path.join(RAW, name)).st_mtime)
-        except OSError:
-            pass
-    return max(times, default=0)
-
-
-def main():
-    os.makedirs(OUT, exist_ok=True)
-    started, stale = time.time(), False
-    while True:
-        try:
-            names = [n for n in os.listdir(RAW) if not n.startswith(".")]
-        except OSError:
-            names = []
-        # A stale copy would hide vpower's own updates if it ever writes /run/vpower directly again.
-        if names and time.time() - newest_mtime(names) < STALE:
-            if stale:
-                log("vpower is writing %s again; copying resumed" % RAW)
-                stale = False
-            sync(names)
-        elif not stale and time.time() - started >= STALE:
-            log("vpower hasn't written %s for %d s; not copying until it does" % (RAW, STALE))
-            stale = True
-        time.sleep(POLL)
-
-
-if __name__ == "__main__":
-    main()
+main "$@"
