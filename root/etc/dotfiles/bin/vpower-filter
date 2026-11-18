@@ -15,14 +15,14 @@
 RAW=/run/vpower-raw
 OUT=/run/vpower
 SEEN="$OUT/.seen" # touched whenever vpower has written a file since, to tell when it stopped
-POLL=0.5          # seconds between checks; vpower rewrites its files every few seconds
-STALE=60          # stop copying when vpower hasn't written anything for this long
+POLL=0.5          # seconds between checks; vpower rewrites its files every 2 s
+STALE=60          # copy only while vpower has written a file within this many seconds
 
 # Copy each of vpower's files that differs into /run/vpower, with "Connected slow" changed to "Connected", and remove
 # the ones vpower no longer writes.
 # Usage: sync_files
 sync_files() {
-  local raw name text value old
+  local raw out name text value old
   for raw in "$RAW"/*; do
     [[ -f "$raw" ]] || continue
     name="${raw##*/}" text="" old=""
@@ -37,8 +37,8 @@ sync_files() {
       printf '%s' "$text" > "$OUT/.$name.tmp" && mv -f "$OUT/.$name.tmp" "$OUT/$name"
     fi
   done
-  for raw in "$OUT"/*; do
-    [[ -e "$raw" && ! -e "$RAW/${raw##*/}" ]] && rm -f "$raw"
+  for out in "$OUT"/*; do
+    [[ -e "$out" && ! -e "$RAW/${out##*/}" ]] && rm -f "$out"
   done
 }
 
@@ -52,26 +52,28 @@ vpower_wrote() {
   return 1
 }
 
-# Copy vpower's files every POLL seconds while vpower keeps writing them, and stop while it hasn't for STALE seconds.
+# Copy vpower's files every POLL seconds while vpower is writing them: from its first write, and until it hasn't written
+# any for STALE seconds. If vpower ever writes to /run/vpower directly again (a SteamOS update changes it, or the
+# drop-in's bind mount no longer applies), /run/vpower-raw stops changing, and copying it would delete or freeze the
+# values vpower writes there itself.
 # Usage: main
 main() {
-  local last="$EPOCHSECONDS" stale=false
+  local last=0 copying=false
   mkdir -p "$OUT" && : > "$SEEN" || exit 1
   while true; do
     if vpower_wrote; then
       touch "$SEEN"
       last="$EPOCHSECONDS"
     fi
-    # A stale copy would hide vpower's own updates if it ever writes /run/vpower directly again.
     if (( EPOCHSECONDS - last < STALE )); then
-      if $stale; then
-        echo "vpower is writing $RAW again; copying resumed" >&2
-        stale=false
+      if ! $copying; then
+        echo "vpower is writing $RAW; copying it to $OUT" >&2
+        copying=true
       fi
       sync_files
-    elif ! $stale; then
+    elif $copying; then
       echo "vpower hasn't written $RAW for $STALE s; not copying until it does" >&2
-      stale=true
+      copying=false
     fi
     sleep "$POLL"
   done
