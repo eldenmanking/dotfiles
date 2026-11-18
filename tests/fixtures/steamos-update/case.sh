@@ -20,7 +20,7 @@ for target in multi-user suspend hibernate hybrid-sleep suspend-then-hibernate; 
 done
 ROOT_FILES="$ROOT_FILES /etc/systemd/system/sleep.target.wants/orei-switch.service"
 ROOT_FILES="$ROOT_FILES /etc/systemd/system/multi-user.target.wants/orei-switch-boot.service"
-ROOT_FILES="$ROOT_FILES /etc/systemd/system/poweroff.target.wants/orei-switch-poweroff.service"
+ROOT_FILES="$ROOT_FILES /etc/systemd/system/multi-user.target.wants/orei-switch-poweroff.service"
 for unit in hdmi-audio-fix orei-switch orei-switch-boot orei-switch-poweroff; do
   ROOT_FILES="$ROOT_FILES /etc/systemd/system/$unit.service"
 done

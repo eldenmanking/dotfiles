@@ -228,6 +228,12 @@ case "$1" in
     fi
     ;;
   poweroff)
+    # orei-switch-poweroff.service runs this when it stops, which also happens on reboot, restart or removal: only
+    # act while a poweroff is queued.
+    if ! systemctl list-jobs --no-legend poweroff.target 2>/dev/null | grep -qw start; then
+      log "not powering off; leaving the projector alone"
+      exit 0
+    fi
     if tv_present 1; then
       projector_off
     fi

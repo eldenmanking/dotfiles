@@ -48,8 +48,8 @@ install_framework_tool() {
 }
 
 # Download framework_tool and install the orei-switch scripts, the SDDM config and the sleep, boot and poweroff units
-# into /etc (sudo). The units are enabled but not started: starting the sleep unit cuts power to the left ports, and
-# the poweroff one turns the projector off.
+# into /etc (sudo). The units are enabled, and only the poweroff one is started, which does nothing until a poweroff
+# stops it: starting the sleep unit cuts power to the left ports.
 #
 # @machine framework16
 # @os steamos
@@ -65,6 +65,8 @@ feature_orei_switch() {
     copy_system_file "$mode" "$src"
   done
   install_system_units --no-start "$DOTFILES_ROOT/$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS
+  # Its start does nothing; it only needs to be active for a poweroff to stop it (a no-op if it already is).
+  run sudo systemctl start orei-switch-poweroff.service
   info "Keep the charger on a right-side port: sleep cuts power to ports 2 and 3. Logs: journalctl -t orei-switch -b"
 }
 

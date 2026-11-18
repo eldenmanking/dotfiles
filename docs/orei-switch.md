@@ -3,8 +3,8 @@ The `orei_switch` feature (part of `./install.sh --variant steamos --machine fra
 picks on the laptop, or alone with `--orei_switch`) makes an OREI
 4K 3-input HDMI switch (auto mode) follow a Framework 16's sleep and wake, and turns the projector off on sleep and
 poweroff and back on on wake. It installs `/opt/dotfiles/bin/orei-switch`, a pinned `framework_tool` (Framework's EC
-tool) beside it, `orei-switch.service` (enabled, wanted by `sleep.target`), `orei-switch-poweroff.service` (wanted by
-`poweroff.target`, so not on reboot) and `/etc/sddm.conf.d/orei-switch.conf`. `/opt` survives SteamOS updates, so
+tool) beside it, `orei-switch.service` (enabled, wanted by `sleep.target`), `orei-switch-poweroff.service` (started at
+boot; a shutdown stops it, and on a poweroff, not a reboot, that turns the projector off) and `/etc/sddm.conf.d/orei-switch.conf`. `/opt` survives SteamOS updates, so
 the script and binary need no keep list entry.
 
 ## Setup
@@ -64,8 +64,11 @@ It only touches a CEC TV, so sleeping away from the projector or on a plain moni
   died or was forced off while asleep; the EC keeps the setting), re-enable them and wait for the display, so the login
   screen sees the projector. Then, in a background transient unit (`orei-switch-boot-tv`), turn a connected CEC TV on as
   on wake. Before login `cecd` isn't running, so the script claims a CEC address itself. Everything it needs is in
-  `/etc`, so the locked home doesn't matter.
-- **Poweroff:** if a CEC TV is connected, turn it off.
+  `/etc` and `/opt`, so the locked home doesn't matter.
+- **Poweroff:** if a CEC TV is connected, turn it off. `orei-switch-poweroff.service` is active from boot and runs
+  this when a shutdown stops it, before `/opt` is unmounted (a unit started by the poweroff itself would race the
+  unmount), and the script does nothing unless `systemctl list-jobs` shows a `poweroff.target` start job, so a reboot
+  leaves the projector on.
 - **Login screen:** a dirlock-encrypted home can't be unlocked by autologin, so every boot stops at SDDM's X11 login
   screen (its Wayland one needs `weston`, which SteamOS lacks). With the projector connected, X11's default layout put
   the panel and projector side by side, which left the panel black and the projector without a signal.

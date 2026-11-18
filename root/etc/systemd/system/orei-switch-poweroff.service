@@ -1,16 +1,18 @@
-# Installed by the orei_switch feature of ~/dotfiles/install.sh. Runs early in poweroff (not reboot), while the HDMI
-# card still has HPD.
+# Installed by the orei_switch feature of ~/dotfiles/install.sh. Active from boot and does nothing until it is stopped:
+# a shutdown stops it early, before /opt (a bind mount on SteamOS) is unmounted and while the HDMI card still has
+# HPD, and orei-switch poweroff then turns the projector off if the shutdown is a poweroff (not a reboot).
 [Unit]
 Description=Turn the projector off over CEC on poweroff
-DefaultDependencies=no
-Before=shutdown.target
-# /opt is a bind mount on SteamOS.
+# Stopped before the login screen and the session it starts, so the display is still up.
+After=display-manager.service
 RequiresMountsFor=/opt/dotfiles
 
 [Service]
 Type=oneshot
-ExecStart=/opt/dotfiles/bin/orei-switch poweroff
-TimeoutStartSec=30
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=/opt/dotfiles/bin/orei-switch poweroff
+TimeoutStopSec=30
 
 [Install]
-WantedBy=poweroff.target
+WantedBy=multi-user.target
