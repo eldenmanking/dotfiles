@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Mirror vpower's state files into /run/vpower for Steam, reporting a slow charger as an ordinary one.
+
+Installed into /etc/dotfiles/bin by the quiet_slow_charger feature of ~/dotfiles/install.sh and run by
+vpower-filter.service. vpower writes /run/vpower/ac_status as "Connected slow" whenever the charger is plugged in but
+the battery drains, and Steam opens its Slow Charger dialog every time that value appears. vpower's drop-in
+(vpower.service.d/vpower-filter.conf) makes it write into /run/vpower-raw instead; this copies each file from there to
+/run/vpower as it changes, the same way vpower writes them (a temporary file renamed over the old one), with
+"Connected slow" changed to "Connected". Every other file and value passes through unchanged, so battery percentage,
+low-battery warnings and vpower's shutdown request work as before.
+"""
+import os
+import sys
+import time
+
+RAW, OUT = "/run/vpower-raw", "/run/vpower"
+REWRITE = {"ac_status": {"Connected slow": "Connected"}}
+POLL = 0.5  # seconds between checks; vpower rewrites its files every few seconds
+STALE = 60  # stop copying when vpower hasn't written anything for this long
+
+
+def log(msg):
+    print(msg, file=sys.stderr, flush=True)
+
+
+def read(path):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def filtered(name, text):
+    value = text.rstrip("\n")
+    return REWRITE.get(name, {}).get(value, value) + text[len(value):]
+
+
+def write(name, text):
+    tmp = os.path.join(OUT, ".%s.tmp" % name)
+    with open(tmp, "w") as f:
+        f.write(text)
+    os.replace(tmp, os.path.join(OUT, name))
+
+
+def sync(raw_names):
+    for name in raw_names:
+        text = read(os.path.join(RAW, name))
+        if text is None:
+            continue
+        text = filtered(name, text)
+        if read(os.path.join(OUT, name)) != text:
+            write(name, text)
+    for name in set(os.listdir(OUT)) - set(raw_names):
+        if not name.startswith("."):
+            os.remove(os.path.join(OUT, name))
+
+
+def newest_mtime(names):
+    times = []
+    for name in names:
+        try:
+            times.append(os.stat(os.path.join(RAW, name)).st_mtime)
+        except OSError:
+            pass
+    return max(times, default=0)
+
+
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    started, stale = time.time(), False
+    while True:
+        try:
+            names = [n for n in os.listdir(RAW) if not n.startswith(".")]
+        except OSError:
+            names = []
+        # A stale copy would hide vpower's own updates if it ever writes /run/vpower directly again.
+        if names and time.time() - newest_mtime(names) < STALE:
+            if stale:
+                log("vpower is writing %s again; copying resumed" % RAW)
+                stale = False
+            sync(names)
+        elif not stale and time.time() - started >= STALE:
+            log("vpower hasn't written %s for %d s; not copying until it does" % (RAW, STALE))
+            stale = True
+        time.sleep(POLL)
+
+
+if __name__ == "__main__":
+    main()

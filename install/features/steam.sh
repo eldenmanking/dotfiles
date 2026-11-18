@@ -9,69 +9,21 @@ STEAM_SETTINGS=(
   "QAMKeyboardHotkey|Shift	Win	KEY_TAB"     # quick access menu (... button)
 )
 
-# Read a localconfig.vdf on stdin and print it with the value on each "key" line replaced by $2. Fails if no line has
-# the key, after printing the file unchanged. Steam writes each "key"<tab><tab>"value" pair on its own line.
-# Usage: steam_vdf_replace <key> <value>
-steam_vdf_replace() {
-  KEY="$1" VALUE="$2" awk '
-    {
-      match($0, /^\t*/)
-      if (index($0, "\"" ENVIRON["KEY"] "\"\t") == RLENGTH + 1) {
-        $0 = substr($0, 1, RLENGTH) "\"" ENVIRON["KEY"] "\"\t\t\"" ENVIRON["VALUE"] "\""
-        found = 1
-      }
-      print
-    }
-    END { exit !found }
-  '
-}
-
-# Apply STEAM_SETTINGS to localconfig.vdf <file>, without writing it.
-# Usage: f_call steam_apply_settings content missing -- <file>
-# Returns: content missing
-#   content: <file>'s contents with every STEAM_SETTINGS value replaced
-#   missing: the space-separated keys it lacks
-steam_apply_settings() {
-  local file="$1" content entry key value missing=""
-  content="$(cat "$file")"
-  for entry in "${STEAM_SETTINGS[@]}"; do
-    IFS='|' read -r key value <<< "$entry"
-    content="$(steam_vdf_replace "$key" "$value" <<< "$content")" || missing+="${missing:+ }$key"
-  done
-  f_return content missing
-}
-
-# Replace the STEAM_SETTINGS values in each Steam user's localconfig.vdf. Only keys Steam already wrote are replaced,
-# so a missing one must be set once in Steam first. Steam rewrites the file from memory when it exits, so this only
-# edits it while Steam isn't running; the settings apply the next time Steam starts.
+# Replace the STEAM_SETTINGS values in each Steam user's localconfig.vdf (steam_set_vdf, install/lib/steam.sh). Only
+# keys Steam already wrote are replaced, so a missing one must be set once in Steam first. Steam rewrites the file from
+# memory when it exits, so this only edits it while Steam isn't running; the settings apply the next time Steam starts.
 #
 # @machine any
 # @os steamos
 # @gui any
 feature_steam() {
-  local file tmp found=false changed=false content missing
+  local file found=false changed=false written missing
   for file in "$STEAM_USERDATA"/*/config/localconfig.vdf; do
     [[ -f "$file" ]] || continue
     found=true
-    f_call steam_apply_settings content missing -- "$file"
+    f_call steam_set_vdf written=changed missing -- "$file" "${STEAM_SETTINGS[@]}"
     [[ -z "$missing" ]] || warn "$file has no $missing; set it once in Steam (Settings > In Game), then rerun with --steam."
-    tmp="$(mktemp)"
-    printf '%s\n' "$content" > "$tmp"
-    if cmp -s "$file" "$tmp"; then
-      info "$file already up to date"
-    elif pgrep -x steam >/dev/null 2>&1; then
-      warn "Steam is running and would overwrite $file on exit; quit Steam and rerun with --steam."
-    else
-      info "Updating Steam settings in $file..."
-      # Keep the first backup: later ones would hold what an earlier install wrote.
-      if [[ ! -e "$BACKUPS_ROOT$file" ]]; then
-        run mkdir -p "$(dirname "$BACKUPS_ROOT$file")"
-        run cp "$file" "$BACKUPS_ROOT$file"
-      fi
-      run cp "$tmp" "$file"
-      changed=true
-    fi
-    rm -f "$tmp"
+    [[ -z "$written" ]] || changed=true
   done
 
   if ! $found; then

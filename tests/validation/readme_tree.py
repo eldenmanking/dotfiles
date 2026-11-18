@@ -42,8 +42,8 @@ def parse_tree(lines):
 
 
 def main():
-    files = subprocess.run(["git", "-C", REPO, "ls-files"], capture_output=True, text=True,
-                           check=True).stdout.split()
+    files = subprocess.run(["git", "-C", REPO, "ls-files", "-z"], capture_output=True, text=True,
+                           check=True).stdout.split("\0")[:-1]
     dirs = {os.path.dirname(f) for f in files}
     dirs |= {d[:i] for d in dirs for i in range(len(d)) if d[i] == "/"}
     entries = parse_tree(tree_lines(os.path.join(REPO, "README.md")))
