@@ -29,16 +29,19 @@ TAILSCALE_STATE_DIR=/var/lib/tailscale
 # Returns: tarball sha256
 #   tarball: the file name on pkgs.tailscale.com/stable
 tailscale_tarball() {
-  case "$(uname -m)" in
+  local arch
+  # Tailscale's Linux builds, by the architecture's pinned-download name: macOS's uname says arm64, Linux's aarch64.
+  f_call detect_os_arch arch
+  case "$arch" in
     x86_64)
       f_return tarball="tailscale_${TAILSCALE_VERSION}_amd64.tgz" \
         sha256=e56693ff74a64f2591b7e819c280635a100aae1ddfb0ef058fcd052b7cd8d16c
       ;;
-    aarch64)
+    arm64)
       f_return tarball="tailscale_${TAILSCALE_VERSION}_arm64.tgz" \
         sha256=d6bed2720310b328b861f943d7b4016c5358a9bad60575eb51e8143b79068484
       ;;
-    *) error "no Tailscale build pinned for $(uname -m)" ;;
+    *) error "no Tailscale build pinned for $arch" ;;
   esac
 }
 
