@@ -1,7 +1,9 @@
-# Light sleep with an eGPU (Framework 16)
+# Light sleep with an eGPU or on external power (Framework 16)
 The `light_sleep` feature (part of `./install.sh --variant steamos --machine framework16 --all`, or alone with
 `--light_sleep`) keeps an eGPU on the Framework 16 expansion bay working across sleep. While a live one is attached,
-a suspend idles with the displays off instead, and anything else suspends as before. It installs
+or the laptop is on external power, a suspend idles with the displays off instead, with only the graphical session
+frozen, so SSH logins (Tailscale SSH included) and webterm keep working. On battery without an eGPU it suspends as
+before. It installs
 `/etc/dotfiles/bin/light-sleep` and a `systemd-suspend.service` drop-in that runs
 `light-sleep suspend` in place of `systemd-sleep suspend`, plus a SteamOS keep list entry for the scripts.
 
@@ -45,10 +47,27 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   through all of the light sleep tests below. The card draws its idle power from the dock's supply instead.
 
 ## What light-sleep does
-- **No live eGPU** (no display controller below `00:01.5`, or one whose config space reads `ffff`): runs
-  `systemd-sleep suspend`, as without the drop-in.
+- **When:** a light sleep while a live eGPU is attached, whatever the power source, or on external power (a `Mains`
+  power supply, `ACAD`, reports `online`), so the network stays up for SSH and webterm. On battery with no live eGPU
+  (no display controller below `00:01.5`, or one whose config space reads `ffff`) it runs `systemd-sleep suspend`, as
+  without the drop-in.
+- **What freezes:** only the graphical sessions: for each `wayland` or `x11` logind session, its scope
+  (`session-N.scope`: sddm-helper, `start-gamescope-session` or `startplasma`) and each unit in its user's
+  `app.slice`, `session.slice` and `background.slice` (Steam and games in `steam-launcher.service` or
+  `app-steam@autostart.service`, gamescope, KWin, Plasma and its apps, PipeWire). These keep running:
+  - the user manager (`init.scope`), so `systemctl --user` works;
+  - the user bus (`dbus-broker.service` in `session.slice`): tmux asks the user manager over it for a scope for each
+    server and pane, so with it frozen, tmux hangs;
+  - `webterm.slice`, where the `webterm` feature's services run, with the shells and tmux scopes they start;
+  - other logind sessions, such as SSH and Tailscale SSH logins (`session-N.scope` with no graphical type);
+  - units started during the sleep, even in the frozen slices.
+  A tmux server started from a terminal in Desktop Mode lives in that terminal's slice and freezes with it; one
+  started from SSH or webterm keeps running.
+- **How:** through each cgroup's `cgroup.freeze`, not `systemctl freeze`. A user manager refuses to freeze
+  `app.slice` (`dbus.socket` in it can't be frozen), and with its `dbus-broker` frozen in `session.slice`, its thaw
+  jobs hung in the SteamOS VM and left Game Mode stuck. The wake thaws the same list.
 - **Sleep:** the compositor has already turned the displays off on logind's `PrepareForSleep`, as it does before any
-  suspend (gamescope and KWin both do), so light-sleep freezes `user.slice`, as `systemd-sleep` does, and waits. In
+  suspend (gamescope and KWin both do), so light-sleep freezes the graphical sessions and waits. In
   Desktop Mode it first runs `kscreen-doctor --dpms off` as `deck`: when `orei-switch` cuts PD 1, the projector's
   output vanishes and KWin lights the laptop panel, which would then stay lit all sleep. This runs after the PD cut, as
   `orei-switch` is ordered before `systemd-suspend.service`. KWin applies the request about a second after
@@ -61,7 +80,7 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   monitor` starts an `evtest` for a keyboard connected during the sleep, if it has a
   `/dev/input/by-id/*-event-kbd` link (USB ones do, Bluetooth ones often don't), and one exits by itself when its device
   goes away, so the `evtest`s are only stopped on wake. That uses `SIGKILL`: a `SIGTERM` sent just after forking one can
-  be lost to the script's `EXIT` trap, and the sleep would then never end. Then it thaws `user.slice`, and the
+  be lost to the script's `EXIT` trap, and the sleep would then never end. Then it thaws the graphical sessions, and the
   compositor turns the displays back on (in Desktop Mode, `kscreen-doctor --dpms on`, as KWin only answers once thawed).
 - **Lid:** closing it on external power must not suspend, or the light sleep's wake would be followed by a real suspend
   that the eGPU doesn't survive. In Gaming Mode logind handles the lid, and the `logind` feature's `lid.conf` ignores
@@ -72,7 +91,8 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
 - logind, Steam and the units on `sleep.target` (such as `orei-switch.service`) see an ordinary suspend: logind still
   sends `PrepareForSleep`, and the sleep only ends when `systemd-suspend.service` does. The hooks in
   `/usr/lib/systemd/system-sleep` are skipped: SteamOS's only act on hibernate or with a flag file.
-- The laptop draws idle power, not sleep power, while the eGPU is attached, including on battery.
+- The laptop draws idle power, not sleep power, while the eGPU is attached, including on battery, and on external
+  power.
 
 ## Tested
 With `90-egpu-no-runpm.rules` in place and `orei-switch.service` enabled, these all passed: a 60 s, an 8 s and a
@@ -86,4 +106,10 @@ and resume. Before and after, the link answered, amdgpu was bound and `amdgpu_te
 every ring. The config space read alone isn't proof the card works: after a warm reboot amdgpu can fail to start it
 (`discovery failed: -2`) with the link up, which a dock power cycle with the laptop off fixes.
 
-Check with `journalctl -t light-sleep -b` and `journalctl -u systemd-suspend -b`.
+In the SteamOS VM (`steamos-vm`, whose own drop-in makes suspend a no-op), a copy of the script with
+`on_external_power` returning true, started with `systemd-run`, froze 29 cgroups in Gaming Mode and about 40 in Desktop
+Mode (Plasma on X11 there, with Steam as `app-steam@autostart.service`). Meanwhile webterm answered, a new login
+session ran commands, `systemctl --user` worked and `tmux new` worked from both; a key press woke it, nothing stayed
+frozen, and Game Mode drew again.
+
+Check with `journalctl -t light-sleep -b` (it logs what it froze) and `journalctl -u systemd-suspend -b`.
