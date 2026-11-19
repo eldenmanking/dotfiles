@@ -79,10 +79,12 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   `kscreen-doctor` returns, so it waits (up to 3 s) for the connectors to report off before freezing, which stops KWin;
   frozen straight after the call, the panel stayed lit. Switching VT is not just unneeded but harmful: with KWin it
   lights the display up again.
-- **Wake:** on a key press on a keyboard, or the power button. Each has an `evtest --grab`, so the press reaches
-  nothing else; without the grab, the frozen session's input queues would deliver it on thaw, and Steam would suspend
-  again on the power button. The grabs stay for a second after the press, to swallow any presses after it. `udevadm
-  monitor` starts an `evtest` for a keyboard connected during the sleep, if it has a
+- **Wake:** on a key press on a keyboard, or the power button, or remotely with `sudo /etc/dotfiles/bin/light-sleep
+  wake` (e.g. over Tailscale SSH), which writes a line into the fifo the wait reads, `/run/light-sleep.wake` (root's
+  only; it exists only during a light sleep, so `wake` says when none is running). Each key and the power button has an
+  `evtest --grab`, so the press reaches nothing else; without the grab, the frozen session's input queues would deliver
+  it on thaw, and Steam would suspend again on the power button. The grabs stay for a second after the press, to swallow
+  any presses after it. `udevadm monitor` starts an `evtest` for a keyboard connected during the sleep, if it has a
   `/dev/input/by-id/*-event-kbd` link (USB ones do, Bluetooth ones often don't), and one exits by itself when its device
   goes away, so the `evtest`s are only stopped on wake. That uses `SIGKILL`: a `SIGTERM` sent just after forking one can
   be lost to the script's `EXIT` trap, and the sleep would then never end. Then it thaws the graphical sessions, and the
