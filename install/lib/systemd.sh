@@ -10,6 +10,12 @@ _unit_has_install() {
   grep -q '^\[Install\]' "$1"
 }
 
+# Return 0 if unit file <unit_file> has an [Install] section, as _unit_has_install does, for install/lib/hooks.sh.
+# Usage: unit_has_install <unit_file>
+unit_has_install() {
+  _unit_has_install "$1"
+}
+
 # Return 0 if this process can reach a systemd user manager (not under su or sudo, or before a login).
 # Usage: has_user_session
 has_user_session() {

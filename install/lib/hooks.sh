@@ -1,17 +1,18 @@
 # Hooks: features that declare their changes instead of making them (see Hooks in docs/install-database.md).
 #
-# A declared feature defines declare_<name> <os> <profile> <enabled> in place of feature_<name>. It calls the hook_*
-# functions below and changes nothing: it may read the disk, but never write it. install.sh collects every selected
-# feature's entries into one plan, checks that no two entries claim the same path, then applies each feature's
-# entries in feature order, then runs each trigger (daemon-reload, udev reload, ...) once for every path the run
-# changed, then enables and starts the units, then calls post_<name> <os> <profile> <enabled> <changed> where defined,
-# for steps that need the changes made. --uninstall undoes every entry of a declared feature, newest first, then calls
-# post_uninstall_<name> <os> <profile> <enabled> <removed> where defined.
+# A declared feature (or implementation, see feature_implementations) defines declare_<impl> <os> <profile> <machine>
+# <enabled> in place of feature_<impl>. It calls the hook_* functions below and changes nothing: it may read the disk,
+# but never write it. install.sh collects every selected implementation's entries into one plan, checks that no two
+# entries claim the same path, then applies each one's entries in feature order, then runs each trigger
+# (daemon-reload, udev reload, ...) once for every path the run changed, then enables and starts the units, then calls
+# post_<impl> <os> <profile> <machine> <enabled> <changed> where defined, for steps that need the changes made.
+# --uninstall undoes every entry of a declared implementation, newest first, then calls post_uninstall_<impl> <os>
+# <profile> <machine> <enabled> <removed> where defined.
 #
 # On SteamOS, each declared feature's files and units under /etc that SteamOS's default keep list doesn't cover go
 # into its subblock of the dotfiles keep list (see keep_across_steamos_updates), so declared features never name them.
 #
-# Entries are lines of tab-separated fields, the declaring feature first:
+# Entries are lines of tab-separated fields, the declaring implementation's id first:
 #   <feature> link <src> <target>
 #   <feature> file <mode> <src> <dest>
 #   <feature> download <mode> <url> <sha256> <dest>
@@ -171,18 +172,19 @@ hook_units() {
 
 # --- Planning ---
 
-# Print the entries of the declared features among <features> (in the order given), each prefixed with its feature,
-# one per line. A declare_<name> function's output goes to stderr, so its messages show.
-# Usage: collect_plan <features> <os> <profile> <enabled>
+# Print the entries of the declared implementations among <impls> (implementation ids, in the order given; see
+# feature_implementations), each prefixed with its id, one per line. A declare_<impl> function's output goes to
+# stderr, so its messages show.
+# Usage: collect_plan <impls> <os> <profile> <machine> <enabled>
 collect_plan() {
-  local features="$1" os="$2" profile="$3" enabled="$4" feature entries line
-  for feature in $features; do
-    feature_declared "$feature" || continue
-    # Command substitutions don't inherit set -e, so stop on a declare_<name> that failed (e.g. called error).
-    entries="$("$(declare_function "$feature")" "$os" "$profile" "$enabled" 3>&1 >&2)" || exit 1
+  local impls="$1" os="$2" profile="$3" machine="$4" enabled="$5" impl entries line
+  for impl in $impls; do
+    feature_declared "$impl" || continue
+    # Command substitutions don't inherit set -e, so stop on a declare_<impl> that failed (e.g. called error).
+    entries="$("$(declare_function "$impl")" "$os" "$profile" "$machine" "$enabled" 3>&1 >&2)" || exit 1
     [[ -n "$entries" ]] || continue
     while IFS= read -r line; do
-      printf '%s\t%s\n' "$feature" "$line"
+      printf '%s\t%s\n' "$impl" "$line"
     done <<< "$entries"
   done
 }
@@ -301,13 +303,15 @@ _hook_keep_paths() {
   done 4<<< "$2"
 }
 
-# Apply feature <feature>'s <entries>, in the order declared, after setting its keep list subblock.
+# Apply implementation <feature>'s <entries>, in the order declared, after setting its feature's keep list subblock
+# (blocks and the keep list subblock are named after the feature, which its implementations share).
 # Usage: f_call apply_entries changed units -- <feature> <entries>
 # Returns: changed units
 #   changed: the paths it changed, one per line
 #   units: "<scope>\t<unit>\t<flags>\t<changed>\t<enable>" for each unit, one per line, for activate_units
 apply_entries() {
-  local name="$1" entries="$2" changed="" units="" feature kind a b c d dest enable updated
+  local name entries="$2" changed="" units="" feature kind a b c d dest enable updated
+  name="$(implementation_feature "$1")"
   local nl=$'\n' tab=$'\t'
   keep_across_steamos_updates "$name" $(_hook_keep_paths "$name" "$entries")
   while IFS=$'\t' read -r feature kind a b c d <&4; do
@@ -332,7 +336,7 @@ apply_entries() {
         f_call _hook_copy updated -- 644 "$b/$c" "$dest"
         ! $updated || changed+="$dest$nl"
         enable=false
-        if _unit_has_install "$b/$c" && { $updated || ! _hook_unit_enabled "$a" "$c"; }; then
+        if unit_has_install "$b/$c" && { $updated || ! _hook_unit_enabled "$a" "$c"; }; then
           enable=true
         fi
         units+="$a$tab$c$tab$d$tab$updated$tab$enable$nl"
@@ -429,14 +433,15 @@ _hook_reverse_lines() {
   awk '{ line[NR] = $0 } END { for (i = NR; i > 0; i--) print line[i] }' <<< "$1"
 }
 
-# Undo feature <feature>'s <entries>, newest first: stop, disable and remove its units, remove its blocks, files and
+# Undo implementation <feature>'s <entries>, newest first: stop, disable and remove its units, remove its blocks, files and
 # links (a link only while it still points into the repo), then its keep list subblock.
 # Usage: f_call undo_entries removed triggered -- <feature> <entries>
 # Returns: removed triggered
 #   removed: the paths it removed, one per line
 #   triggered: those that triggers should see (all but units, whose helpers reload systemd)
 undo_entries() {
-  local name="$1" entries="$2" removed="" triggered="" feature kind a b c d scope units sudo_cmd unit_removed
+  local name entries="$2" removed="" triggered="" feature kind a b c d scope units sudo_cmd unit_removed
+  name="$(implementation_feature "$1")"
   local nl=$'\n'
   for scope in system user; do
     units="$(awk -F '\t' -v s="$scope" '$2 == "unit" && $3 == s { print $5 }' <<< "$entries" | tr '\n' ' ')"
@@ -481,8 +486,8 @@ undo_entries() {
 
 # --- Post steps ---
 
-# Call post_<name> for <feature> (post_uninstall_<name> when <mode> is uninstall), if defined.
-# Usage: run_post <mode> <feature> <os> <profile> <enabled> <paths>
+# Call post_<impl> for implementation <impl> (post_uninstall_<impl> when <mode> is uninstall), if defined.
+# Usage: run_post <mode> <impl> <os> <profile> <machine> <enabled> <paths>
 #   <paths>: space-separated, the paths the feature changed, or removed
 run_post() {
   local fn
@@ -492,5 +497,5 @@ run_post() {
     fn="$(fn_name post_ "$2")"
   fi
   fn_defined "$fn" || return 0
-  "$fn" "$3" "$4" "$5" "$6"
+  "$fn" "$3" "$4" "$5" "$6" "$7"
 }

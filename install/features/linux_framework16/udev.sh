@@ -14,9 +14,17 @@ declare_udev() {
 }
 
 # Re-apply the rules to i2c devices if any changed.
-# Usage: post_udev <os> <profile> <enabled> <changed>
+# Usage: post_udev <os> <profile> <machine> <enabled> <changed>
 post_udev() {
-  local changed="$4"
+  local changed="$5"
   [[ -n "$changed" ]] || return 0
+  run sudo udevadm trigger --subsystem-match=i2c
+}
+
+# Re-apply the rules to i2c devices once any were removed.
+# Usage: post_uninstall_udev <os> <profile> <machine> <enabled> <removed>
+post_uninstall_udev() {
+  local removed="$5"
+  [[ -n "$removed" ]] || return 0
   run sudo udevadm trigger --subsystem-match=i2c
 }

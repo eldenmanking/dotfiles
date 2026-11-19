@@ -6,11 +6,13 @@
 #              clipboard. Prefers native clipboard tools (pbcopy / wl-copy /
 #              xclip / xsel) and falls back to OSC 52 escape sequences with
 #              tmux DCS passthrough when none are available.
-# Location: /usr/local/bin/clip
+# Location: ~/.local/bin/clip
 ################################################################################
 
 set -euo pipefail
+umask 077
 
+# A fixed path, so clip -r can read it from another machine; umask 077 keeps the file private to the user.
 CLIP_FILE="/tmp/clip.50eb42db-6835-4960-89dd-3813a9adeec3"
 CLIP_HOST_FILE="$HOME/.cache/clip.last_host"
 
@@ -56,10 +58,16 @@ copy_to_clipboard() {
         wl-copy < "$CLIP_FILE"
     elif command -v xclip >/dev/null 2>&1; then
         log "using xclip"
+        local copied=0 s
         for s in /tmp/.X11-unix/X*; do
             [ -S "$s" ] || continue
             DISPLAY=":${s##*/X}" xclip -selection clipboard -in < "$CLIP_FILE"
+            copied=1
         done
+        if [ "$copied" = 0 ]; then
+            log "no X server found, using OSC 52"
+            copy_via_osc52
+        fi
     elif command -v xsel >/dev/null 2>&1; then
         log "using xsel"
         xsel --clipboard --input < "$CLIP_FILE"

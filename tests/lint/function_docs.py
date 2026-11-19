@@ -24,8 +24,8 @@ arguments, with a Returns line listing the same names in the same order, exactly
 (A function that passes on what another returns, without calling f_return itself, may have an f_call Usage line and a
 Returns line too.) Each entry names an argument from the Usage line or a name from the Returns line, and the entries
 come last. feature_<name>, uninstall_feature_<name>, capture_feature_<name> and declare_<name> in install/features are
-left out: install.sh calls them all the same way (<os> <profile> <enabled>), and tests/validation/features.sh checks a
-feature's doc, which ends with tags.
+left out: install.sh calls them all the same way (<os> <profile> <machine> <enabled>), as do their __<dir>
+implementations, and tests/validation/features.sh checks a feature's doc, which ends with tags.
 
 Shell is only tokenized here, not parsed: quotes (across lines too), comments, here-documents and backslash
 continuations are understood, which is enough for the functions in this repo. Run by `make lint` with the shell files

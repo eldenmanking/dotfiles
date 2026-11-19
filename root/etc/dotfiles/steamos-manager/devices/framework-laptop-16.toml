@@ -1,0 +1,14 @@
+# Installed by the charge_limit feature of ~/dotfiles/install.sh, and added to steamos-manager's device files in
+# /usr/share/steamos-manager/devices by an overlay (systemd/system/usr-share-steamos\x2dmanager-devices.mount). Gives
+# steamos-manager, and so Steam's "Enable battery charge limit" setting, the Framework 16's charge limit: the battery's
+# charge_control_end_threshold, which cros_charge_control provides when loaded with the option in
+# modprobe.d/framework-charge-control.conf.
+[[device]]
+dmi.sys_vendor = "Framework"
+dmi.board_name = "FRANMZCP07"
+device = "framework_laptop_16"
+variant = "FRANMZCP07"
+friendly_name = "Framework Laptop 16"
+
+[battery_charge_limit]
+method = "acpi_sb"

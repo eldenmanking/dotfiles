@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Validate the feature, OS, profile and variant registry without installing anything: every feature_<name> function in
-# install/features is documented (a feature_description entry, and a doc comment with a description and @machine, @os
-# and @gui tags), every feature for specific hardware sits in install/features/<os>_<machine>/, every OS names known
-# platforms and machines, the features of every OS and profile exist, suit its platforms, GUI and machines, and come
-# after the features they require, its link paths exist, naming single files under root/, and every variant names an
-# OS and profile that go together, and every one-time install in install/oti defines its function and description and
-# no uninstall. Run via `make validate`.
+# Validate the feature, OS, profile and variant registry without installing anything: every feature has a
+# feature_description entry and every implementation of it (feature_<name>, or each feature_<name>__<dir>) a doc comment
+# with a description and @machine, @os and @gui tags, no feature function is defined twice, every feature for specific
+# hardware and every implementation sits in the install/features/<dir>/ its tags name, every OS names known platforms
+# and machines, the features of every OS and profile exist, have exactly one implementation that suits its platforms,
+# GUI and each of its machines (or, for hardware-specific ones, some of them), and come after the features they
+# require, its link paths exist, naming single files under root/, and every variant names an OS and profile that go
+# together, every one-time install in install/oti defines its function and description and no uninstall, uninstall
+# and capture functions name a feature (or implementation) that honors --dry-run, and features that copy files into
+# /etc keep them across SteamOS updates. Run via `make validate`.
 
 set -euo pipefail
 
@@ -20,25 +23,41 @@ LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 DRY_RUN=true
 
-for f in "$INSTALL_DIR"/lib/*.sh "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
-  "$INSTALL_DIR"/os/*.sh "$INSTALL_DIR"/profiles/*.sh "$INSTALL_DIR"/variants/*.sh "$INSTALL_DIR"/oti/*.sh; do
-  # shellcheck source=/dev/null
-  source "$f"
-done
+load_install_tree
 
-# Find every feature with a feature_<name> or declare_<name> function in install/features.
+# Find every feature with a feature_<name> or declare_<name> function, or __<dir> implementations of either, in
+# install/features.
 # Usage: f_call scan_features features
 # Returns: features
+#   features: each feature name once, without the __<dir> of its implementations
 scan_features() {
-  local features
-  features="$(sed -n -e 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' -e 's/^declare_\([a-z0-9_]*\)() *{.*/\1/p' \
-    "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | tr '\n' ' ')"
+  local features="" name
+  while IFS= read -r name; do
+    name="$(implementation_feature "$name")"
+    list_contains "$features" "$name" || features+="${features:+ }$name"
+  done < <(sed -n -e 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' -e 's/^declare_\([a-z0-9_]*\)() *{.*/\1/p' \
+    "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
   f_return features
 }
 
-# Print the directory under install/features holding feature $1's function: empty for the top level, else its
-# subdirectory's name.
-# Usage: feature_dir <feature>
+# Check that no feature, declare, uninstall, capture or post function is defined in more than one place in
+# install/features: bash would quietly keep the last one sourced.
+# Usage: f_call check_duplicates problems
+# Returns: problems
+#   problems: a line for each function defined more than once
+check_duplicates() {
+  local problems="" fn
+  for fn in $(sed -n -e 's/^\(\(uninstall_\|capture_\)\{0,1\}feature_[a-z0-9_]*\)() *{.*/\1/p' \
+    -e 's/^\(\(declare\|post\|post_uninstall\)_[a-z0-9_]*\)() *{.*/\1/p' \
+    "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | sort | uniq -d); do
+    problems+="$fn is defined more than once in install/features"$'\n'
+  done
+  f_return problems
+}
+
+# Print the directory under install/features holding the function of feature or implementation <impl>: empty for the
+# top level, else its subdirectory's name.
+# Usage: feature_dir <impl>
 feature_dir() {
   local file
   file="$(grep -lE "^(feature|declare)_${1//-/_}\(\)" "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
@@ -47,21 +66,28 @@ feature_dir() {
   [[ "$file" != */* ]] || printf '%s' "${file%%/*}"
 }
 
-# Check that feature <feature>, for machines <machine> and OSes <os>, is where its tags put it: features for any
-# machine at the top of install/features, the others in a subdirectory named <os>_<machine> after their single
-# @os and @machine values.
-# Usage: f_call check_feature_dir problems -- <feature> <machine> <os>
+# Check that feature or implementation <impl>, for machines <machine>, OSes <os> and GUIs <gui>, is where its tags
+# put it: a feature with one implementation for any machine at the top of install/features, and the others (features
+# for specific hardware, and each feature_<name>__<dir> implementation) in the subdirectory implementation_dir names
+# after their single @os, @machine and @gui values, which an implementation's id also ends with (__<dir>).
+# Usage: f_call check_feature_dir problems -- <impl> <machine> <os> <gui>
 # Returns: problems
 #   problems: a line if it isn't
 check_feature_dir() {
-  local feature="$1" machine="$2" os="$3" dir problems=""
-  dir="$(feature_dir "$feature")"
-  if [[ "$machine" == any ]]; then
-    [[ -z "$dir" ]] || problems="--$feature: is for any machine, so belongs in install/features, not $dir/"$'\n'
-  elif [[ "$machine" == *" "* || "$os" == *" "* ]]; then
-    problems="--$feature: a feature for specific hardware needs a single @os and @machine, to sit in <os>_<machine>/"$'\n'
-  elif [[ "$dir" != "${os}_$machine" ]]; then
-    problems="--$feature: belongs in install/features/${os}_$machine/ (its @os and @machine), not ${dir:-the top level}"$'\n'
+  local impl="$1" machine="$2" os="$3" gui="$4" dir want problems="" nl=$'\n'
+  dir="$(feature_dir "$impl")"
+  if [[ "$impl" != *__* && "$machine" == any ]]; then
+    [[ -z "$dir" ]] || problems="--$impl: is for any machine, so belongs in install/features, not $dir/$nl"
+  elif [[ "$machine" == *" "* || "$os" == *" "* || "$gui" == *" "* ]]; then
+    problems="--$impl: a feature for specific hardware or an implementation needs a single @os, @machine and @gui,"
+    problems+=" to sit in install/features/<os>[_<machine>][_<gui>]/$nl"
+  else
+    want="$(implementation_dir "$machine" "$os" "$gui")"
+    if [[ "$dir" != "$want" ]]; then
+      problems="--$impl: belongs in install/features/$want/ (its @os, @machine and @gui), not ${dir:-the top level}$nl"
+    elif [[ "$impl" == *__* && "${impl#*__}" != "$want" ]]; then
+      problems="--$impl: an implementation in $want/ is named feature_$(implementation_feature "$impl")__$want$nl"
+    fi
   fi
   f_return problems
 }
@@ -104,72 +130,118 @@ check_doc_layout() {
   f_return problems
 }
 
-# Check the documentation of feature <feature>.
+# Check the documentation of feature <feature>: its feature_description entry, and the doc, tags and place of each of
+# its implementations. A feature has either a single feature_<name> or feature_<name>__<dir> implementations, not both.
 # Usage: f_call check_feature_docs problems -- <feature> <known>
 #   <known>: every known feature
 # Returns: problems
 #   problems: one line per problem
 check_feature_docs() {
-  local feature="$1" known="$2" problems="" dep doc found machine os gui requires
+  local feature="$1" known="$2" problems="" dep doc found machine os gui requires impl impls
   [[ -n "$(feature_description "$feature")" ]] \
     || problems+="--$feature: no feature_description entry"$'\n'
-
-  f_call feature_doc doc -- "$feature"
-  f_call check_doc_layout found=problems -- "$feature" "$doc"
-  problems+="$found"
-
-  f_call feature_requirements machine os gui requires -- "$feature"
-  f_call check_tag found=problems -- "$feature" machine "$machine" "$FEATURE_MACHINES"
-  problems+="$found"
-  f_call check_tag found=problems -- "$feature" os "$os" "$FEATURE_OSES"
-  problems+="$found"
-  f_call check_tag found=problems -- "$feature" gui "$gui" "$FEATURE_GUIS"
-  problems+="$found"
-  if [[ -n "$machine" && -n "$os" ]]; then
-    f_call check_feature_dir found=problems -- "$feature" "$machine" "$os"
-    problems+="$found"
+  impls="$(feature_implementations "$feature")"
+  if list_contains "$impls" "$feature" && [[ "$impls" == *" "* ]]; then
+    problems+="--$feature: has implementations ($impls), so defines no plain $(feature_function "$feature")"$'\n'
   fi
-  for dep in $requires; do
-    list_contains "$known" "$dep" || problems+="--$feature: @requires '$dep' is not a feature"$'\n'
+
+  for impl in $impls; do
+    f_call feature_doc doc -- "$impl"
+    f_call check_doc_layout found=problems -- "$impl" "$doc"
+    problems+="$found"
+
+    f_call feature_requirements machine os gui requires -- "$impl"
+    f_call check_tag found=problems -- "$impl" machine "$machine" "$FEATURE_MACHINES"
+    problems+="$found"
+    f_call check_tag found=problems -- "$impl" os "$os" "$FEATURE_OSES"
+    problems+="$found"
+    f_call check_tag found=problems -- "$impl" gui "$gui" "$FEATURE_GUIS"
+    problems+="$found"
+    if [[ -n "$machine" && -n "$os" && -n "$gui" ]]; then
+      f_call check_feature_dir found=problems -- "$impl" "$machine" "$os" "$gui"
+      problems+="$found"
+    fi
+    for dep in $requires; do
+      list_contains "$known" "$dep" || problems+="--$impl: @requires '$dep' is not a feature"$'\n'
+    done
   done
 
   f_return problems
 }
 
-# Check feature <feature> in OS and profile <setup> (as os/profile), which target platforms <platforms>, GUI <gui>
-# and machines <machines>.
-# Usage: f_call check_feature problems -- <setup> <feature> <platforms> <gui> <machines> <earlier>
-#   <earlier>: the features that run before this one
+# Check that implementation <impl> suits platforms <platforms>, GUI <gui> and some machine in <machines>.
+# Usage: f_call check_suits problems -- <setup> <impl> <platforms> <gui> <machines>
 # Returns: problems
-#   problems: one line per problem
-check_feature() {
-  local setup="$1" feature="$2" platforms="$3" gui="$4" os_machines="$5" earlier="$6" nl=$'\n' problems="" v dep suited
-  local machine os feature_gui requires
-
-  if ! declare -F "$(feature_function "$feature")" >/dev/null && ! feature_declared "$feature"; then
-    f_return problems="$setup: --$feature has no $(feature_function "$feature") function$nl"
-    return
-  fi
-
+#   problems: one line per tag that doesn't suit
+check_suits() {
+  local setup="$1" impl="$2" platforms="$3" gui="$4" os_machines="$5" nl=$'\n' problems="" v suited
+  local machine os impl_gui
   # Missing tags are reported once by check_feature_docs.
-  f_call feature_requirements machine os feature_gui=gui requires -- "$feature"
+  f_call feature_requirements machine os impl_gui=gui -- "$impl"
   [[ -n "$os" ]] || platforms=""
-  [[ -n "$feature_gui" ]] || gui=""
+  [[ -n "$impl_gui" ]] || gui=""
   for v in $platforms; do
-    os_supported "$os" "$v" || problems+="$setup: --$feature supports os '$os', not '$v'$nl"
+    os_supported "$os" "$v" || problems+="$setup: --$impl supports os '$os', not '$v'$nl"
   done
   for v in $gui; do
-    gui_supported "$feature_gui" "$v" || problems+="$setup: --$feature supports gui '$feature_gui', not '$v'$nl"
+    gui_supported "$impl_gui" "$v" || problems+="$setup: --$impl supports gui '$impl_gui', not '$v'$nl"
   done
   if [[ -n "$machine" ]]; then
     suited=false
     for v in $os_machines; do
       machine_supported "$machine" "$v" && suited=true
     done
-    $suited || problems+="$setup: --$feature is for machine '$machine', which the OS doesn't support ($os_machines)$nl"
+    $suited || problems+="$setup: --$impl is for machine '$machine', which the OS doesn't support ($os_machines)$nl"
   fi
-  for dep in $requires; do
-    list_contains "$earlier" "$dep" || problems+="$setup: --$feature requires --$dep earlier in its features$nl"
+  f_return problems
+}
+
+# Check feature <feature> in OS and profile <setup> (as os/profile), which target platforms <platforms>, GUI <gui>
+# and machines <machines>: a feature with one implementation must suit them (some of the machines, for hardware-specific
+# ones), and of a feature's several implementations, exactly one must suit the platforms and GUI on each machine that
+# any of them suits. Each implementation that can run must come after the features it requires.
+# Usage: f_call check_feature problems -- <setup> <feature> <platforms> <gui> <machines> <earlier>
+#   <earlier>: the features that run before this one
+# Returns: problems
+#   problems: one line per problem
+check_feature() {
+  local setup="$1" feature="$2" platforms="$3" gui="$4" os_machines="$5" earlier="$6" nl=$'\n' problems="" dep
+  local impls impl candidates="" matches m runs="" requires found
+
+  impls="$(feature_implementations "$feature")"
+  if [[ -z "$impls" ]]; then
+    f_return problems="$setup: --$feature has no $(feature_function "$feature") function or implementations$nl"
+    return
+  fi
+
+  if [[ "$impls" != *" "* ]]; then
+    f_call check_suits found=problems -- "$setup" "$impls" "$platforms" "$gui" "$os_machines"
+    problems+="$found"
+    runs="$impls"
+  else
+    for impl in $impls; do
+      implementation_suits "$impl" "$platforms" "$gui" && candidates+="${candidates:+ }$impl"
+    done
+    [[ -n "$candidates" ]] \
+      || problems+="$setup: --$feature has no implementation for platforms '$platforms' with gui '$gui' ($impls)$nl"
+    for m in $os_machines; do
+      matches=""
+      for impl in $candidates; do
+        implementation_suits "$impl" "$platforms" "$gui" "$m" && matches+="${matches:+ }$impl"
+      done
+      [[ "$matches" != *" "* ]] || problems+="$setup: --$feature has several implementations for machine $m: $matches$nl"
+      for impl in $matches; do
+        list_contains "$runs" "$impl" || runs+="${runs:+ }$impl"
+      done
+    done
+    [[ -z "$candidates" || -n "$runs" ]] \
+      || problems+="$setup: --$feature has no implementation for a machine the OS supports ($os_machines)$nl"
+  fi
+  for impl in $runs; do
+    f_call feature_requirements requires -- "$impl"
+    for dep in $requires; do
+      list_contains "$earlier" "$dep" || problems+="$setup: --$impl requires --$dep earlier in its features$nl"
+    done
   done
 
   f_return problems
@@ -256,11 +328,74 @@ check_oti() {
   f_return problems
 }
 
+# Files in install/features that copy files or units into /etc, so must keep them across SteamOS updates, mapped to why
+# one doesn't (a file listed here may still call keep_across_steamos_updates). Each is "path reason".
+KEEP_EXEMPT="
+desktop.sh edits /etc/bluetooth/main.conf, which only the arch and other Linux desktops use; SteamOS keeps its own
+console.sh copies boot-time console settings, which only the arch desktop profile installs; SteamOS keeps its own
+"
+
+# Find the problems with the hooks of the features: every uninstall_feature_<x> and capture_feature_<x> must name a
+# feature, or an implementation feature_<name>__<dir> or declare_<name>__<dir> that exists, and a feature with either
+# must be in DRY_RUN_FEATURES, since both must honor --dry-run. A declared implementation (declare_<x>) is undone
+# generically, so it defines no uninstall_feature_<x>, which would never run, nor a feature_<x>, and every post_<x> and
+# post_uninstall_<x> must name one.
+# Usage: f_call check_hook_functions problems -- <known>
+#   <known>: the space-separated names of all the features
+# Returns: problems
+#   problems: one line per problem
+check_hook_functions() {
+  local known="$1" problems="" kind name feature
+  while IFS=: read -r kind name; do
+    [[ -n "$name" ]] || continue
+    feature="$(implementation_feature "$name")"
+    if ! list_contains "$known" "$feature"; then
+      problems+="${kind}_feature_$name: names no feature"$'\n'
+    elif [[ "$name" == *__* ]] && ! fn_defined "$(feature_function "$name")" && ! feature_declared "$name"; then
+      problems+="${kind}_feature_$name: names no implementation ($(feature_function "$name") isn't defined)"$'\n'
+    elif [[ "$kind" == uninstall ]] && feature_declared "$name"; then
+      problems+="uninstall_feature_$name: never runs, since $(declare_function "$name") is undone generically"$'\n'
+    fi
+    list_contains "$DRY_RUN_FEATURES" "$feature" \
+      || problems+="--$feature: has ${kind}_feature_$name, which must honor --dry-run, but is not in DRY_RUN_FEATURES"$'\n'
+  done < <(sed -n 's/^\(uninstall\|capture\)_feature_\([a-z0-9_]*\)() *{.*/\1:\2/p' \
+    "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
+  while IFS=: read -r kind name; do
+    [[ -n "$name" ]] || continue
+    feature_declared "$name" || problems+="${kind}_$name: names no declared feature ($(declare_function "$name") isn't defined)"$'\n'
+  done < <(sed -n -e 's/^\(post_uninstall\)_\([a-z0-9_]*\)() *{.*/\1:\2/p' -e 's/^\(post\)_\([a-z0-9_]*\)() *{.*/\1:\2/p' \
+    "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | grep -v '^post:uninstall_')
+  while IFS= read -r name; do
+    ! fn_defined "$(feature_function "$name")" \
+      || problems+="--$name: defines both $(declare_function "$name") and $(feature_function "$name"); a feature is one or the other"$'\n'
+  done < <(sed -n 's/^declare_\([a-z0-9_]*\)() *{.*/\1/p' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
+  f_return problems
+}
+
+# Find the feature files under install/features that copy system files or units (into /etc) without calling
+# keep_across_steamos_updates: a SteamOS update would drop them. This greps for the copying helpers, so it is a
+# heuristic; KEEP_EXEMPT lists the exceptions.
+# Usage: f_call check_steamos_keep problems
+# Returns: problems
+#   problems: one line per feature file
+check_steamos_keep() {
+  local problems="" file name
+  for file in "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh; do
+    name="${file#"$INSTALL_DIR"/features/}"
+    grep -qE '^[^#]*(copy_system_files?|install_system_units|install_user_units|confirmsed /etc/)' "$file" || continue
+    grep -qE 'keep_across_steamos_updates|install_system_dir' "$file" && continue
+    case "$KEEP_EXEMPT" in *$'\n'"${name##*/} "*) continue ;; esac
+    problems+="install/features/$name: writes into /etc but never calls keep_across_steamos_updates (or add it to KEEP_EXEMPT with a reason)"$'\n'
+  done
+  f_return problems
+}
+
 # Run every check, then fail with all the problems found, if any.
 # Usage: main
 main() {
   local variant os profile problems="" known feature k found oti
   f_call scan_features known=features
+  f_call check_duplicates problems
 
   for feature in $known; do
     f_call check_feature_docs found=problems -- "$feature" "$known"
@@ -282,6 +417,10 @@ main() {
     f_call check_oti found=problems -- "$oti"
     problems+="$found"
   done
+  f_call check_hook_functions found=problems -- "$known"
+  problems+="$found"
+  f_call check_steamos_keep found=problems
+  problems+="$found"
   for k in $DRY_RUN_FEATURES; do
     list_contains "$known" "$k" || problems+="DRY_RUN_FEATURES names unknown feature '$k'"$'\n'
   done

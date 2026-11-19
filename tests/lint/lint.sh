@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Lint the code: shell, zsh, Python and TOML syntax, function doc comments, shellcheck, one-time installs' bare
-# commands and actionlint. Run via `make lint`.
+# commands, portability of the installer and actionlint. Run via `make lint`.
 
 set -euo pipefail
 
@@ -18,7 +18,7 @@ tracked_files() {
 # sourced by install.sh, and fixtures' case.sh by tests/fixtures.sh, so they are bash.
 # Usage: f_call classify_files sh bash sourced zsh python
 # Returns: sh bash sourced zsh python
-#   sourced: bash files without a shebang
+#   sourced: bash files without a shebang (the install tree, tests/lib.sh and fixtures' case.sh)
 classify_files() {
   local sh="" bash="" sourced="" zsh="" python="" file first
   while IFS= read -r file; do
@@ -31,7 +31,7 @@ classify_files() {
       '#!'*python*)        python+="$file"$'\n' ;;
       *)
         case "$file" in
-          install/*.sh|tests/fixtures/*/case.sh) sourced+="$file"$'\n' ;;
+          install/*.sh|tests/lib.sh|tests/fixtures/*/case.sh) sourced+="$file"$'\n' ;;
           *.zsh)        zsh+="$file"$'\n' ;;
           *.py)         python+="$file"$'\n' ;;
         esac
@@ -110,6 +110,42 @@ toml_syntax() {
   python3 -c 'import sys, tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$1"
 }
 
+# Bash 3.2 (macOS) lacks these, and BSD tools lack GNU-only flags, so none may appear in shell run by install.sh. The
+# one-time installs in install/oti run on a live ISO, so are exempt.
+PORTABILITY_PATTERN='mapfile|readarray|declare -A|local -n|declare -n|readlink -f|grep -P|\$\{[A-Za-z_][A-Za-z0-9_]*(\^\^|,,)'
+
+# Report each use of a construct bash 3.2 or BSD tools lack in the tracked shell files of install/, install.sh and
+# scripts/ (but install/oti/), skipping comment lines. Returns 1 if there are any.
+# Usage: portability
+portability() {
+  local found
+  found="$(cd "$REPO_ROOT" && tracked_files install install.sh scripts | grep -v '^install/oti/' \
+    | xargs grep -nE -- "$PORTABILITY_PATTERN" | grep -vE '^[^:]*:[0-9]+:[[:space:]]*#' || true)"
+  [[ -z "$found" ]] || { warn "not portable to bash 3.2 and macOS (install/oti is exempt):"; printf '%s\n' "$found" >&2; return 1; }
+}
+
+# Report each call of a _-prefixed function in a file that doesn't define it: those helpers are private to their file.
+# Functions of the same name in two files each stay private to theirs. Returns 1 if there are any.
+# Usage: private_helpers
+private_helpers() {
+  local files file name defs failed=0
+  files="$(cd "$REPO_ROOT" && tracked_files install install.sh scripts | grep -v '^install/oti/' || true)"
+  # Each defined name with the file defining it, "name file".
+  defs="$(cd "$REPO_ROOT" && for file in $files; do
+    sed -n "s|^\(_[a-z][a-z0-9_]*\)() *{.*|\1 $file|p" "$file"
+  done)"
+  while read -r name file; do
+    [[ -n "$name" ]] || continue
+    while IFS= read -r user; do
+      [[ "$user" == "$file" ]] && continue
+      grep -qE "^$name\(\)" "$REPO_ROOT/$user" && continue
+      warn "$user calls $name, which is private to $file"
+      failed=1
+    done < <(cd "$REPO_ROOT" && grep -lwE -- "$name" $files || true)
+  done <<< "$defs"
+  return "$failed"
+}
+
 # Run every lint check, then fail if any failed.
 # Usage: main
 main() {
@@ -146,6 +182,10 @@ main() {
   each_file "$sourced" unused_variables "$shellcheck" -s bash || failed=1
 
   tests/lint/oti_commands.sh || failed=1
+  info "portability: no bash 4 features or GNU-only flags in install/, install.sh and scripts/"
+  portability || failed=1
+  info "_-prefixed helpers are called only from the file defining them"
+  private_helpers || failed=1
 
   if [[ -n "$(git ls-files .github/workflows)" ]]; then
     info "actionlint $ACTIONLINT_VERSION"

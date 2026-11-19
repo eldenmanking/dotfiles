@@ -26,18 +26,18 @@ declare_hdmi_audio_fix() {
 }
 
 # Say how to check the socclk floor if the unit changed.
-# Usage: post_hdmi_audio_fix <os> <profile> <enabled> <changed>
+# Usage: post_hdmi_audio_fix <os> <profile> <machine> <enabled> <changed>
 post_hdmi_audio_fix() {
-  local changed="$4"
+  local changed="$5"
   [[ -n "$changed" ]] || return 0
   info "Check with: cat /sys/bus/pci/devices/*/pp_dpm_socclk (no level below 720 MHz should be active)"
 }
 
 # Once the unit is removed, reset the 780M's clock range and set it back to the auto performance level, which also
 # lifts the socclk floor.
-# Usage: post_uninstall_hdmi_audio_fix <os> <profile> <enabled> <removed>
+# Usage: post_uninstall_hdmi_audio_fix <os> <profile> <machine> <enabled> <removed>
 post_uninstall_hdmi_audio_fix() {
-  local removed="$4" dev
+  local removed="$5" dev
   [[ -n "$removed" ]] || return 0
   for dev in $(pci_devices_with_id "$HDMI_AUDIO_FIX_ID"); do
     run sudo sh -c "echo r > $dev/pp_od_clk_voltage; echo c > $dev/pp_od_clk_voltage

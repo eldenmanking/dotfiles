@@ -11,10 +11,10 @@ feature_description() {
     font)        echo "install JetBrainsMono Nerd Font to ~/.local/share/fonts" ;;
     printer)     echo "install and set up HP printer drivers" ;;
     logiops)     echo "install and configure logitech software" ;;
+    console)     echo "copy the us-caps console keymap and hid_apple option into /etc and /usr (not symlinked; boot-time files)" ;;
     link)        echo "symlink the OS and profile's dotfiles into ~ (root/ into /)" ;;
     desktop)     echo "enable bluetooth and the GDM login screen, and boot into it (sudo)" ;;
     manual)      echo "make manual substitutions to files in-place" ;;
-    dconf)       echo "load dconf configuration" ;;
     xdg)         echo "load default xdg configuration" ;;
     info)        echo "provide info on manual configuration tasks" ;;
     shell)       echo "source the shared shell config from the profiles, .bashrc and .zshrc" ;;
@@ -36,11 +36,14 @@ feature_description() {
     steamos_vm) echo "create a virt-manager VM running SteamOS with GPU acceleration, installed unattended from Valve's recovery image; start it with steamos-vm" ;;
     steamos_xclip) echo "install xclip to ~/.local/bin by copying it out of the 'arch' distrobox (created if missing, then kept)" ;;
     steam)       echo "write Steam settings (game mode menu hotkeys) into localconfig.vdf, while Steam is closed" ;;
+    steamgrid)   echo "copy the custom artwork in dump/steamgrid (Chrome, Discord) into each Steam user's config/grid" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units into /etc (browser shell on localhost)" ;;
     hdmi_audio_fix) echo "install hdmi-audio-fix.service into /etc (sudo): a socclk floor on the Framework 16 780M, for HDMI audio" ;;
     gamescope_screenshot) echo "link gamescope-screenshot and install systemd user units into /etc (sudo) that save a Gaming Mode screenshot on Print Screen or Shift+Meta+4" ;;
-    kde)         echo "merge partial KDE config files (e.g. home/.config/kcminputrc) into ~/.config with kwriteconfig" ;;
+    desktop_settings) echo "load desktop settings: dump/dconf/arch.dconf on GNOME, home/.config KDE files merged with kwriteconfig on KDE" ;;
     light_sleep) echo "install light-sleep into /etc (sudo): idle with the displays off instead of suspending while an eGPU is on the expansion bay" ;;
+    quiet_slow_charger) echo "install vpower-filter into /etc (sudo): Steam shows a charger that can't keep up as connected, without its Slow Charger dialog" ;;
+    charge_limit) echo "copy a modprobe option, a steamos-manager device file and a mount unit into /etc (sudo): Steam's battery charge limit setting controls the Framework 16's instead of the BIOS one, turned on at 80%" ;;
     orei_switch) echo "download framework_tool and install the OREI HDMI switch sleep/wake handoff into /etc (sudo)" ;;
     distrobox)   echo "create an 'arch' distrobox from archlinux:latest and enter it" ;;
     *)           echo "" ;;
@@ -52,8 +55,9 @@ FEATURE_MACHINES="any laptop framework16"
 FEATURE_OSES="any linux macos arch steamos"
 FEATURE_GUIS="any desktop gnome kde"
 
-# Read the doc comment of feature <feature>: the comment block directly above its feature_<name> (or
-# declare_<name>) function in install/features. A feature's doc is a description, a bare '#' line, then its tags:
+# Read the doc comment of feature or implementation <feature>: the comment block directly above its feature_<name>
+# or declare_<name> (or feature_<name>__<dir>, declare_<name>__<dir>) function in install/features. A feature's doc
+# is a description, a bare '#' line, then its tags:
 #   # Install the thing for x.
 #   #
 #   # @machine any
@@ -87,7 +91,8 @@ feature_doc() {
 # Usage: f_call feature_requirements machine os gui requires -- <feature>
 # Returns: machine os gui requires
 #   machine: @machine, hardware it is for: any, laptop, framework16. Features for specific hardware live in
-#     install/features/<os>_<machine>/ and are left out of --all on other machines (see machine_supported)
+#     install/features/<os>_<machine>/ (see implementation_dir) and are left out of --all on other machines (see
+#     machine_supported)
 #   os: @os, any, linux, macos, arch, steamos (linux covers arch and steamos)
 #   gui: @gui, any (also headless), desktop (any graphical session), gnome, kde
 #   requires: @requires (optional), features that must run before it in the same OS and profile
@@ -126,6 +131,103 @@ gui_supported() {
     || { list_contains "$1" desktop && [[ "$2" != none ]]; }
 }
 
+# A feature has one implementation, feature_<name>, or several, each feature_<name>__<dir> in
+# install/features/<dir>/<name>.sh, where <dir> is named after the implementation's single @os, @machine and @gui (see
+# implementation_dir). install.sh runs the one whose tags suit the OS, profile and machine. An implementation's id
+# (<name>, or <name>__<dir>) stands in for a feature name in feature_function, uninstall_function, capture_function,
+# feature_doc and feature_requirements, so each implementation has its own doc, tags, uninstall and capture.
+
+# Print the subdirectory of install/features that holds a feature or implementation for machine <machine>, OS <os> and
+# GUI <gui> (each a single tag value): <os>, then _<machine> and _<gui> unless they are any, e.g. linux_framework16 or
+# linux_kde.
+# Usage: implementation_dir <machine> <os> <gui>
+implementation_dir() {
+  local machine="$1" os="$2" gui="$3"
+  printf '%s' "$os"
+  [[ "$machine" == any ]] || printf '_%s' "$machine"
+  [[ "$gui" == any ]] || printf '_%s' "$gui"
+}
+
+# Print the base feature name of implementation id <impl>: <impl> without its __<dir> suffix.
+# Usage: implementation_feature <impl>
+implementation_feature() {
+  printf '%s' "${1%%__*}"
+}
+
+# Print the ids of feature <feature>'s implementations, space-separated: <feature> when feature_<feature> or
+# declare_<feature> is defined, then each <feature>__<dir> whose feature_<feature>__<dir> or declare_<feature>__<dir>
+# is (declare_ for a declared implementation, see install/lib/hooks.sh).
+# Usage: feature_implementations <feature>
+feature_implementations() {
+  local fn dfn ids="" line
+  fn="$(feature_function "$1")"
+  dfn="$(fn_name declare_ "$1")"
+  if fn_defined "$fn" || fn_defined "$dfn"; then
+    ids="$1"
+  fi
+  while IFS= read -r line; do
+    line="${line#declare -f }"
+    if [[ "$line" == "${fn}__"* ]]; then
+      ids+="${ids:+ }$1__${line#"${fn}__"}"
+    elif [[ "$line" == "${dfn}__"* ]]; then
+      ids+="${ids:+ }$1__${line#"${dfn}__"}"
+    fi
+  done < <(declare -F)
+  printf '%s' "$ids"
+}
+
+# Return 0 if an implementation with tags @machine <impl_machine>, @os <impl_os> and @gui <impl_gui> suits every
+# platform in <platforms> (an OS's @os values), GUI <gui> and, unless <machine> is empty, machine <machine>.
+# Usage: tags_suit <impl_machine> <impl_os> <impl_gui> <platforms> <gui> [<machine>]
+tags_suit() {
+  local impl_machine="$1" impl_os="$2" impl_gui="$3" platforms="$4" gui="$5" machine="${6:-}" v
+  for v in $platforms; do
+    os_supported "$impl_os" "$v" || return 1
+  done
+  gui_supported "$impl_gui" "$gui" || return 1
+  [[ -z "$machine" ]] || machine_supported "$impl_machine" "$machine"
+}
+
+# Return 0 if implementation <impl> suits every platform in <platforms>, GUI <gui> and, unless <machine> is empty,
+# machine <machine> (see tags_suit).
+# Usage: implementation_suits <impl> <platforms> <gui> [<machine>]
+implementation_suits() {
+  local impl_machine impl_os impl_gui
+  f_call feature_requirements impl_machine=machine impl_os=os impl_gui=gui -- "$1"
+  tags_suit "$impl_machine" "$impl_os" "$impl_gui" "$2" "$3" "${4:-}"
+}
+
+# Pick the implementation of feature <feature> to run for platforms <platforms> (an OS's @os values), GUI <gui> and
+# machine <machine>. When none suits <machine>, falls back to the one implementation that suits the platforms and GUI
+# on some other machine, which runs only when its feature is named.
+# Usage: f_call resolve_implementation impl suited problem -- <feature> <platforms> <gui> <machine>
+# Returns: impl suited problem
+#   impl: the implementation's id, or empty when none can run
+#   suited: true when impl suits <machine>, false when it is for another machine or empty
+#   problem: why impl is empty, or empty
+resolve_implementation() {
+  local feature="$1" platforms="$2" gui="$3" machine="$4" id candidates="" matches="" impl="" suited=false problem=""
+  local impl_machine impl_os impl_gui
+  for id in $(feature_implementations "$feature"); do
+    f_call feature_requirements impl_machine=machine impl_os=os impl_gui=gui -- "$id"
+    tags_suit "$impl_machine" "$impl_os" "$impl_gui" "$platforms" "$gui" || continue
+    candidates+="${candidates:+ }$id"
+    tags_suit "$impl_machine" "$impl_os" "$impl_gui" "$platforms" "$gui" "$machine" && matches+="${matches:+ }$id"
+  done
+  if [[ -n "$matches" && "$matches" != *" "* ]]; then
+    impl="$matches" suited=true
+  elif [[ -n "$matches" ]]; then
+    problem="--$feature has several implementations for machine $machine: $matches"
+  elif [[ -n "$candidates" && "$candidates" != *" "* ]]; then
+    impl="$candidates"
+  elif [[ -n "$candidates" ]]; then
+    problem="--$feature has no implementation for machine $machine, only for other machines: $candidates"
+  else
+    problem="--$feature has no implementation for platforms '$platforms' with GUI '$gui'"
+  fi
+  f_return impl suited problem
+}
+
 # Feature lists the OSes' profiles share (install/os/*.sh), so that they stay in step. The order each profile runs
 # its features in is its own, so a profile lists these where its other features need them.
 # Hardware-specific system files copied into /etc (for laptops or the framework16 machine): --all skips them on
@@ -136,8 +238,8 @@ FEATURES_TOOLS="tmux claude gitconfig"
 # What the portable profiles share before their last features.
 FEATURES_PORTABLE="binaries link zsh shell starship tmux"
 
-# Features that honor --dry-run; others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops link desktop manual tmux gitconfig dconf xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak kde steam udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep gamescope_screenshot distrobox "
+# Features that honor --dry-run (all of a listed feature's implementations must); others are only announced.
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops console link desktop manual shell starship zsh claude binaries gng tre tmux gitconfig desktop_settings xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak steam steamgrid udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep quiet_slow_charger charge_limit gamescope_screenshot distrobox "
 
 # Print the name of feature <feature>'s function, feature_<name> with any - as _.
 # Usage: feature_function <feature>
@@ -257,4 +359,14 @@ os_profile_config() {
   "profile_$2"
   "os_$1"
   "os_$1_$2"
+}
+
+# Pick the implementation of feature <feature> to run for OS <os> with profile <profile> on machine <machine>, with
+# resolve_implementation and the OS's platforms and the profile's GUI.
+# Usage: f_call feature_implementation impl suited problem -- <feature> <os> <profile> <machine>
+# Returns: impl suited problem
+feature_implementation() {
+  local feature="$1" os="$2" profile="$3" machine="$4" platforms gui
+  f_call os_profile_config platforms gui -- "$os" "$profile"
+  resolve_implementation "$feature" "$platforms" "$gui" "$machine"
 }

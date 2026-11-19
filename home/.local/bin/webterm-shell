@@ -1,4 +1,6 @@
 #!/bin/sh
 # Command ttyd runs for each browser connection.
 cd "$HOME" || exit 1
-exec "${SHELL:-/bin/bash}" -l
+# SHELL comes from the webterm env file; fall back to bash when it is unset or not installed here.
+[ -x "${SHELL:-}" ] || SHELL=/bin/bash
+exec "$SHELL" -l

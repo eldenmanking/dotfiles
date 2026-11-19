@@ -8,6 +8,8 @@ Before=display-manager.service
 [Service]
 Type=oneshot
 ExecStart=/etc/dotfiles/bin/orei-switch boot
+# Delays the login screen, so give up rather than hang it.
+TimeoutStartSec=60
 
 [Install]
 WantedBy=multi-user.target

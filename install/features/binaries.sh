@@ -93,6 +93,11 @@ install_tmux_binary() {
     return
   fi
 
+  if $DRY_RUN; then
+    info "[dry-run] would download tmux $TMUX_VERSION and build it into $LOCAL_PREFIX"
+    return
+  fi
+
   # tmux only provides source tarballs — we need to build from source.
   local cmd missing=()
   for cmd in gcc make pkg-config; do
@@ -144,12 +149,17 @@ feature_gng() {
 
   local gng_dir="$LOCAL_PREFIX/gng"
 
+  if $DRY_RUN; then
+    info "[dry-run] would fetch gng $GNG_VERSION into $gng_dir and run its install script with sudo"
+    return
+  fi
+
   # Whatever is cloned is checked out at the pinned commit before its installer runs as root.
   info "Fetching gng $GNG_VERSION..."
   clone_pinned https://github.com/gdubw/gng.git "$GNG_COMMIT" "$gng_dir"
 
   info "Running gng install script..."
-  sudo "$gng_dir/install.sh"
+  run sudo "$gng_dir/install.sh"
 
   info "gng installed"
 }
@@ -183,9 +193,16 @@ feature_tre() {
   fi
 
   # tre is built from source with cargo.
-  if ! command -v cargo &>/dev/null; then
+  if $DRY_RUN && ! command -v cargo &>/dev/null; then
+    warn "cargo not found; a real install would fail"
+  elif ! command -v cargo &>/dev/null; then
     error "cargo not found, required to build tre.
 Install Rust and Cargo first (e.g. https://rustup.rs)."
+  fi
+
+  if $DRY_RUN; then
+    info "[dry-run] would build tre $TRE_VERSION with cargo and install it to $LOCAL_BIN/tre"
+    return
   fi
 
   with_tmpdir _install_tre_in

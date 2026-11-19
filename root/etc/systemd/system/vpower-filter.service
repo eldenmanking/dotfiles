@@ -1,0 +1,14 @@
+# Installed to /etc/systemd/system by the quiet_slow_charger feature of ~/dotfiles/install.sh. Started and stopped with
+# vpower.service, whose drop-in vpower-filter.conf pulls it in (so it has no [Install] section).
+[Unit]
+Description=Copy vpower's state to /run/vpower, with a slow charger shown as connected
+BindsTo=vpower.service
+After=vpower.service
+
+[Service]
+ExecStart=/etc/dotfiles/bin/vpower-filter
+# Holds the filtered ac_status that /run/vpower/ac_status links to; kept across restarts, so the link never breaks.
+RuntimeDirectory=vpower-filter
+RuntimeDirectoryPreserve=restart
+Restart=always
+RestartSec=2

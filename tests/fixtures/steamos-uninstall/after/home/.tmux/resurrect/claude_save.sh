@@ -1,0 +1,1 @@
+/home/deck/dotfiles/home/.tmux/resurrect/claude_save.sh

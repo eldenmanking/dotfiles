@@ -1,0 +1,76 @@
+#!/bin/bash
+# Show vpower's state files in /run/vpower for Steam, reporting a slow charger as an ordinary one.
+#
+# Installed into /etc/dotfiles/bin by the quiet_slow_charger feature of ~/dotfiles/install.sh and run by
+# vpower-filter.service. vpower writes /run/vpower/ac_status as "Connected slow" whenever the charger is plugged in but
+# the battery drains, and Steam opens its Slow Charger dialog every time that value appears. vpower's drop-in
+# (vpower.service.d/vpower-filter.conf) makes it write into /run/vpower-raw instead. This fills /run/vpower with links:
+# to each of vpower's files there, except ac_status, which links to a copy in this service's own folder that it updates
+# whenever the value changes, with "Connected slow" changed to "Connected". Battery percentage, low-battery warnings and
+# vpower's shutdown request work as before.
+#
+# Steam doesn't watch /run/vpower: it reopens each file about once a second, so it follows the links to the current
+# files. It runs in a container that sees the host's / at /run/host/root, so the links are relative.
+#
+# It checks with bash built-ins only, so it starts a process only to make a link (once per file) or when ac_status
+# changes.
+
+RAW=/run/vpower-raw
+OUT=/run/vpower
+FILTERED=ac_status
+# The service's own folder (RuntimeDirectory=): it holds the filtered ac_status, and each new file or link is made
+# there and renamed into place, so Steam never finds one missing or half-written. Like RAW, beside OUT, which links
+# to both by relative paths.
+OWN="${RUNTIME_DIRECTORY:-/run/vpower-filter}"
+POLL=0.5 # seconds between checks
+
+# Rewrite the filtered copy of vpower's ac_status <raw> in OWN if its value changed.
+# Usage: update_filtered <raw>
+update_filtered() {
+  local raw="$1" own="$OWN/${1##*/}" text="" old=""
+  # read -d '' reads the whole file (and fails at its end, which is expected).
+  IFS= read -r -d '' text < "$raw"
+  [[ "$text" == $'Connected slow\n' ]] && text=$'Connected\n'
+  [[ ! -e "$own" ]] || IFS= read -r -d '' old < "$own"
+  if [[ ! -e "$own" || "$old" != "$text" ]]; then
+    printf '%s' "$text" > "$own.tmp" && mv -fT "$own.tmp" "$own"
+  fi
+}
+
+# Link each of vpower's files into /run/vpower, keep the filtered ac_status up to date, and remove links to files
+# vpower no longer writes. A file vpower wrote into /run/vpower itself, newer than its counterpart in /run/vpower-raw,
+# is left alone: if vpower ever writes there directly again (a SteamOS update changes it, or the drop-in's bind mount
+# no longer applies), /run/vpower-raw stops changing, and links to its old files mustn't replace the new ones.
+# Usage: update
+update() {
+  local raw name out target
+  for raw in "$RAW"/*; do
+    [[ -f "$raw" ]] || continue
+    name="${raw##*/}" out="$OUT/${raw##*/}" target="../${RAW##*/}/${raw##*/}"
+    if [[ "$name" == "$FILTERED" ]]; then
+      update_filtered "$raw"
+      target="../${OWN##*/}/$name"
+    fi
+    if [[ ! -L "$out" && (! -e "$out" || "$raw" -nt "$out") ]]; then
+      ln -sfT "$target" "$OWN/.$name.link" && mv -fT "$OWN/.$name.link" "$out"
+    fi
+  done
+  for out in "$OUT"/*; do
+    [[ -L "$out" && ! -e "$out" ]] && rm -f "$out"
+  done
+}
+
+# Update /run/vpower every POLL seconds.
+# Usage: main
+main() {
+  local wait
+  mkdir -p "$OUT" "$OWN" || exit 1
+  # A pipe nothing writes to: reading it with a timeout waits like sleep, without starting a process each time.
+  exec {wait}<> <(:)
+  while true; do
+    update
+    read -r -t "$POLL" -u "$wait"
+  done
+}
+
+main "$@"
