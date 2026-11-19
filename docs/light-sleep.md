@@ -3,7 +3,8 @@ The `light_sleep` feature (part of `./install.sh --variant steamos --machine fra
 `--light_sleep`) keeps an eGPU on the Framework 16 expansion bay working across sleep. While a live one is attached,
 a suspend idles with the displays off instead, and anything else suspends as before. It installs
 `/opt/dotfiles/bin/light-sleep` and a `systemd-suspend.service` drop-in that runs
-`light-sleep suspend` in place of `systemd-sleep suspend`, plus a SteamOS keep list entry for the scripts.
+`light-sleep suspend` in place of `systemd-sleep suspend`. SteamOS updates keep both: `/opt` without a keep list,
+and the drop-in through SteamOS's default one.
 
 ## Setup
 - Framework 16 (AMD 7040, BIOS 04.04) on SteamOS, with the dual M.2 interposer in the expansion bay
