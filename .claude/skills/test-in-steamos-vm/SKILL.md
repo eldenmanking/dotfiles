@@ -5,7 +5,7 @@ description: Test a dotfiles change on a real SteamOS in the steamos_vm VM - cop
 
 # Test in the SteamOS VM
 The `steamos_vm` feature installs SteamOS into a virt-manager VM named `steamos`, and `steamos-vm` runs it (see
-SteamOS test VM in `README.md`). This skill is the loop for checking a change there. Everything goes through
+SteamOS test VM in `docs/features/test-vms.md`). This skill is the loop for checking a change there. Everything goes through
 `steamos-vm`; never use virt-manager's window, `virsh shutdown` or a guest-side reboot to drive it.
 
 `steamos-vm` loads `$HOME/dotfiles/install/lib`. To test a worktree whose `steamos-vm` or `install/lib/steamos_vm.sh`

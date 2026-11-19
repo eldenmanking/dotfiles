@@ -37,7 +37,7 @@ it out; the "Fill in commits" step below adds it. Under the heading:
     a deletion, and never delete regular files where only links are expected.
   - **Verify:** what shows the fix worked, usually "the check prints nothing" plus a functional check.
 
-Keep the steps in the order they must run. Then run `make check` (the README tree lists `docs/migrations.md`, so no
+Keep the steps in the order they must run. Then run `make check` (the tree in `docs/layout.md` lists `docs/migrations.md`, so no
 tree change is needed for a new entry).
 
 ## Fill in commits (after merging)

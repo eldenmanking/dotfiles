@@ -2,7 +2,7 @@
 # OS from its live ISO, rather than configuring the machine install.sh runs on. Each defines oti_<name>, which asks
 # its questions up front and then runs steps that each check what is done first, so a rerun resumes where an earlier
 # run stopped. They print every command they run (run_shown in install/lib/exec.sh) and honor --dry-run, and they
-# can't be undone, so they have no uninstall. See One-time installs in README.md.
+# can't be undone, so they have no uninstall. See docs/arch-install.md.
 
 # Print the function that runs one-time install $1.
 # Usage: oti_function <oti>

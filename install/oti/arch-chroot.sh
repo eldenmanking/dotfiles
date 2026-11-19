@@ -2,7 +2,7 @@
 # guide" (https://gist.github.com/mjkstra/96ce7a5689d753e7a6bdd92cdc169bae) up to, not including, its automatic
 # snapshot boot entries: a GPT disk with an EFI system partition at /efi and a btrfs root with @ and @home
 # subvolumes (zstd) and an optional swap file in @swap, the guide's packages, then the system set up from
-# arch-chroot with GRUB. See Installing Arch from the live ISO in README.md.
+# arch-chroot with GRUB. See docs/arch-install.md.
 #
 # Every setting is asked for up front, and checked against the live ISO, unless set in the environment:
 #   DOTFILES_ARCH_DISK: the disk to install onto, e.g. /dev/vda (erased unless an earlier run laid it out), or

@@ -75,7 +75,7 @@ After the OS is installed and you've signed in to Steam:
    `framework16` machine, whose fixes `--all` then includes. Run
    `~/dotfiles/install.sh --infer --help` to see the features, or add
    `--dry-run` to preview the changes. This includes webterm, a browser shell on
-   localhost; see [Webterm](../README.md#webterm).
+   localhost; see [Webterm](features/webterm.md).
 
 ## Disk encryption
 
