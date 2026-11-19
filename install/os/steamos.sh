@@ -16,9 +16,9 @@ os_steamos() {
 os_steamos_desktop() {
   # distrobox is near the end since it leaves you in the new container's shell; steamos_xclip and
   # steamos_make follow it to reuse that container instead of downloading another image.
-  f_return features="link neovim starship tmux claude gitconfig flatpak desktop_settings steam steamgrid udev tmpfiles logind font webterm hdmi_audio_fix orei_switch light_sleep quiet_slow_charger charge_limit gamescope_screenshot distrobox steamos_xclip steamos_make steamos_arch_vm steamos_vm"
+  f_return features="link neovim starship tmux claude gitconfig flatpak desktop_settings steam steamgrid udev tmpfiles logind font webterm hdmi_audio_fix orei_switch light_sleep quiet_slow_charger charge_limit gamescope_screenshot tailscale distrobox steamos_xclip steamos_make steamos_arch_vm steamos_vm"
   f_return gui="kde"
-  f_return optional="steamgrid steamos_arch_vm steamos_vm"
+  f_return optional="steamgrid tailscale steamos_arch_vm steamos_vm"
   # Link the shell startup files rather than running the shell and zsh features. zsh plugins load from
   # /usr/share/zsh/plugins when present and are skipped otherwise.
   f_return link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]} ${LINK_STEAMOS_PATHS[*]} ${LINK_WEBTERM_PATHS[*]}"
@@ -28,8 +28,9 @@ os_steamos_desktop() {
 # Usage: f_call os_steamos_minimal features gui optional link_paths
 # Returns: features gui optional link_paths
 os_steamos_minimal() {
-  f_return features="link neovim starship $FEATURES_TOOLS $FEATURES_SYSTEM orei_switch light_sleep quiet_slow_charger charge_limit"
+  f_return features="link neovim starship $FEATURES_TOOLS $FEATURES_SYSTEM orei_switch light_sleep quiet_slow_charger charge_limit tailscale"
   f_return gui="none"
-  f_return optional=""
+  # tailscale logs in to your tailnet, so it runs only when named.
+  f_return optional="tailscale"
   f_return link_paths="${LINK_COMMON_PATHS[*]} ${LINK_SHELL_PATHS[*]}"
 }

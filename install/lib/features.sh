@@ -44,6 +44,7 @@ feature_description() {
     light_sleep) echo "install light-sleep into /etc (sudo): idle with the displays off instead of suspending while an eGPU is on the expansion bay" ;;
     quiet_slow_charger) echo "install vpower-filter into /etc (sudo): Steam shows a charger that can't keep up as connected, without its Slow Charger dialog" ;;
     charge_limit) echo "copy a modprobe option, a steamos-manager device file and a mount unit into /etc (sudo): Steam's battery charge limit setting controls the Framework 16's instead of the BIOS one, turned on at 80%" ;;
+    tailscale)   echo "download Tailscale into /etc/dotfiles/bin, install tailscaled.service into /etc (sudo) and log in with Tailscale SSH on" ;;
     orei_switch) echo "download framework_tool and install the OREI HDMI switch sleep/wake handoff into /etc (sudo)" ;;
     distrobox)   echo "create an 'arch' distrobox from archlinux:latest and enter it" ;;
     *)           echo "" ;;
@@ -232,7 +233,7 @@ FEATURES_TOOLS="tmux claude gitconfig"
 FEATURES_PORTABLE="binaries link zsh shell starship tmux"
 
 # Features that honor --dry-run (all of a listed feature's implementations must); others are only announced.
-DRY_RUN_FEATURES=" pacman yay terminal font printer logiops console link desktop manual shell starship zsh claude binaries gng tre tmux gitconfig desktop_settings xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak steam steamgrid udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep quiet_slow_charger charge_limit gamescope_screenshot distrobox "
+DRY_RUN_FEATURES=" pacman yay terminal font printer logiops console link desktop manual shell starship zsh claude binaries gng tre tmux gitconfig desktop_settings xdg info neovim steamos_xclip steamos_make steamos_arch_vm steamos_vm flatpak steam steamgrid udev tmpfiles logind webterm hdmi_audio_fix orei_switch light_sleep quiet_slow_charger charge_limit gamescope_screenshot tailscale distrobox "
 
 # Print the name of feature <feature>'s function, feature_<name> with any - as _.
 # Usage: feature_function <feature>
