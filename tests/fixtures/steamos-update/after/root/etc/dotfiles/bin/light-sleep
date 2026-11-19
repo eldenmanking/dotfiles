@@ -163,6 +163,21 @@ set_frozen() {
   done
 }
 
+# Wake NetworkManager, which put itself to sleep (taking every connection down) on logind's PrepareForSleep, as before
+# any suspend; a light sleep keeps the machine awake, and SSH and webterm need the network. logind's PrepareForSleep
+# after the wake finds it awake, which it ignores.
+# Usage: wake_network
+wake_network() {
+  [[ "$(busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager \
+    org.freedesktop.NetworkManager State 2>/dev/null)" == "u 10" ]] || return 0  # 10: NM_STATE_ASLEEP
+  if busctl call org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager \
+    Sleep b false; then
+    log "woke NetworkManager"
+  else
+    log "failed to wake NetworkManager"
+  fi
+}
+
 # Freeze the graphical sessions with the displays off until a key or power button press, then thaw them and turn the
 # displays back on.
 # Usage: light_sleep
@@ -176,6 +191,7 @@ light_sleep() {
   trap "${cgroups[0]+set_frozen 0 $(printf '%q ' "${cgroups[@]}");} kwin_dpms on" EXIT
   kwin_dpms off
   [[ ${#cgroups[@]} -eq 0 ]] || set_frozen 1 "${cgroups[@]}"
+  wake_network
   wait_for_press
 }
 
