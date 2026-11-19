@@ -75,13 +75,14 @@ load_install_deps() {
   done
 }
 
-# Print feature $1's --help line, with the machines it is for and the features it requires.
-# Usage: usage_feature <feature>
+# Print feature <feature>'s --help line, with the machines its implementation <impl> is for and the features it
+# requires (none when <impl> is empty).
+# Usage: usage_feature <feature> [<impl>]
 usage_feature() {
-  local machine requires
-  f_call feature_requirements machine requires -- "$1"
+  local feature="$1" impl="${2:-}" machine="" requires=""
+  [[ -z "$impl" ]] || f_call feature_requirements machine requires -- "$impl"
   [[ "$machine" != any ]] || machine=""
-  printf '  --%-14s %s%s%s\n' "$1" "$(feature_description "$1")" "${machine:+ (machine: $machine)}" \
+  printf '  --%-14s %s%s%s\n' "$feature" "$(feature_description "$feature")" "${machine:+ (machine: $machine)}" \
     "${requires:+ (requires: --${requires// / --})}"
 }
 
@@ -89,7 +90,7 @@ usage_feature() {
 # Usage: usage <os> <profile> [<machine>]
 usage() {
   local os="$1" profile="$2" machine="${3:-generic}" v features optional other="" uninstallable="" capturable=""
-  local variant_os variant_profile description os_machines feature_machine
+  local variant_os variant_profile description os_machines impl suited
   cat <<EOF
 Usage: $(basename "$0") [--variant NAME | --os NAME --profile NAME] [--machine NAME] [--infer] [OPTIONS]
        $(basename "$0") --oti NAME [--dry-run]
@@ -142,13 +143,13 @@ Options for OS '$os' with profile '$profile' on machine '$machine':
   --all            install all default options
 EOF
   for v in $features; do
-    feature_uninstallable "$v" && uninstallable+="${uninstallable:+ }$v"
-    feature_capturable "$v" && capturable+="${capturable:+ }$v"
-    f_call feature_requirements feature_machine=machine -- "$v"
+    f_call feature_implementation impl suited -- "$v" "$os" "$profile" "$machine"
+    [[ -n "$impl" ]] && feature_uninstallable "$impl" && uninstallable+="${uninstallable:+ }$v"
+    [[ -n "$impl" ]] && feature_capturable "$impl" && capturable+="${capturable:+ }$v"
     if list_contains "$optional" "$v"; then
       continue
-    elif machine_supported "$feature_machine" "$machine"; then
-      usage_feature "$v"
+    elif $suited; then
+      usage_feature "$v" "$impl"
     else
       other+="${other:+ }$v"
     fi
@@ -156,13 +157,15 @@ EOF
   if [[ -n "$optional" ]]; then
     printf '\nOptional (not included in --all):\n'
     for v in $optional; do
-      usage_feature "$v"
+      f_call feature_implementation impl -- "$v" "$os" "$profile" "$machine"
+      usage_feature "$v" "$impl"
     done
   fi
   if [[ -n "$other" ]]; then
     printf "\nFor other machines (not included in --all on '%s'):\n" "$machine"
     for v in $other; do
-      usage_feature "$v"
+      f_call feature_implementation impl -- "$v" "$os" "$profile" "$machine"
+      usage_feature "$v" "$impl"
     done
   fi
   [[ -z "$optional$other" ]] || echo
@@ -373,15 +376,16 @@ exit_with_usage_unless_runnable() {
 }
 
 # Select the features of OS <os> with profile <profile> on machine <machine> to run, from feature options <flags>
-# and --all <all>. --all leaves out optional features and those whose @machine doesn't suit <machine>; named
-# features run either way (with a warning for the latter). Under --uninstall (<mode>), features without an uninstall
-# function are dropped (with a warning if named), and under --capture those without a capture function.
+# and --all <all>. --all leaves out optional features and those with no implementation whose @machine suits
+# <machine>; named features run either way (with a warning for the latter, running the implementation for another
+# machine). Under --uninstall (<mode>), features whose implementation has no uninstall function are dropped (with a
+# warning if named), and under --capture those without a capture function.
 # Usage: f_call resolve_features enabled -- <os> <profile> <flags> <all> <mode> <machine>
 # Returns: enabled
 #   enabled: the selected features, in the order they run
 resolve_features() {
   local os="$1" profile="$2" flags="$3" all="$4" mode="$5" machine="$6" features optional enabled=" " k default
-  local feature_machine
+  local impl suited problem impl_machine
 
   f_call os_profile_config features optional -- "$os" "$profile"
 
@@ -390,20 +394,25 @@ resolve_features() {
       || usage_error "Unknown option for OS '$os' with profile '$profile': --$k" "$os" "$profile" "$machine"
   done
   for k in $features; do
-    f_call feature_requirements feature_machine=machine -- "$k"
+    f_call feature_implementation impl suited problem -- "$k" "$os" "$profile" "$machine"
+    if [[ -z "$impl" ]]; then
+      ! list_contains "$flags" "$k" || usage_error "$problem" "$os" "$profile" "$machine"
+      continue
+    fi
     default=false
-    if ! list_contains "$optional" "$k" && machine_supported "$feature_machine" "$machine"; then
+    if ! list_contains "$optional" "$k" && $suited; then
       default=true
-    elif list_contains "$flags" "$k" && ! list_contains "$optional" "$k"; then
-      warn "--$k is for machine $feature_machine, not $machine; running it since it was named"
+    elif list_contains "$flags" "$k" && ! $suited; then
+      f_call feature_requirements impl_machine=machine -- "$impl"
+      warn "--$k is for machine $impl_machine, not $machine; running it since it was named"
     fi
     if list_contains "$flags" "$k" || { $all && $default; }; then
       if [[ "$mode" == capture ]]; then
-        if ! feature_capturable "$k"; then
+        if ! feature_capturable "$impl"; then
           list_contains "$flags" "$k" && warn "--$k has no capture step; skipping it"
           continue
         fi
-      elif [[ "$mode" != install ]] && ! feature_uninstallable "$k"; then
+      elif [[ "$mode" != install ]] && ! feature_uninstallable "$impl"; then
         if list_contains "$flags" "$k"; then
           if [[ "$mode" == uninstall ]]; then
             warn "--$k has no uninstall step; skipping it"
@@ -476,25 +485,28 @@ reverse_words() {
   printf '%s' "$reversed"
 }
 
-# Run the enabled features ($3, already in the order of OS $1 with profile $2): install runs feature_<name> in order,
-# uninstall runs uninstall_feature_<name> (where defined) in reverse order, and reinstall does the uninstalls then
-# the installs. capture runs capture_feature_<name> instead. Each gets the OS, the profile and the enabled features.
+# Run the enabled features (<enabled>, already in the order of OS <os> with profile <profile>), each through the
+# implementation that suits <machine> (see feature_implementation): install runs feature_<impl> in order, uninstall
+# runs uninstall_feature_<impl> (where defined) in reverse order, and reinstall does the uninstalls then the installs.
+# capture runs capture_feature_<impl> instead. Each gets the OS, the profile, the machine and the enabled features.
 # Usage: run_features <os> <profile> <enabled> <mode> <machine>
 run_features() {
-  local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" feature
+  local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" feature impl
 
   info "Beginning dotfiles $mode (os: $os, profile: $profile, machine: $machine)..."
   if [[ "$mode" == capture ]]; then
     for feature in $enabled; do
+      f_call feature_implementation impl -- "$feature" "$os" "$profile" "$machine"
       info "Capturing feature: $feature"
-      "$(capture_function "$feature")" "$os" "$profile" "$enabled"
+      "$(capture_function "$impl")" "$os" "$profile" "$machine" "$enabled"
     done
   fi
   if [[ "$mode" == uninstall || "$mode" == reinstall ]]; then
     for feature in $(reverse_words "$enabled"); do
-      feature_uninstallable "$feature" || continue
+      f_call feature_implementation impl -- "$feature" "$os" "$profile" "$machine"
+      feature_uninstallable "$impl" || continue
       info "Uninstalling feature: $feature"
-      "$(uninstall_function "$feature")" "$os" "$profile" "$enabled"
+      "$(uninstall_function "$impl")" "$os" "$profile" "$machine" "$enabled"
     done
   fi
   if [[ "$mode" == install || "$mode" == reinstall ]]; then
@@ -503,7 +515,8 @@ run_features() {
         info "[dry-run] would run feature: $feature"
         continue
       fi
-      "$(feature_function "$feature")" "$os" "$profile" "$enabled"
+      f_call feature_implementation impl -- "$feature" "$os" "$profile" "$machine"
+      "$(feature_function "$impl")" "$os" "$profile" "$machine" "$enabled"
     done
   fi
   info "dotfiles $mode complete."
