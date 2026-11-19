@@ -214,7 +214,7 @@ linked those directories to a tools repo, or from `~/dotfiles/.claude`, before p
 - **Fix:** `rm` each link the check printed.
 - **Verify:** the check prints nothing.
 
-## Move system files from /etc/dotfiles to /opt/dotfiles
+## Move system files from /etc/dotfiles to /opt/dotfiles (#121)
 The scripts, `framework_tool` and the steamos-manager device file that system units, the login screen and boot use
 moved from `/etc/dotfiles` to `/opt/dotfiles`, which SteamOS keeps across updates without a keep list (it bind-mounts
 `/opt` from `/home/.steamos/offload/opt`, outside the dirlock-encrypted `/home/deck`). The units, the light-sleep and
