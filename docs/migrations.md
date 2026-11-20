@@ -232,5 +232,6 @@ tmux matters only with `light_sleep` (steamos, framework16).
 - **Check:** `for p in $(pgrep -x 'tmux: server'); do grep -H 'app.slice/webterm-ttyd.service' /proc/$p/cgroup; done 2>/dev/null`
 - **Fix:** after the step above, ask the user, since it ends every tmux session: from a shell outside that tmux
   (a new webterm tab is fine once the step above ran), `tmux kill-server`, then start tmux again; or reboot. A tmux
-  started from a Desktop Mode terminal is in `app.slice` by design and freezes with the session.
+  server started without the `tmux` shell function (which puts it in `tmux.slice`), such as one from a Desktop Mode
+  terminal before that function existed, stays in its terminal's `app.slice` scope and freezes with the session.
 - **Verify:** the check prints nothing; a new tmux from webterm shows `webterm.slice` in `/proc/<pid>/cgroup`.

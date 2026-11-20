@@ -52,17 +52,25 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   (no display controller below `00:01.5`, or one whose config space reads `ffff`) it runs `systemd-sleep suspend`, as
   without the drop-in.
 - **What freezes:** only the graphical sessions: for each `wayland` or `x11` logind session, its scope
-  (`session-N.scope`: sddm-helper, `start-gamescope-session` or `startplasma`) and each unit in its user's
-  `app.slice`, `session.slice` and `background.slice` (Steam and games in `steam-launcher.service` or
-  `app-steam@autostart.service`, gamescope, KWin, Plasma and its apps, PipeWire). These keep running:
+  (`session-N.scope`: sddm-helper, `start-gamescope-session` or `startplasma`) and every unit in its user's manager
+  but the ones below, in whatever slice: `app.slice`, `session.slice`, `background.slice`, and the manager's own
+  `user.slice`, where podman and distrobox containers run (Steam and games in `steam-launcher.service` or
+  `app-steam@autostart.service`, gamescope, KWin, Plasma and its apps, PipeWire, containers). light-sleep lists what
+  keeps running (`USER_KEEP`) rather than what freezes, so a slice it doesn't know about freezes too. These keep
+  running:
   - the user manager (`init.scope`), so `systemctl --user` works;
   - the user bus (`dbus-broker.service` in `session.slice`): tmux asks the user manager over it for a scope for each
     server and pane, so with it frozen, tmux hangs;
-  - `webterm.slice`, where the `webterm` feature's services run, with the shells and tmux scopes they start;
+  - `webterm.slice`, where the `webterm` feature's services run, with the shells they start;
+  - `tmux.slice`, where the `tmux` shell function (`home/.config/sh/aliases.sh`) starts each tmux server, with its
+    panes, wherever it was started from (webterm, SSH or a Desktop Mode terminal);
   - other logind sessions, such as SSH and Tailscale SSH logins (`session-N.scope` with no graphical type);
-  - units started during the sleep, even in the frozen slices.
-  A tmux server started from a terminal in Desktop Mode lives in that terminal's slice and freezes with it; one
-  started from SSH or webterm keeps running.
+  - units started during the sleep, even in a frozen unit's slice: light-sleep freezes units, never whole slices,
+    since a cgroup made below a frozen one starts frozen, and a D-Bus activation or `systemctl --user start` would
+    hang on it.
+  Nothing in the system manager (`system.slice`) freezes: logind, journald and udevd have watchdogs that kill and
+  restart them when frozen, and restarting logind ends the graphical session. A container frozen with the session
+  stays frozen for `distrobox enter` from SSH until the wake.
 - **How:** through each cgroup's `cgroup.freeze`, not `systemctl freeze`. A user manager refuses to freeze
   `app.slice` (`dbus.socket` in it can't be frozen), and with its `dbus-broker` frozen in `session.slice`, its thaw
   jobs hung in the SteamOS VM and left Game Mode stuck. The wake thaws the same list.

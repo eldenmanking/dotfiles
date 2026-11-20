@@ -7,8 +7,8 @@
 # back: it has its own power supply, so it never sees the reset a new link needs. Nothing in Linux keeps s2idle out of
 # S0i3, so while a live one is attached, sleep is a light sleep instead. On external power it is one too, so the
 # network stays up for Tailscale SSH and webterm. A light sleep freezes only the graphical sessions (their scopes, and
-# their users' app, session and background slices) and waits for a key or the power button, so SSH logins and
-# webterm (in its own webterm.slice) keep running. The compositor has already turned the displays off, on logind's
+# every unit in their users' managers but USER_KEEP) and waits for a key or the power button, so SSH logins, webterm
+# (in its own webterm.slice) and tmux (in tmux.slice) keep running. The compositor has already turned the displays off, on logind's
 # PrepareForSleep; in Desktop Mode, KWin lights the laptop panel again when orei-switch's PD cut removes the
 # projector's output, so it is turned off again here, after that.
 # logind, Steam and the units on sleep.target still see an ordinary suspend.
@@ -23,10 +23,10 @@ SYSTEMD_SLEEP=/usr/lib/systemd/systemd-sleep
 DPMS_WAIT=3            # seconds to wait for KWin to turn the displays off
 SESSION_USER=deck       # whose KWin (Desktop Mode) session to turn the displays off in
 FREEZE_WAIT=5           # seconds to wait for a cgroup to report it is frozen
-USER_SLICES="app.slice session.slice background.slice"  # a user manager's slices that hold a graphical session
-# The user bus, left running in session.slice: tmux asks the user manager over it for a scope for each server and pane
-# it starts, so with it frozen, tmux hangs in SSH and webterm shells.
-USER_KEEP="dbus-broker.service dbus.service"
+# The units in a graphical user's manager that keep running, at any depth of its slices: the manager itself, webterm,
+# tmux (the tmux shell function starts each server in tmux.slice), and the user bus, which tmux asks the manager over
+# for a scope for each server and pane it starts, so with it frozen, tmux hangs.
+USER_KEEP="init.scope webterm.slice tmux.slice dbus-broker.service dbus.service"
 
 # Log a message to the journal, tagged light-sleep.
 # Usage: log <message>...
@@ -129,13 +129,29 @@ on_external_power() {
   echo false
 }
 
-# Print the cgroup directories that hold the graphical sessions: each wayland or x11 logind session's scope, and each
-# unit in its user's USER_SLICES but USER_KEEP. Not the user manager itself (init.scope), webterm.slice or other
-# sessions' scopes, such as SSH logins: they keep running, and so do units started during the sleep, such as the
-# scopes tmux starts.
+# Print the cgroup of each unit below the cgroup <dir> but USER_KEEP, descending into slices rather than printing
+# them, so units started in a slice during the sleep run unfrozen (a cgroup made below a frozen one starts frozen, so
+# a D-Bus activation or systemctl --user start would hang).
+# Usage: freezable_units <dir>
+freezable_units() {
+  local unit
+  for unit in "$1"/*/; do
+    unit="${unit%/}"
+    [[ -d "$unit" && " $USER_KEEP " != *" ${unit##*/} "* ]] || continue
+    if [[ "$unit" == *.slice ]]; then
+      freezable_units "$unit"
+    else
+      echo "$unit"
+    fi
+  done
+}
+
+# Print the cgroup directories that hold the graphical sessions: each wayland or x11 logind session's scope, and the
+# freezable_units of its user's manager. Not USER_KEEP or other sessions' scopes, such as SSH logins: they keep
+# running, and so do units started during the sleep.
 # Usage: graphical_cgroups
 graphical_cgroups() {
-  local id type scope uid manager slice unit
+  local id type scope uid manager
   for id in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
     type="$(loginctl show-session "$id" -p Type --value)"
     scope="$(loginctl show-session "$id" -p Scope --value)"
@@ -143,12 +159,7 @@ graphical_cgroups() {
     [[ "$type" == wayland || "$type" == x11 ]] || continue
     [[ -z "$scope" ]] || echo "/sys/fs/cgroup$(systemctl show -p ControlGroup --value "$scope")"
     manager="/sys/fs/cgroup$(systemctl show -p ControlGroup --value "user@$uid.service")"
-    for slice in $USER_SLICES; do
-      for unit in "$manager/$slice"/*/; do
-        unit="${unit%/}"
-        [[ -d "$unit" && " $USER_KEEP " != *" ${unit##*/} "* ]] && echo "$unit"
-      done
-    done
+    freezable_units "$manager"
   done | sort -u
 }
 
