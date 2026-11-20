@@ -3,7 +3,7 @@
 # Starts, stops and repairs the SteamOS test VM that the steamos_vm feature of ~/dotfiles/install.sh installs.
 # Usage: steamos-vm [start|stop|restart|status|view|console] [--no-view] [--force]
 #        steamos-vm sync [CHECKOUT]  |  steamos-vm run [--root] COMMAND...  |  steamos-vm screenshot [FILE]
-#        steamos-vm key KEY...
+#        steamos-vm key KEY...  |  steamos-vm power [ac|battery]
 #   start     start the VM, or bring back a running one that is suspended, paused or not answering, then open its
 #             window (default)
 #   stop      power it off through its agent, or force it off when that doesn't answer (--force: at once)
@@ -15,6 +15,7 @@
 #   run       run a command in the VM as deck (--root: as root) and print its output; nothing it runs can prompt
 #   screenshot  save a PNG of Game Mode, taken by gamescope in the VM
 #   key       press keys in the VM together, as virsh send-key names them (e.g. KEY_ENTER; KEY_LEFTCTRL KEY_C)
+#   power     plug in (ac) or unplug (battery) the VM's fake charger, or print which it is on
 # See SteamOS test VM in ~/dotfiles/README.md.
 
 LIB_DIR="$HOME/dotfiles/install/lib"
@@ -320,6 +321,27 @@ key_vm() {
   steamos_vm_virsh send-key "$STEAMOS_VM_NAME" "$@" >/dev/null || error "Could not send $*."
 }
 
+# Plug in the VM's fake charger (test_power's test_ac) for <source> ac, or unplug it for battery, or print which the
+# VM is on without one.
+# Usage: power_vm [ac|battery]
+power_vm() {
+  local online
+  case "${1:-}" in
+    ac) online=on ;;
+    battery) online=off ;;
+    "") ;;
+    *) error "Usage: steamos-vm power [ac|battery]" ;;
+  esac
+  [[ -z "${online:-}" ]] \
+    || run_vm true "echo $online > /sys/module/test_power/parameters/ac_online" >/dev/null \
+    || error "Could not switch the power source; test_power isn't loaded (installs older than steamos-vm-power.service)"
+  case "$(run_vm true 'cat /sys/class/power_supply/test_ac/online' 2>/dev/null)" in
+    1) info "On AC." ;;
+    0) info "On battery." ;;
+    *) error "The VM has no fake charger; reinstall it: ~/dotfiles/install.sh --reinstall --steamos_vm" ;;
+  esac
+}
+
 # Open the VM's window in virt-manager, detached, when there is a display to open it on.
 # Usage: view_vm
 view_vm() {
@@ -350,6 +372,11 @@ main() {
       shift
       [[ $# -gt 0 ]] || error "Usage: steamos-vm key KEY..."
       key_vm "$@"
+      return
+      ;;
+    power)
+      shift
+      power_vm "$@"
       return
       ;;
     run)
