@@ -25,9 +25,6 @@ The tree below shows the files in the repository and the role of each one. `make
 ├── bootstrap                        ---
 │   └── install.sh                   --- template of the install branch's install.sh, which clones main at one commit
 ├── docs                             ---
-│   ├── arch-install.md              --- installing Arch: the arch-chroot one-time install from the live ISO, and by hand
-│   ├── arch-setup.md                --- notes on setting up an Arch desktop by hand (NTFS, trash, LaTeX, optional packages)
-│   ├── bootloader.md                --- portable bootloader: Ventoy for several bootable ISOs, VeraCrypt rescue disks
 │   ├── features                     ---
 │   │   ├── arch.md                  --- arch features
 │   │   ├── claude.md                --- the claude feature: Claude Code config from the tools repos
@@ -46,16 +43,26 @@ The tree below shows the files in the repository and the role of each one. `make
 │   ├── installation.md              --- install.sh's options, the bootstrap and install branch, --infer, defaults, the download cache
 │   ├── layout.md                    --- this tree: every tracked file and its role
 │   ├── light-sleep.md               --- light sleep instead of suspend while an eGPU is on the Framework 16 expansion bay
-│   ├── mac-os-setup.md              ---
 │   ├── migrations.md                --- manual steps after pulling changes that leave stale files behind
+│   ├── one-time-installs            --- installing and setting up an OS on a machine, once
+│   │   ├── arch-install.md          --- installing Arch: the arch-chroot one-time install from the live ISO, and by hand
+│   │   ├── arch-setup.md            --- notes on setting up an Arch desktop by hand (NTFS, trash, LaTeX, optional packages)
+│   │   ├── bootloader.md            --- portable bootloader: Ventoy for several bootable ISOs, VeraCrypt rescue disks
+│   │   ├── mac-os-setup.md          ---
+│   │   ├── steamos-setup.md         --- SteamOS install, Steam settings, encryption and Windows VMs
+│   │   ├── windows-setup.md         ---
+│   │   └── wsl-setup.md             ---
 │   ├── orei-switch.md               --- OREI HDMI switch sleep/wake handoff: findings and the orei_switch feature
 │   ├── shell.md                     --- which startup files each shell reads, and how the shell config is split between them
-│   ├── steamos-setup.md             --- SteamOS install, Steam settings, encryption and Windows VMs
-│   ├── testing.md                   --- make check (validation, lint, tests), fixtures and CI
+│   ├── testing                      ---
+│   │   ├── ci.md                    --- which checks run where, and the install branch
+│   │   ├── fixtures.md              --- make fixtures: what installs do to existing files, in containers
+│   │   ├── lint.md                  --- make lint: syntax, shellcheck, function docs, portability
+│   │   ├── tests.md                 --- make test: install.sh in scratch homes
+│   │   └── validation.md            --- make validate: the structure that must hold
+│   ├── testing.md                   --- the kinds of checks, with a page for each in testing/
 │   ├── upstream-sync.md             --- plan for rewriting and merging with the upstream repo this was forked from
-│   ├── windows-setup.md             ---
-│   ├── writing-features.md          --- how OSes, profiles and features are defined, and what make validate checks
-│   └── wsl-setup.md                 ---
+│   └── writing-features.md          --- how OSes, profiles and features are defined, and what make validate checks
 ├── dump                             --- exported application settings; only dconf/ is loaded by --desktop_settings, the rest are imported by hand (see the --info output)
 │   ├── dconf                        ---
 │   │   └── arch.dconf               --- GNOME settings, written by --capture --desktop_settings from the keys DCONF_CAPTURE selects

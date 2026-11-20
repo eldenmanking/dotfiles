@@ -5,7 +5,7 @@
  - prints every command it runs: `[run]` for changes, with input it feeds a command shown as a here-document (passwords masked) and files it writes shown as the `cat > file` that writes them, and `[check]` for the read-only commands that decide what to do. Under `--dry-run` the changes are printed as `[dry-run]` and not run, so a dry run lists exactly the commands a real run would;
  - is idempotent: each step checks what is done first, so running it again resumes where a run that stopped left off, and asks only what isn't settled yet.
 
-How to write one is in [Writing features](writing-features.md#one-time-installs).
+How to write one is in [Writing features](../writing-features.md#one-time-installs).
 
 ## Installing Arch from the live ISO
 The `arch-chroot` one-time install puts Arch Linux on a blank disk from the live ISO, following mjkstra's [Modern Arch linux installation guide](https://gist.github.com/mjkstra/96ce7a5689d753e7a6bdd92cdc169bae) up to, not including, its automatic snapshot boot entries. Boot the ISO in UEFI mode (a Ventoy USB holding several ISOs works; see [bootloader.md](bootloader.md)), connect to the internet (`iwctl` for Wi-Fi), install `git` (the live ISO has none), then run the bootstrap, which clones the repo to `/root/dotfiles`:
@@ -39,7 +39,7 @@ Hibernation isn't set up either way. A value from the environment that fails its
  - from `arch-chroot`: the time zone and hardware clock, the locale, keymap, hostname and `/etc/hosts`, the passwords (with `chpasswd`), the user in `wheel` with sudo (a drop-in, `/etc/sudoers.d/wheel`, checked with `visudo -c`), GRUB on the EFI system partition (on a whole disk also at the removable fallback path `/EFI/BOOT/BOOTX64.EFI`, for firmware that forgets its boot entries), and NetworkManager and `systemd-timesyncd` enabled (what the guide's `timedatectl set-ntp true` after the reboot does);
  - the repo, at the commit the bootstrap cloned, into the new user's `~/dotfiles`, so after `umount -R /mnt`, a reboot and logging in, `~/dotfiles/install.sh --variant arch --all` sets up the rest.
 
-Run it again after it stops partway and it resumes: it reads the partitions and settings an earlier run left in `/mnt` instead of asking, asks "Resume the install?" instead of erasing a disk or root partition that already has the layout, creates subvolumes and installs packages that are missing, and skips what is done. On SteamOS, the `steamos_arch_vm` feature makes a VM for trying it out ([Arch install test VM](features/test-vms.md#arch-install-test-vm)).
+Run it again after it stops partway and it resumes: it reads the partitions and settings an earlier run left in `/mnt` instead of asking, asks "Resume the install?" instead of erasing a disk or root partition that already has the layout, creates subvolumes and installs packages that are missing, and skips what is done. On SteamOS, the `steamos_arch_vm` feature makes a VM for trying it out ([Arch install test VM](../features/test-vms.md#arch-install-test-vm)).
 
 ## Manual installation
 To install Arch with this repo's choices, see [Installing Arch from the live ISO](#installing-arch-from-the-live-iso). To setup a new computer, install Arch Linux using the [installation guide](https://wiki.archlinux.org/title/installation_guide), or use the `archinstall` utility available in live ISO's. Useful packages to install while chroot'ed using the live ISO include:

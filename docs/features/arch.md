@@ -14,7 +14,7 @@ The `arch` variant is designed to work for Arch Linux (or other Arch-based distr
 
 A basic Arch installation along with `install.sh` requires ~15gb of drive space.
 
-These features run only on `arch` (`@os arch`), with any GUI or none; to install Arch itself, see [Installing Arch](../arch-install.md), and for other notes, [Arch setup](../arch-setup.md).
+These features run only on `arch` (`@os arch`), with any GUI or none; to install Arch itself, see [Installing Arch](../one-time-installs/arch-install.md), and for other notes, [Arch setup](../one-time-installs/arch-setup.md).
 
 ## `terminal`
 Installs only the terminal packages, unless `--pacman` already covers them.

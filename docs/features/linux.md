@@ -12,4 +12,4 @@ Creates an `arch` distrobox from `archlinux:latest` and enters it once to finish
 Installs the flathub apps in `FLATPAK_APPS` per-user, so no root is needed on a read-only rootfs. Needs a desktop session.
 
 ## `webterm`
-Serves a shell in the browser on localhost, started on demand by systemd from user units it copies into `/etc/systemd/user` and enables for all users (with sudo), so they start from boot even with an encrypted home; see [Webterm](webterm.md) and [SteamOS setup](../steamos-setup.md). Requires `link`.
+Serves a shell in the browser on localhost, started on demand by systemd from user units it copies into `/etc/systemd/user` and enables for all users (with sudo), so they start from boot even with an encrypted home; see [Webterm](webterm.md) and [SteamOS setup](../one-time-installs/steamos-setup.md). Requires `link`.

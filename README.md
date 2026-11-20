@@ -25,15 +25,22 @@ Using it:
 - [Migrations](docs/migrations.md): manual steps after pulling changes that leave stale files behind
 - [Shell startup files](docs/shell.md): which files each shell reads, and how the config is split between them
 
-Setting up a machine:
-- [Installing Arch](docs/arch-install.md): the `arch-chroot` one-time install from the live ISO, and installing by hand
-- [Arch setup notes](docs/arch-setup.md): NTFS, trash on data partitions, LaTeX, optional packages
-- [SteamOS](docs/steamos-setup.md), [macOS](docs/mac-os-setup.md), [Windows](docs/windows-setup.md) and [WSL](docs/wsl-setup.md) setup
-- [Bootloader](docs/bootloader.md): Ventoy for several bootable ISOs, VeraCrypt rescue disks
-- Framework 16: [sleep battery drain](docs/framework16-sleep.md), [light sleep with an eGPU](docs/light-sleep.md), [OREI HDMI switch](docs/orei-switch.md)
+One-time installs (`docs/one-time-installs/`), for setting up a machine once:
+- [Installing Arch](docs/one-time-installs/arch-install.md): the `arch-chroot` one-time install from the live ISO, and installing by hand
+- [Arch setup notes](docs/one-time-installs/arch-setup.md): NTFS, trash on data partitions, LaTeX, optional packages
+- [SteamOS](docs/one-time-installs/steamos-setup.md), [macOS](docs/one-time-installs/mac-os-setup.md), [Windows](docs/one-time-installs/windows-setup.md) and [WSL](docs/one-time-installs/wsl-setup.md) setup
+- [Bootloader](docs/one-time-installs/bootloader.md): Ventoy for several bootable ISOs, VeraCrypt rescue disks
+
+Framework 16:
+- [Sleep battery drain](docs/framework16-sleep.md): diagnosis and fix
+- [Light sleep](docs/light-sleep.md): idling instead of suspending while an eGPU is attached
+- [OREI HDMI switch](docs/orei-switch.md): sleep/wake handoff
 
 Working on the repo:
 - [Layout](docs/layout.md): every file in the repo and what it is for
 - [Writing features](docs/writing-features.md): OSes, profiles, feature implementations, doc tags, systemd units
-- [Testing](docs/testing.md): `make check`, fixtures and CI
+- [Testing](docs/testing.md): the checks, with a page for each:
+  - [Validation](docs/testing/validation.md), [Lint](docs/testing/lint.md) and [Tests](docs/testing/tests.md): what `make check` runs
+  - [Fixtures](docs/testing/fixtures.md): what installs do to existing files, in containers
+  - [CI](docs/testing/ci.md): which checks run where
 - [Install database](docs/install-database.md) and [upstream sync](docs/upstream-sync.md): design proposals

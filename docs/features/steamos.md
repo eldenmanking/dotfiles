@@ -1,6 +1,6 @@
 # SteamOS features
 
-The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. These features run only on `steamos` (`@os steamos`); the Linux features ([Linux](linux.md)) run there too, its desktop settings are [KDE features](kde.md), and its Framework 16 fixes are [Framework 16 features](framework16.md). For setting up SteamOS itself, see [SteamOS setup](../steamos-setup.md).
+The `steamos` variant installs everything per-user, since the SteamOS root filesystem is read-only; its `neovim` feature, for example, downloads the release binary into `~/.local`. These features run only on `steamos` (`@os steamos`); the Linux features ([Linux](linux.md)) run there too, its desktop settings are [KDE features](kde.md), and its Framework 16 fixes are [Framework 16 features](framework16.md). For setting up SteamOS itself, see [SteamOS setup](../one-time-installs/steamos-setup.md).
 
 ## `steam`
 Sets Game Mode settings such as the main menu and quick access hotkeys in each Steam user's `localconfig.vdf`, replacing only keys Steam already wrote and only while Steam is closed, since Steam rewrites that file on exit; add more to `STEAM_SETTINGS` in `install/features/steam.sh`.

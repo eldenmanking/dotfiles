@@ -1,5 +1,5 @@
 # Arch setup notes
-Notes on setting up an Arch desktop by hand, beyond what the [Arch features](features/arch.md) do.
+Notes on setting up an Arch desktop by hand, beyond what the [Arch features](../features/arch.md) do.
 
 ## Using NTFS Partitions with Gnome
 See [here](https://wiki.archlinux.org/title/NTFS) for more information. Linux kernels &ge; 5.15 support NTFS partitions automatically, but to allow Gnome to handle mounting NTFS partitions manually, install the `ntfs-3g` package. With this package, ntfs partitions can be automatically mounted by using Gnome Disks to select the partition, "Edit mount options", and enable "Mount at System Startup".
