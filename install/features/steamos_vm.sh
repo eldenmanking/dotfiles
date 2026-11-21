@@ -1,6 +1,6 @@
 # Feature: a SteamOS VM for testing dotfiles and SteamOS changes (steamos). It installs SteamOS onto a blank disk from
 # Valve's recovery image, unattended, and defines a virt-manager VM with GPU acceleration for Game Mode. Shared code is
-# in install/lib/steamos_vm.sh; home/.local/bin/steamos-vm starts and stops it. See SteamOS test VM in README.md.
+# in install/lib/steamos_vm.sh; home/.local/bin/steamos-vm starts and stops it. See docs/features/test-vms.md.
 
 # How long the unattended install may take before it counts as stuck; it takes about a minute.
 STEAMOS_VM_INSTALL_TIMEOUT=1200

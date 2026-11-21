@@ -2,7 +2,7 @@
 # Print Screen or Shift+Meta+4 (macOS's Cmd+Shift+4) and saves the screen with gamescopectl to ~/Pictures/Screenshots.
 # The units go into /etc/systemd/user and are enabled globally, so both the units and their links in
 # gamescope-session.target.wants are outside an encrypted home and the user manager sees them from boot. See Gaming
-# Mode screenshots in README.md.
+# Mode screenshots in docs/features/gamescope-screenshot.md.
 
 GAMESCOPE_SCREENSHOT_UNITS_SRC="$DOTFILES_ROOT/root/etc/systemd/user"
 GAMESCOPE_SCREENSHOT_UNITS=(gamescope-screenshot.service keyboard-rescan.path
