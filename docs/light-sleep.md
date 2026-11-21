@@ -66,6 +66,11 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
 - **How:** through each cgroup's `cgroup.freeze`, not `systemctl freeze`. A user manager refuses to freeze
   `app.slice` (`dbus.socket` in it can't be frozen), and with its `dbus-broker` frozen in `session.slice`, its thaw
   jobs hung in the SteamOS VM and left Game Mode stuck. The wake thaws the same list.
+- **Network:** NetworkManager puts itself to sleep on logind's `PrepareForSleep`, as before any suspend, which takes
+  every connection down (Ethernet and Wi-Fi), so a light sleep would leave SSH, Tailscale and webterm unreachable from
+  other machines. After the freeze, light-sleep wakes it again with its D-Bus `Sleep(false)` call, if it is asleep
+  (`State` 10), and logs `woke NetworkManager`. On the real wake, logind's `PrepareForSleep` finds it awake already,
+  and the next suspend puts it to sleep as usual.
 - **Sleep:** the compositor has already turned the displays off on logind's `PrepareForSleep`, as it does before any
   suspend (gamescope and KWin both do), so light-sleep freezes the graphical sessions and waits. In
   Desktop Mode it first runs `kscreen-doctor --dpms off` as `deck`: when `orei-switch` cuts PD 1, the projector's
@@ -74,10 +79,12 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   `kscreen-doctor` returns, so it waits (up to 3 s) for the connectors to report off before freezing, which stops KWin;
   frozen straight after the call, the panel stayed lit. Switching VT is not just unneeded but harmful: with KWin it
   lights the display up again.
-- **Wake:** on a key press on a keyboard, or the power button. Each has an `evtest --grab`, so the press reaches
-  nothing else; without the grab, the frozen session's input queues would deliver it on thaw, and Steam would suspend
-  again on the power button. The grabs stay for a second after the press, to swallow any presses after it. `udevadm
-  monitor` starts an `evtest` for a keyboard connected during the sleep, if it has a
+- **Wake:** on a key press on a keyboard, or the power button, or remotely with `sudo /etc/dotfiles/bin/light-sleep
+  wake` (e.g. over Tailscale SSH), which writes a line into the fifo the wait reads, `/run/light-sleep.wake` (root's
+  only; it exists only during a light sleep, so `wake` says when none is running). Each key and the power button has an
+  `evtest --grab`, so the press reaches nothing else; without the grab, the frozen session's input queues would deliver
+  it on thaw, and Steam would suspend again on the power button. The grabs stay for a second after the press, to swallow
+  any presses after it. `udevadm monitor` starts an `evtest` for a keyboard connected during the sleep, if it has a
   `/dev/input/by-id/*-event-kbd` link (USB ones do, Bluetooth ones often don't), and one exits by itself when its device
   goes away, so the `evtest`s are only stopped on wake. That uses `SIGKILL`: a `SIGTERM` sent just after forking one can
   be lost to the script's `EXIT` trap, and the sleep would then never end. Then it thaws the graphical sessions, and the
@@ -111,5 +118,10 @@ In the SteamOS VM (`steamos-vm`, whose own drop-in makes suspend a no-op), a cop
 Mode (Plasma on X11 there, with Steam as `app-steam@autostart.service`). Meanwhile webterm answered, a new login
 session ran commands, `systemctl --user` worked and `tmux new` worked from both; a key press woke it, nothing stayed
 frozen, and Game Mode drew again.
+
+With the fake charger on AC, a Steam-style `systemctl suspend` in the VM took the light sleep and woke NetworkManager:
+Ethernet came back within seconds, and from the laptop, over Tailscale, `tailscale ping` answered directly and
+Tailscale SSH answered (with its browser check). Without the wake, NetworkManager stayed asleep and tailscaled reported
+the network down. A suspend on battery after that, and a second light sleep, behaved as before.
 
 Check with `journalctl -t light-sleep -b` (it logs what it froze) and `journalctl -u systemd-suspend -b`.

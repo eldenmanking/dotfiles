@@ -6,7 +6,7 @@
 #              ~/dotfiles, unless that exists, then runs its install.sh with
 #              the same arguments. The install branch holds this script with
 #              the pin filled in by scripts/bootstrap.sh; this copy on main is
-#              its template, with an empty pin. See README.md, Installation.
+#              its template, with an empty pin. See docs/installation.md.
 # Usage: bash -c "$(curl -fsSL <raw URL of install.sh on the install branch>)" -- ARGS
 ################################################################################
 
@@ -45,7 +45,7 @@ clone_pinned() {
 # Usage: main [<arg>...]
 main() {
   [[ -n "$PINNED_REPO" && -n "$PINNED_COMMIT" ]] \
-    || die "this is the bootstrap's template; use the install.sh on the install branch (see README.md)"
+    || die "this is the bootstrap's template; use the install.sh on the install branch (see docs/installation.md)"
   if [[ -e "$DOTFILES_ROOT" || -L "$DOTFILES_ROOT" ]]; then
     printf '[info] %s already exists; running its install.sh as it is\n' "$DOTFILES_ROOT"
   else

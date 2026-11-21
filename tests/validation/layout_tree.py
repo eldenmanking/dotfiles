@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that the file tree in README.md matches the files tracked by git.
+"""Check that the file tree in docs/layout.md matches the files tracked by git.
 
 Every tracked file must appear in the tree (or under a directory the tree lists
 without expanding), and every entry in the tree must exist. Names too long for
@@ -29,7 +29,7 @@ def parse_tree(lines):
     for lineno, line in enumerate(lines, 2):
         pos = min((line.find(b) for b in BRANCHES if b in line), default=-1)
         if pos < 0 or pos % 4:
-            sys.exit(f"README.md tree line {lineno}: can't parse: {line!r}")
+            sys.exit(f"docs/layout.md tree line {lineno}: can't parse: {line!r}")
         rest = line[pos + 4:]
         sep = rest.find("---")
         name = (rest if sep < 0 else rest[:sep]).rstrip()
@@ -46,7 +46,7 @@ def main():
                            check=True).stdout.split("\0")[:-1]
     dirs = {os.path.dirname(f) for f in files}
     dirs |= {d[:i] for d in dirs for i in range(len(d)) if d[i] == "/"}
-    entries = parse_tree(tree_lines(os.path.join(REPO, "README.md")))
+    entries = parse_tree(tree_lines(os.path.join(REPO, "docs", "layout.md")))
 
     def resolve(entry, truncated):
         if entry in dirs or entry in files:
@@ -62,14 +62,14 @@ def main():
     for entry, truncated in entries.items():
         path = resolve(entry, truncated)
         if path is None:
-            errors.append(f"listed in README.md but not tracked: {entry}")
+            errors.append(f"listed in docs/layout.md but not tracked: {entry}")
         else:
             listed.add(path)
     leaf_dirs = {p for p in listed if p in dirs
                  and not any(q.startswith(p + "/") for q in listed)}
     for f in files:
         if f not in listed and not any(f.startswith(d + "/") for d in leaf_dirs):
-            errors.append(f"tracked but missing from the README.md tree: {f}")
+            errors.append(f"tracked but missing from the docs/layout.md tree: {f}")
 
     for e in errors:
         print(e)

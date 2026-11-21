@@ -16,7 +16,7 @@
 #   screenshot  save a PNG of Game Mode, taken by gamescope in the VM
 #   key       press keys in the VM together, as virsh send-key names them (e.g. KEY_ENTER; KEY_LEFTCTRL KEY_C)
 #   power     plug in (ac) or unplug (battery) the VM's fake charger, or print which it is on
-# See SteamOS test VM in ~/dotfiles/README.md.
+# See ~/dotfiles/docs/features/test-vms.md.
 
 LIB_DIR="$HOME/dotfiles/install/lib"
 # shellcheck source=../../../install/lib/output.sh
