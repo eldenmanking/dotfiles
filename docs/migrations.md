@@ -237,7 +237,7 @@ tmux matters only with `light_sleep` (steamos, framework16).
   started from a Desktop Mode terminal is in `app.slice` by design and freezes with the session.
 - **Verify:** the check prints nothing; a new tmux from webterm shows `webterm.slice` in `/proc/<pid>/cgroup`.
 
-## Light sleep suspends for real once its reason is gone (#PR)
+## Light sleep suspends for real once its reason is gone (#124)
 A light sleep now ends in a real suspend when a power supply change leaves no reason for it (the charger unplugged with
 no eGPU attached). In the `steamos_vm` VM that suspend must stay a no-op, since the guest's GPU doesn't survive one, so
 the VM's `systemd-suspend.service` drop-in now runs `light-sleep` with `LIGHT_SLEEP_SUSPEND=true`. VMs installed before
