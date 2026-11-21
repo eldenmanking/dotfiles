@@ -40,7 +40,6 @@ new     ~/.gitconfig f 644 user b408e0584f1627f0
 new     ~/.local d 755 user
 new     ~/.local/bin d 755 user
 new     ~/.local/bin/clip l 777 user -> ~/dotfiles/home/.local/bin/clip
-new     ~/.local/bin/gamescope-screenshot l 777 user -> ~/dotfiles/home/.local/bin/gamescope-screenshot
 new     ~/.local/bin/steamos-vm l 777 user -> ~/dotfiles/home/.local/bin/steamos-vm
 new     ~/.local/bin/vis l 777 user -> ~/dotfiles/home/.local/bin/vis
 new     ~/.local/bin/vm-usb l 777 user -> ~/dotfiles/home/.local/bin/vm-usb

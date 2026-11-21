@@ -39,7 +39,7 @@ How to write one is in [Writing features](writing-features.md).
 | `webterm` | any | linux | any | `link` |
 | `steam` | any | steamos | any | |
 | `steamgrid` | any | steamos | any | |
-| `gamescope_screenshot` | any | steamos | any | `link` |
+| `gamescope_screenshot` | any | steamos | any | |
 | `desktop_settings` (`linux_kde/`) | any | linux | kde | |
 
 `linux` covers `arch` and `steamos`; GUI `any` also works headless, and `desktop` needs some graphical session. The OSes target the platforms `arch`, `steamos`, and `linux` and `macos` (`portable`); the `desktop` profile targets GNOME on `arch` and KDE on `steamos`, and the other profiles no GUI.

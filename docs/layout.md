@@ -123,7 +123,7 @@ The tree below shows the files in the repository and the role of each one. `make
 │   ├── .local                       ---
 │   │   ├── bin                      ---
 │   │   │   ├── clip                 ---
-│   │   │   ├── gamescope-screenshot --- saves a Gaming Mode screenshot to ~/Pictures/Screenshots; --watch takes one on Print Screen or Shift+Meta+4 (linked on steamos)
+│   │   │   ├── gamescope-screenshot --- saves a Gaming Mode screenshot to ~/Pictures/Screenshots; --watch takes one on Print Screen or Shift+Meta+4 (linked by gamescope_screenshot)
 │   │   │   ├── squidpdf             --- pdf splitter for Squid notes
 │   │   │   ├── steamos-vm           --- starts, stops and repairs the SteamOS test VM (linked on steamos)
 │   │   │   ├── vis                  --- resume or start an obsession session in cwd

@@ -489,36 +489,73 @@ reverse_words() {
 # implementation that suits <machine> (see feature_implementation): install runs feature_<impl> in order, uninstall
 # runs uninstall_feature_<impl> (where defined) in reverse order, and reinstall does the uninstalls then the installs.
 # capture runs capture_feature_<impl> instead. Each gets the OS, the profile, the machine and the enabled features.
+# Declared implementations (declare_<impl>, see install/lib/hooks.sh) are planned first, then undone or applied in
+# their turn. The triggers and post_uninstall_<impl> steps of what was undone run once the uninstalls are done, and
+# those of what was applied, with the units, once the installs are.
 # Usage: run_features <os> <profile> <enabled> <mode> <machine>
 run_features() {
-  local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" feature impl
+  local os="$1" profile="$2" enabled="$3" mode="$4" machine="$5" feature impl impls="" plan=""
+  local changed units removed triggered all_changed="" all_units="" posts="" all_removed="" uninstall_posts=""
+  local nl=$'\n' tab=$'\t'
 
   info "Beginning dotfiles $mode (os: $os, profile: $profile, machine: $machine)..."
+  # Each enabled feature's implementation, as "<feature>\t<impl>" lines in feature order.
+  for feature in $enabled; do
+    f_call feature_implementation impl -- "$feature" "$os" "$profile" "$machine"
+    impls+="$feature$tab$impl$nl"
+  done
   if [[ "$mode" == capture ]]; then
-    for feature in $enabled; do
-      f_call feature_implementation impl -- "$feature" "$os" "$profile" "$machine"
+    while IFS="$tab" read -r feature impl <&4; do
+      [[ -n "$feature" ]] || continue
       info "Capturing feature: $feature"
       "$(capture_function "$impl")" "$os" "$profile" "$machine" "$enabled"
-    done
+    done 4<<< "$impls"
+  else
+    plan="$(collect_plan "$(cut -f2 <<< "$impls" | tr '\n' ' ')" "$os" "$profile" "$machine" "$enabled")"
+    check_plan "$plan"
   fi
   if [[ "$mode" == uninstall || "$mode" == reinstall ]]; then
     for feature in $(reverse_words "$enabled"); do
-      f_call feature_implementation impl -- "$feature" "$os" "$profile" "$machine"
+      impl="$(awk -F '\t' -v f="$feature" '$1 == f { print $2; exit }' <<< "$impls")"
       feature_uninstallable "$impl" || continue
       info "Uninstalling feature: $feature"
-      "$(uninstall_function "$impl")" "$os" "$profile" "$machine" "$enabled"
+      if feature_declared "$impl"; then
+        f_call undo_entries removed triggered -- "$impl" "$(plan_entries "$impl" "$plan")"
+        [[ -z "$triggered" ]] || all_removed+="$triggered$nl"
+        uninstall_posts+="$impl$tab${removed//$nl/ }$nl"
+      else
+        "$(uninstall_function "$impl")" "$os" "$profile" "$machine" "$enabled"
+      fi
     done
+    # The undone entries' triggers and post steps, before anything is installed again.
+    run_triggers "$all_removed"
+    while IFS="$tab" read -r impl removed <&4; do
+      [[ -z "$impl" ]] || run_post uninstall "$impl" "$os" "$profile" "$machine" "$enabled" "$removed"
+    done 4<<< "$uninstall_posts"
   fi
   if [[ "$mode" == install || "$mode" == reinstall ]]; then
-    for feature in $enabled; do
+    while IFS="$tab" read -r feature impl <&4; do
+      [[ -n "$feature" ]] || continue
+      if feature_declared "$impl"; then
+        info "Installing feature: $feature"
+        f_call apply_entries changed units -- "$impl" "$(plan_entries "$impl" "$plan")"
+        [[ -z "$changed" ]] || all_changed+="$changed$nl"
+        [[ -z "$units" ]] || all_units+="$units$nl"
+        posts+="$impl$tab${changed//$nl/ }$nl"
+        continue
+      fi
       if $DRY_RUN && ! list_contains "$DRY_RUN_FEATURES" "$feature"; then
         info "[dry-run] would run feature: $feature"
         continue
       fi
-      f_call feature_implementation impl -- "$feature" "$os" "$profile" "$machine"
       "$(feature_function "$impl")" "$os" "$profile" "$machine" "$enabled"
-    done
+    done 4<<< "$impls"
   fi
+  run_triggers "$all_changed"
+  activate_units "$all_units"
+  while IFS="$tab" read -r impl changed <&4; do
+    [[ -z "$impl" ]] || run_post install "$impl" "$os" "$profile" "$machine" "$enabled" "$changed"
+  done 4<<< "$posts"
   info "dotfiles $mode complete."
 }
 

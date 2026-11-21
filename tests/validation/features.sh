@@ -25,7 +25,8 @@ DRY_RUN=true
 
 load_install_tree
 
-# Find every feature with a feature_<name> function, or feature_<name>__<dir> implementations, in install/features.
+# Find every feature with a feature_<name> or declare_<name> function, or __<dir> implementations of either, in
+# install/features.
 # Usage: f_call scan_features features
 # Returns: features
 #   features: each feature name once, without the __<dir> of its implementations
@@ -34,18 +35,20 @@ scan_features() {
   while IFS= read -r name; do
     name="$(implementation_feature "$name")"
     list_contains "$features" "$name" || features+="${features:+ }$name"
-  done < <(sed -n 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
+  done < <(sed -n -e 's/^feature_\([a-z0-9_]*\)() *{.*/\1/p' -e 's/^declare_\([a-z0-9_]*\)() *{.*/\1/p' \
+    "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
   f_return features
 }
 
-# Check that no feature, uninstall or capture function is defined in more than one place in install/features: bash
-# would quietly keep the last one sourced.
+# Check that no feature, declare, uninstall, capture or post function is defined in more than one place in
+# install/features: bash would quietly keep the last one sourced.
 # Usage: f_call check_duplicates problems
 # Returns: problems
 #   problems: a line for each function defined more than once
 check_duplicates() {
   local problems="" fn
-  for fn in $(sed -n 's/^\(\(uninstall_\|capture_\)\{0,1\}feature_[a-z0-9_]*\)() *{.*/\1/p' \
+  for fn in $(sed -n -e 's/^\(\(uninstall_\|capture_\)\{0,1\}feature_[a-z0-9_]*\)() *{.*/\1/p' \
+    -e 's/^\(\(declare\|post\|post_uninstall\)_[a-z0-9_]*\)() *{.*/\1/p' \
     "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | sort | uniq -d); do
     problems+="$fn is defined more than once in install/features"$'\n'
   done
@@ -57,7 +60,8 @@ check_duplicates() {
 # Usage: feature_dir <impl>
 feature_dir() {
   local file
-  file="$(grep -l "^$(feature_function "$1")()" "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | head -1)"
+  file="$(grep -lE "^(feature|declare)_${1//-/_}\(\)" "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh \
+    | head -1)"
   file="${file#"$INSTALL_DIR"/features/}"
   [[ "$file" != */* ]] || printf '%s' "${file%%/*}"
 }
@@ -332,8 +336,10 @@ console.sh copies boot-time console settings, which only the arch desktop profil
 "
 
 # Find the problems with the hooks of the features: every uninstall_feature_<x> and capture_feature_<x> must name a
-# feature, or an implementation feature_<name>__<dir> that exists, and a feature with either must be in
-# DRY_RUN_FEATURES, since both must honor --dry-run.
+# feature, or an implementation feature_<name>__<dir> or declare_<name>__<dir> that exists, and a feature with either
+# must be in DRY_RUN_FEATURES, since both must honor --dry-run. A declared implementation (declare_<x>) is undone
+# generically, so it defines no uninstall_feature_<x>, which would never run, nor a feature_<x>, and every post_<x> and
+# post_uninstall_<x> must name one.
 # Usage: f_call check_hook_functions problems -- <known>
 #   <known>: the space-separated names of all the features
 # Returns: problems
@@ -345,13 +351,24 @@ check_hook_functions() {
     feature="$(implementation_feature "$name")"
     if ! list_contains "$known" "$feature"; then
       problems+="${kind}_feature_$name: names no feature"$'\n'
-    elif [[ "$name" == *__* ]] && ! fn_defined "$(feature_function "$name")"; then
+    elif [[ "$name" == *__* ]] && ! fn_defined "$(feature_function "$name")" && ! feature_declared "$name"; then
       problems+="${kind}_feature_$name: names no implementation ($(feature_function "$name") isn't defined)"$'\n'
+    elif [[ "$kind" == uninstall ]] && feature_declared "$name"; then
+      problems+="uninstall_feature_$name: never runs, since $(declare_function "$name") is undone generically"$'\n'
     fi
     list_contains "$DRY_RUN_FEATURES" "$feature" \
       || problems+="--$feature: has ${kind}_feature_$name, which must honor --dry-run, but is not in DRY_RUN_FEATURES"$'\n'
   done < <(sed -n 's/^\(uninstall\|capture\)_feature_\([a-z0-9_]*\)() *{.*/\1:\2/p' \
     "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
+  while IFS=: read -r kind name; do
+    [[ -n "$name" ]] || continue
+    feature_declared "$name" || problems+="${kind}_$name: names no declared feature ($(declare_function "$name") isn't defined)"$'\n'
+  done < <(sed -n -e 's/^\(post_uninstall\)_\([a-z0-9_]*\)() *{.*/\1:\2/p' -e 's/^\(post\)_\([a-z0-9_]*\)() *{.*/\1:\2/p' \
+    "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh | grep -v '^post:uninstall_')
+  while IFS= read -r name; do
+    ! fn_defined "$(feature_function "$name")" \
+      || problems+="--$name: defines both $(declare_function "$name") and $(feature_function "$name"); a feature is one or the other"$'\n'
+  done < <(sed -n 's/^declare_\([a-z0-9_]*\)() *{.*/\1/p' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
   f_return problems
 }
 
