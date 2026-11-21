@@ -55,8 +55,12 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
 - **Leaving the reason behind:** the wait also reads udev's `power_supply` events (the charger's, and the battery's
   periodic ones) and checks again on each. Once there is no reason left, such as the charger unplugged with no eGPU
   attached, it logs `no reason for a light sleep any more` and suspends for real, so a laptop put in a bag doesn't idle
-  until its battery is flat. It puts NetworkManager back to sleep first, runs `systemd-sleep suspend` with the sessions
-  still frozen, and on resume wakes NetworkManager and thaws them as after a light sleep.
+  until its battery is flat. It checks once more as soon as it listens, since an unplug during the freeze sends no
+  later event. It puts NetworkManager back to sleep first, runs `systemd-sleep suspend` with the sessions still frozen
+  and the key grabs held, and on resume wakes NetworkManager, keeps the grabs a second longer (so the press that woke
+  it doesn't reach Steam, which would suspend again on the power button) and thaws them as after a light sleep. Any
+  wake that reaches userspace ends it, as after an ordinary suspend; a failed `systemd-sleep` fails
+  `systemd-suspend.service`, also as before.
 - **What freezes:** only the graphical sessions: for each `wayland` or `x11` logind session, its scope
   (`session-N.scope`: sddm-helper, `start-gamescope-session` or `startplasma`) and each unit in its user's
   `app.slice`, `session.slice` and `background.slice` (Steam and games in `steam-launcher.service` or

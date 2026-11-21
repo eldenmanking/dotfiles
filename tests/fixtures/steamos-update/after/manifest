@@ -1,7 +1,7 @@
 kept    /etc/atomic-update.conf.d d 755 root:root
 new     /etc/atomic-update.conf.d/dotfiles.conf f 644 root:root 583fa3fbcafa991b
 kept    /etc/atomic-update.conf.d/example-additional-keep-list.conf f 644 root:root cb604c7e6a88b765
-new     /etc/dotfiles/bin/light-sleep f 755 root:root 9a0820c3dd2b1e17
+new     /etc/dotfiles/bin/light-sleep f 755 root:root f6e779df830f6205
 new     /etc/dotfiles/bin/orei-switch f 755 root:root 53ab745ba7965ccc
 new     /etc/dotfiles/bin/sddm-xsetup f 755 root:root b0fd815e55bf5a37
 new     /etc/dotfiles/bin/sddm-xstop f 755 root:root 3a45f82ce67017c3
