@@ -52,17 +52,32 @@ about 2 s. There is no terminal:
   fresh VM sits at Steam's first-run screens; Enter picks the highlighted option. Signing into Steam (which `--steam`
   needs) takes the user's account: leave that to them.
 - Idempotency: run the same `install.sh` command twice and check the second changes nothing.
+- Power source: `steamos-vm power ac|battery` plugs in or unplugs the VM's fake charger (`test_power`'s `test_ac`, a
+  `Mains` supply like the Framework's `ACAD`); `steamos-vm power` prints which it is on.
+- Sleep: with `light_sleep` installed (`--machine framework16 --light_sleep`) and on AC, `steamos-vm run --root
+  'systemctl suspend'` takes a real light sleep through logind, as Steam's sleep does; `steamos-vm key KEY_LEFTSHIFT`
+  wakes it, and `journalctl -t light-sleep -b` lists what it froze. Don't take a screenshot while it sleeps: gamescope
+  is frozen, so it hangs until the wake.
+- SSH: `steamos-vm run --root 'systemctl start sshd'`, then give deck a key for itself (`ssh-keygen -t ed25519 -N ""
+  -f ~/.ssh/id_vmtest`, appended to `~/.ssh/authorized_keys`), and `ssh -i ~/.ssh/id_vmtest localhost ...` from
+  `steamos-vm run` is a real sshd login, with its own logind session, as one from another machine would be. The VM's
+  user networking can't be reached from the host.
 
 ## 5. Finish
 - `steamos-vm stop` powers it off through its agent (it falls back to forcing it off).
 - Report what ran in the VM and what was checked, and what couldn't be (hardware, Steam sign-in, Desktop Mode, which
-  screenshots don't cover).
+  screenshots don't cover). "Compared with the Framework 16" under SteamOS test VM in `README.md` lists what the VM
+  matches and where it differs; keep it in sync when a change brings the VM closer.
 
 ## Things that look like bugs but aren't
-- Suspend is a no-op in the VM (the GPU doesn't survive a guest suspend), so sleep hooks run but nothing sleeps; that
-  also replaces `light_sleep`'s suspend.
+- Suspend never reaches the VM's kernel (the GPU doesn't survive a guest suspend): sleep hooks run, and then either
+  `light-sleep` takes a light sleep (on AC with `light_sleep` installed) or nothing sleeps. VMs installed before
+  `steamos-vm-power.service` have no fake charger, so suspend is always a no-op there; `--reinstall --steamos_vm`.
 - `virsh shutdown` makes Game Mode suspend instead; use `steamos-vm stop`.
 - There is a virtual Wi-Fi radio (`mac80211_hwsim`) with no networks; the VM's network is the wired `enp1s0`.
 - `/etc` (with the `deck` password) is per A/B slot. If a boot fails to reach the login screen a few times, SteamOS
   switches slots, and earlier `/etc` changes and the password seem gone. See `debug-steamos-vm`.
+- A SteamOS update (`steamos-vm run --root steamos-update`, then `steamos-vm restart`) keeps the VM's own units and
+  dotfiles' files, but moves files no keep list names into `/etc/previous`, such as the passwordless sudo file: add it
+  again.
 - The guest renders on the eGPU when one is attached (the lowest-numbered amdgpu render node), not the 780M.
