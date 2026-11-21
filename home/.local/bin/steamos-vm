@@ -323,7 +323,8 @@ key_vm() {
 
 # Plug in the VM's fake charger (test_power's test_ac) for <source> ac, or unplug it for battery, or print which the
 # VM is on without one.
-# Usage: power_vm [ac|battery]
+# Usage: power_vm [<source>]
+#   <source>: ac or battery
 power_vm() {
   local online
   case "${1:-}" in
@@ -334,7 +335,8 @@ power_vm() {
   esac
   [[ -z "${online:-}" ]] \
     || run_vm true "echo $online > /sys/module/test_power/parameters/ac_online" >/dev/null \
-    || error "Could not switch the power source; test_power isn't loaded (installs older than steamos-vm-power.service)"
+    || error "Could not switch the power source. Check that the VM answers (steamos-vm status)" \
+      "and that test_power is loaded (by steamos-vm-power.service, which older installs lack)"
   case "$(run_vm true 'cat /sys/class/power_supply/test_ac/online' 2>/dev/null)" in
     1) info "On AC." ;;
     0) info "On battery." ;;

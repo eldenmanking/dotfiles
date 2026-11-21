@@ -50,7 +50,13 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
 - **When:** a light sleep while a live eGPU is attached, whatever the power source, or on external power (a `Mains`
   power supply, `ACAD`, reports `online`), so the network stays up for SSH and webterm. On battery with no live eGPU
   (no display controller below `00:01.5`, or one whose config space reads `ffff`) it runs `systemd-sleep suspend`, as
-  without the drop-in.
+  without the drop-in. The network stays up in every light sleep, an eGPU one on battery too, which costs battery but
+  keeps the machine reachable.
+- **Leaving the reason behind:** the wait also reads udev's `power_supply` events (the charger's, and the battery's
+  periodic ones) and checks again on each. Once there is no reason left, such as the charger unplugged with no eGPU
+  attached, it logs `no reason for a light sleep any more` and suspends for real, so a laptop put in a bag doesn't idle
+  until its battery is flat. It puts NetworkManager back to sleep first, runs `systemd-sleep suspend` with the sessions
+  still frozen, and on resume wakes NetworkManager and thaws them as after a light sleep.
 - **What freezes:** only the graphical sessions: for each `wayland` or `x11` logind session, its scope
   (`session-N.scope`: sddm-helper, `start-gamescope-session` or `startplasma`) and each unit in its user's
   `app.slice`, `session.slice` and `background.slice` (Steam and games in `steam-launcher.service` or
@@ -81,14 +87,16 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   lights the display up again.
 - **Wake:** on a key press on a keyboard, or the power button, or remotely with `sudo /etc/dotfiles/bin/light-sleep
   wake` (e.g. over Tailscale SSH), which writes a line into the fifo the wait reads, `/run/light-sleep.wake` (root's
-  only; it exists only during a light sleep, so `wake` says when none is running). Each key and the power button has an
-  `evtest --grab`, so the press reaches nothing else; without the grab, the frozen session's input queues would deliver
-  it on thaw, and Steam would suspend again on the power button. The grabs stay for a second after the press, to swallow
-  any presses after it. `udevadm monitor` starts an `evtest` for a keyboard connected during the sleep, if it has a
-  `/dev/input/by-id/*-event-kbd` link (USB ones do, Bluetooth ones often don't), and one exits by itself when its device
-  goes away, so the `evtest`s are only stopped on wake. That uses `SIGKILL`: a `SIGTERM` sent just after forking one can
-  be lost to the script's `EXIT` trap, and the sleep would then never end. Then it thaws the graphical sessions, and the
-  compositor turns the displays back on (in Desktop Mode, `kscreen-doctor --dpms on`, as KWin only answers once thawed).
+  only; it exists only during a light sleep, so `wake` says when none is running). The fifo is made first, before the
+  DPMS wait and the freeze, so a `wake` sent during those few seconds ends the sleep as soon as the wait starts. Each
+  key and the power button has an `evtest --grab`, so the press reaches nothing else; without the grab, the frozen
+  session's input queues would deliver it on thaw, and Steam would suspend again on the power button. The grabs stay for
+  a second after the press, to swallow any presses after it. `udevadm monitor` starts an `evtest` for a keyboard
+  connected during the sleep, if it has a `/dev/input/by-id/*-event-kbd` link (USB ones do, Bluetooth ones often don't),
+  and one exits by itself when its device goes away, so the `evtest`s are only stopped on wake. That uses `SIGKILL`: a
+  `SIGTERM` sent just after forking one can be lost to the script's `EXIT` trap, and the sleep would then never end.
+  Then it thaws the graphical sessions, and the compositor turns the displays back on (in Desktop Mode, `kscreen-doctor
+  --dpms on`, as KWin only answers once thawed).
 - **Lid:** closing it on external power must not suspend, or the light sleep's wake would be followed by a real suspend
   that the eGPU doesn't survive. In Gaming Mode logind handles the lid, and the `logind` feature's `lid.conf` ignores
   it on external power. In Desktop Mode PowerDevil takes the lid switch from logind (it holds a `handle-lid-switch`
