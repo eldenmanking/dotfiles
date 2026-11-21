@@ -1,6 +1,6 @@
 # Feature: a GNOME Boxes VM for testing Arch installs (steamos). It has two disks: the Arch ISO itself, attached
 # read-only and booted like an install stick, and a blank one to install onto. The Boxes Flatpak bundles virsh and qemu-img, so
-# nothing is needed on the read-only rootfs. See Arch install test VM in README.md.
+# nothing is needed on the read-only rootfs. See docs/features/test-vms.md.
 
 ARCH_VM_NAME="arch-install"
 ARCH_VM_TARGET_SIZE="40G"

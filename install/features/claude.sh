@@ -262,7 +262,7 @@ configure_claude_md() {
   upsert_block "$dst" claude "$content" '</system-prompt>'
 }
 
-# Install Claude Code config from the tools repos: CLAUDE.md, skills, scripts and settings (see README.md).
+# Install Claude Code config from the tools repos: CLAUDE.md, skills, scripts and settings (see docs/features/claude.md).
 #
 # @machine any
 # @os any

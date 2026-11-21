@@ -19,7 +19,7 @@ BACKUPS_ROOT="$DOTFILES_ROOT/.backup"
 LOCAL_PREFIX="$HOME/.local"
 LOCAL_BIN="$LOCAL_PREFIX/bin"
 INSTALL_CONFIG="${DOTFILES_INSTALL_CONFIG:-$HOME/.config/dotfiles/install.conf}"
-# A directory of downloads named by SHA-256, read and filled by download_verified (see Download Cache in README.md).
+# A directory of downloads named by SHA-256, read and filled by download_verified (see Download Cache in docs/installation.md).
 DOWNLOAD_CACHE="${DOTFILES_DOWNLOAD_CACHE:-}"
 
 # install.sh only runs from a dotfiles checkout, beside its install/ directory; to install from scratch, use the
@@ -29,7 +29,7 @@ DOWNLOAD_CACHE="${DOTFILES_DOWNLOAD_CACHE:-}"
 bootstrap() {
   if [[ ! -f "$INSTALL_DIR/lib/fn.sh" ]]; then
     printf '[error] install.sh must run from a dotfiles checkout. To install from scratch, use the install.sh on\n' >&2
-    printf '        the install branch instead (see Installation in README.md).\n' >&2
+    printf '        the install branch instead (see docs/installation.md).\n' >&2
     exit 1
   fi
   clone_checkout_to_root "$@"
@@ -106,7 +106,7 @@ for --all). Set them in the environment or in $INSTALL_CONFIG.
 --oti runs a one-time install instead, which sets up a machine once (e.g.
 installing Arch from its live ISO): it asks its questions up front, prints
 each command it runs, resumes where an earlier run stopped, and can't be undone.
-See README.md for more information.
+See README.md and docs/ for more information.
 
 Variants:
 EOF
