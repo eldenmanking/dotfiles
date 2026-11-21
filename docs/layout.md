@@ -42,7 +42,7 @@ The tree below shows the files in the repository and the role of each one. `make
 │   ├── install-database.md          --- design proposal: record what features install, to undo it and restore what it replaced
 │   ├── installation.md              --- install.sh's options, the bootstrap and install branch, --infer, defaults, the download cache
 │   ├── layout.md                    --- this tree: every tracked file and its role
-│   ├── light-sleep.md               --- light sleep instead of suspend while an eGPU is on the Framework 16 expansion bay
+│   ├── light-sleep.md               --- light sleep instead of suspend with an eGPU on the Framework 16 bay or on external power
 │   ├── migrations.md                --- manual steps after pulling changes that leave stale files behind
 │   ├── one-time-installs            --- installing and setting up an OS on a machine, once
 │   │   ├── arch-install.md          --- installing Arch: the arch-chroot one-time install from the live ISO, and by hand
@@ -157,7 +157,7 @@ The tree below shows the files in the repository and the role of each one. `make
 │   ├── etc                          ---
 │   │   ├── dotfiles                 ---
 │   │   │   ├── bin                  ---
-│   │   │   │   ├── light-sleep      --- suspends, or idles with the displays off while an eGPU is on the expansion bay (copied by light_sleep)
+│   │   │   │   ├── light-sleep      --- suspends, or idles with the displays off with an eGPU or on external power (copied by light_sleep)
 │   │   │   │   ├── orei-switch      --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
 │   │   │   │   ├── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
 │   │   │   │   ├── sddm-xstop       --- redoes the VT switch to the session that the login screen's exit dropped (copied by orei_switch)

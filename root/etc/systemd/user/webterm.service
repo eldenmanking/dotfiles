@@ -4,5 +4,7 @@ Requires=webterm.socket webterm-ttyd.service
 After=webterm.socket webterm-ttyd.service
 
 [Service]
+# Its own slice, outside app.slice, so light-sleep (the light_sleep feature) can freeze the session around it
+Slice=webterm.slice
 Environment=WEBTERM_IDLE=30s
 ExecStart=/usr/lib/systemd/systemd-socket-proxyd --exit-idle-time=${WEBTERM_IDLE} %t/webterm.sock

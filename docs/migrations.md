@@ -213,3 +213,24 @@ linked those directories to a tools repo, or from `~/dotfiles/.claude`, before p
 - **Check:** `find ~/.claude/scripts ~/.claude/skills ~/.claude/commands -maxdepth 1 -xtype l -lname "$HOME/dotfiles/.claude/*" 2>/dev/null`
 - **Fix:** `rm` each link the check printed.
 - **Verify:** the check prints nothing.
+
+## Light sleep freezes only the graphical session; webterm gets its own slice (#118)
+`light-sleep` now freezes only the graphical session (its scope and the units in the user's `app.slice`,
+`session.slice` and `background.slice`) instead of all of `user.slice`, and webterm's services run in their own
+`webterm.slice` so they keep running. Machines that installed webterm before still have its units in `app.slice`, and a
+tmux server started from webterm then stays in the old `app.slice/webterm-ttyd.service` cgroup even after the units
+move, so a light sleep would still freeze it and every shell in it. Affects steamos and arch with webterm; the frozen
+tmux matters only with `light_sleep` (steamos, framework16).
+
+### webterm's units still in app.slice (steamos, arch)
+- **Check:** `systemctl --user show -p Slice --value webterm-ttyd.service 2>/dev/null | grep -x app.slice`
+- **Fix:** `~/dotfiles/install.sh --variant <steamos|arch> --webterm`, which copies the new units and restarts ttyd
+  (open webterm tabs reconnect; tmux keeps running).
+- **Verify:** the check prints nothing, and the command prints `webterm.slice` without the `grep`.
+
+### tmux server from webterm left in app.slice (steamos, framework16)
+- **Check:** `for p in $(pgrep -x 'tmux: server'); do grep -H 'app.slice/webterm-ttyd.service' /proc/$p/cgroup; done 2>/dev/null`
+- **Fix:** after the step above, ask the user, since it ends every tmux session: from a shell outside that tmux
+  (a new webterm tab is fine once the step above ran), `tmux kill-server`, then start tmux again; or reboot. A tmux
+  started from a Desktop Mode terminal is in `app.slice` by design and freezes with the session.
+- **Verify:** the check prints nothing; a new tmux from webterm shows `webterm.slice` in `/proc/<pid>/cgroup`.
