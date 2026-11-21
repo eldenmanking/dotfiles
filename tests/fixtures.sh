@@ -15,7 +15,7 @@
 #             manifest lists, to show the layout, and the regular files under FILES and ROOT_FILES, for readable diffs
 # install.sh then runs again, and must leave all of it as it was: an idempotent install, and one that AFTER_INSTALL
 # didn't undo any of. Every container shares DOWNLOADS_DIR as its DOTFILES_DOWNLOAD_CACHE, so pinned downloads are
-# fetched once (see Download Cache in README.md).
+# fetched once (see Download Cache in docs/installation.md).
 
 set -euo pipefail
 
