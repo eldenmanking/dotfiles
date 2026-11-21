@@ -22,7 +22,7 @@ For any laptop (`@machine laptop`). Copies `root/etc/systemd/logind.conf.d/lid.c
 Makes an OREI HDMI switch hand over to another input while the laptop sleeps; see [orei-switch.md](../orei-switch.md).
 
 ### `light_sleep`
-Keeps an eGPU on the expansion bay working across sleep: the bay's PCIe link drops whenever the laptop reaches hardware sleep, and an eGPU with its own power supply never comes back, so while one is attached a suspend idles with the displays off instead; see [light-sleep.md](../light-sleep.md).
+Keeps an eGPU on the expansion bay working across sleep: the bay's PCIe link drops whenever the laptop reaches hardware sleep, and an eGPU with its own power supply never comes back, so while one is attached, or on external power, a suspend idles with the displays off instead, freezing only the graphical session so SSH logins and webterm keep working; see [light-sleep.md](../light-sleep.md).
 
 ### `quiet_slow_charger`
 Stops Steam's Slow Charger dialog, which opens whenever a charger can't keep up with the laptop (vpower writes `Connected slow` to `/run/vpower/ac_status`, and nothing in Steam turns the dialog off): a drop-in for SteamOS's `vpower.service` makes vpower write its state into `/run/vpower-raw` (a bind mount in its own namespace; the rest of the unit is left as SteamOS ships it), and `vpower-filter.service`, started and stopped with vpower, copies it to `/run/vpower` with `Connected slow` changed to `Connected`. Battery percentage, low-battery warnings and vpower's shutdown request pass through unchanged.

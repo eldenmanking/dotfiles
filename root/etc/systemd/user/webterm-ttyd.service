@@ -4,6 +4,9 @@ Description=Web terminal (ttyd)
 StopWhenUnneeded=yes
 
 [Service]
+# Its own slice, outside app.slice, so light-sleep (the light_sleep feature) keeps it and the shells and tmux it
+# starts running while it freezes the session
+Slice=webterm.slice
 # Copied into /etc/systemd/user by the webterm feature of ~/dotfiles/install.sh, which also writes token; env
 # (shell, font) and the scripts in ~/.local/bin are linked by the link feature. token comes first so env can override it.
 EnvironmentFile=%h/.config/webterm/token

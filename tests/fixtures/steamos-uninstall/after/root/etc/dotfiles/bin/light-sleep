@@ -1,21 +1,32 @@
 #!/bin/bash
-# Suspend, or idle with the displays off while an eGPU sits on the Framework 16 expansion bay. Installed into
-# /etc/dotfiles/bin by the light_sleep feature of ~/dotfiles/install.sh, and run by systemd-suspend.service in place of
-# systemd-sleep (see its drop-in light-sleep.conf). See docs/light-sleep.md.
+# Suspend, or idle with the displays off while an eGPU sits on the Framework 16 expansion bay or the laptop is on
+# external power. Installed into /etc/dotfiles/bin by the light_sleep feature of ~/dotfiles/install.sh, and run by
+# systemd-suspend.service in place of systemd-sleep (see its drop-in light-sleep.conf). See docs/light-sleep.md.
 #
 # An eGPU on the bay's M.2 slot loses its PCIe link whenever the SoC reaches hardware sleep (S0i3) and never gets it
 # back: it has its own power supply, so it never sees the reset a new link needs. Nothing in Linux keeps s2idle out of
-# S0i3, so while a live one is attached, sleep is a light sleep instead: freeze user.slice as systemd-sleep does and
-# wait for a key or the power button. The compositor has already turned the displays off, on logind's PrepareForSleep;
-# in Desktop Mode, KWin lights the laptop panel again when orei-switch's PD cut removes the projector's output, so
-# it is turned off again here, after that.
+# S0i3, so while a live one is attached, sleep is a light sleep instead. On external power it is one too, so the
+# network stays up for Tailscale SSH and webterm. A light sleep freezes only the graphical sessions (their scopes, and
+# their users' app, session and background slices) and waits for a key or the power button, so SSH logins and
+# webterm (in its own webterm.slice) keep running. The compositor has already turned the displays off, on logind's
+# PrepareForSleep; in Desktop Mode, KWin lights the laptop panel again when orei-switch's PD cut removes the
+# projector's output, so it is turned off again here, after that.
 # logind, Steam and the units on sleep.target still see an ordinary suspend.
+#
+# Usage: light-sleep suspend|hibernate|hybrid-sleep|suspend-then-hibernate  (as systemd-sleep, from the drop-in)
+#        light-sleep wake  (as root, e.g. sudo over SSH: end a light sleep, as a key press would)
 ROOT_PORT=0000:00:01.5  # the expansion bay's PCIe root port
 POWER_BUTTON=/dev/input/by-path/platform-PNP0C0C:00-event  # the ACPI power button, which has no by-id link
 WAKE_GRAB=1             # seconds to keep swallowing presses after the one that wakes
+WAKE_FIFO=/run/light-sleep.wake  # where wait_for_press reads, while a light sleep runs; light-sleep wake writes to it
 SYSTEMD_SLEEP=/usr/lib/systemd/systemd-sleep
 DPMS_WAIT=3            # seconds to wait for KWin to turn the displays off
 SESSION_USER=deck       # whose KWin (Desktop Mode) session to turn the displays off in
+FREEZE_WAIT=5           # seconds to wait for a cgroup to report it is frozen
+USER_SLICES="app.slice session.slice background.slice"  # a user manager's slices that hold a graphical session
+# The user bus, left running in session.slice: tmux asks the user manager over it for a scope for each server and pane
+# it starts, so with it frozen, tmux hangs in SSH and webterm shells.
+USER_KEEP="dbus-broker.service dbus.service"
 
 # Log a message to the journal, tagged light-sleep.
 # Usage: log <message>...
@@ -54,19 +65,19 @@ watch_new_devices() {
   shopt -u nullglob
 }
 
-# Return on the first key or power button press. Each evtest grabs its device, so the press never reaches the frozen
-# session, whose input queues would otherwise deliver it on thaw (Steam would suspend again on the power button). The
-# fifo gets evtest's lines and udevadm's; key repeats (value 2) and releases (value 0) are ignored, so a key held since
+# Return on the first key or power button press, or a wake line from light-sleep wake. Each evtest grabs its device,
+# so the press never reaches the frozen session, whose input queues would otherwise deliver it on thaw (Steam would
+# suspend again on the power button). The fifo WAKE_FIFO (root's only) gets evtest's lines, udevadm's and light-sleep
+# wake's, and is removed on return; key repeats (value 2) and releases (value 0) are ignored, so a key held since
 # before the sleep doesn't wake. The grabs stay for WAKE_GRAB seconds after the press, to swallow any presses after it.
 # SIGKILL, not SIGTERM: this script's EXIT trap can make a just-forked job lose a SIGTERM before it execs, and an evtest
 # blocked on the full fifo wouldn't act on one.
 # Usage: wait_for_press
 wait_for_press() {
-  local fifo line key monitor devs=() pids=()
-  fifo="$(mktemp -u /run/light-sleep.XXXXXX)"
-  mkfifo "$fifo"
-  exec 3<>"$fifo"
-  rm "$fifo"
+  local line key monitor devs=() pids=()
+  rm -f "$WAKE_FIFO"
+  mkfifo -m 600 "$WAKE_FIFO"
+  exec 3<>"$WAKE_FIFO"
   stdbuf -oL udevadm monitor --udev --subsystem-match=input >&3 2>/dev/null &
   monitor=$!
   watch_new_devices
@@ -77,9 +88,14 @@ wait_for_press() {
         log "woken by ${key%%\)*}"
         break
         ;;
+      wake)
+        log "woken by light-sleep wake"
+        break
+        ;;
       UDEV*' add '*) watch_new_devices ;;
     esac
   done
+  rm -f "$WAKE_FIFO"
   sleep "$WAKE_GRAB"
   kill -9 "$monitor" "${pids[@]}" 2>/dev/null
   wait "$monitor" "${pids[@]}" 2>/dev/null
@@ -103,19 +119,114 @@ kwin_dpms() {
   log "displays still on ${DPMS_WAIT}s after kscreen-doctor --dpms off"
 }
 
-# Freeze the user session with the displays off until a key or power button press, then thaw it and
-# turn them back on.
+# Print whether the laptop is on external power: true or false.
+# Usage: on_external_power
+on_external_power() {
+  local psy
+  for psy in /sys/class/power_supply/*; do
+    [[ "$(cat "$psy/type" 2>/dev/null)" == Mains && "$(cat "$psy/online" 2>/dev/null)" == 1 ]] && { echo true; return; }
+  done
+  echo false
+}
+
+# Print the cgroup directories that hold the graphical sessions: each wayland or x11 logind session's scope, and each
+# unit in its user's USER_SLICES but USER_KEEP. Not the user manager itself (init.scope), webterm.slice or other
+# sessions' scopes, such as SSH logins: they keep running, and so do units started during the sleep, such as the
+# scopes tmux starts.
+# Usage: graphical_cgroups
+graphical_cgroups() {
+  local id type scope uid manager slice unit
+  for id in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
+    type="$(loginctl show-session "$id" -p Type --value)"
+    scope="$(loginctl show-session "$id" -p Scope --value)"
+    uid="$(loginctl show-session "$id" -p User --value)"
+    [[ "$type" == wayland || "$type" == x11 ]] || continue
+    [[ -z "$scope" ]] || echo "/sys/fs/cgroup$(systemctl show -p ControlGroup --value "$scope")"
+    manager="/sys/fs/cgroup$(systemctl show -p ControlGroup --value "user@$uid.service")"
+    for slice in $USER_SLICES; do
+      for unit in "$manager/$slice"/*/; do
+        unit="${unit%/}"
+        [[ -d "$unit" && " $USER_KEEP " != *" ${unit##*/} "* ]] && echo "$unit"
+      done
+    done
+  done | sort -u
+}
+
+# Freeze or thaw ($1: 1 or 0) the cgroups <cgroup>... through cgroup.freeze, waiting up to FREEZE_WAIT seconds for
+# each to report it. Not through systemctl freeze: a user manager refuses to freeze app.slice (dbus.socket in it can't
+# be frozen), and with its dbus-broker frozen in session.slice, its thaw jobs hang.
+# Usage: set_frozen 1|0 <cgroup>...
+set_frozen() {
+  local want="$1" cg i
+  shift
+  for cg in "$@"; do
+    echo "$want" > "$cg/cgroup.freeze" || { log "failed to set ${cg#/sys/fs/cgroup} frozen=$want"; continue; }
+  done
+  for cg in "$@"; do
+    for ((i = 0; i < FREEZE_WAIT * 10; i++)); do
+      grep -qx "frozen $want" "$cg/cgroup.events" 2>/dev/null && break
+      sleep 0.1
+    done
+    grep -qx "frozen $want" "$cg/cgroup.events" 2>/dev/null \
+      || log "${cg#/sys/fs/cgroup} not frozen=$want after ${FREEZE_WAIT}s"
+  done
+}
+
+# Wake NetworkManager, which put itself to sleep (taking every connection down) on logind's PrepareForSleep, as before
+# any suspend; a light sleep keeps the machine awake, and SSH and webterm need the network. logind's PrepareForSleep
+# after the wake finds it awake, which it ignores.
+# Usage: wake_network
+wake_network() {
+  [[ "$(busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager \
+    org.freedesktop.NetworkManager State 2>/dev/null)" == "u 10" ]] || return 0  # 10: NM_STATE_ASLEEP
+  if busctl call org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager \
+    Sleep b false; then
+    log "woke NetworkManager"
+  else
+    log "failed to wake NetworkManager"
+  fi
+}
+
+# Freeze the graphical sessions with the displays off until a key or power button press, then thaw them and turn the
+# displays back on.
 # Usage: light_sleep
 light_sleep() {
-  trap 'systemctl thaw user.slice || log "failed to thaw user.slice"; kwin_dpms on' EXIT
+  local cgroups=() cg
+  while IFS= read -r cg; do
+    cgroups+=("$cg")
+  done < <(graphical_cgroups)
+  log "freezing ${cgroups[*]##*/}"
+  # Expanded and quoted now (unit names hold backslashes): the trap runs after this function returns.
+  trap "rm -f $WAKE_FIFO; ${cgroups[0]+set_frozen 0 $(printf '%q ' "${cgroups[@]}");} kwin_dpms on" EXIT
   kwin_dpms off
-  systemctl freeze user.slice || log "failed to freeze user.slice"
+  [[ ${#cgroups[@]} -eq 0 ]] || set_frozen 1 "${cgroups[@]}"
+  wake_network
   wait_for_press
 }
 
+# End a running light sleep by writing a wake line to WAKE_FIFO. Fails, saying so, when no light sleep is running. The
+# write times out, rather than block, if the fifo is left over from a light-sleep that was killed.
+# Usage: wake
+wake() {
+  [[ -p "$WAKE_FIFO" ]] || { echo "light-sleep: no light sleep is running" >&2; return 1; }
+  [[ -w "$WAKE_FIFO" ]] || { echo "light-sleep: wake needs root: sudo $0 wake" >&2; return 1; }
+  timeout 5 sh -c 'echo wake > "$1"' sh "$WAKE_FIFO" \
+    || { echo "light-sleep: $WAKE_FIFO didn't take the wake line; is light-sleep still running?" >&2; return 1; }
+  echo "light-sleep: waking"
+}
+
+if [[ "$1" == wake ]]; then
+  wake
+  exit
+fi
 [[ "$1" == suspend ]] || exec "$SYSTEMD_SLEEP" "$@"
 egpus="$(live_egpus)"
-[[ -n "$egpus" ]] || exec "$SYSTEMD_SLEEP" "$@"
-log "light sleep instead of suspend: the eGPU at ${egpus//$'\n'/ } would lose its link"
+if [[ -n "$egpus" ]]; then
+  log "light sleep instead of suspend: the eGPU at ${egpus//$'\n'/ } would lose its link"
+elif [[ "$(on_external_power)" == true ]]; then
+  log "light sleep instead of suspend: on external power"
+else
+  exec "$SYSTEMD_SLEEP" "$@"
+fi
 light_sleep
 log "woke from light sleep"
