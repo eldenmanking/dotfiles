@@ -155,16 +155,6 @@ The tree below shows the files in the repository and the role of each one. `make
 ├── install.sh                       --- dotfiles install script
 ├── root                             ---
 │   ├── etc                          ---
-│   │   ├── dotfiles                 ---
-│   │   │   ├── bin                  ---
-│   │   │   │   ├── light-sleep      --- suspends, or idles with the displays off with an eGPU or on external power (copied by light_sleep)
-│   │   │   │   ├── orei-switch      --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
-│   │   │   │   ├── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
-│   │   │   │   ├── sddm-xstop       --- redoes the VT switch to the session that the login screen's exit dropped (copied by orei_switch)
-│   │   │   │   └── vpower-filter    --- copies vpower's state to /run/vpower for Steam, with a slow charger shown as connected (copied by quiet_slow_charger)
-│   │   │   └── steamos-manager      ---
-│   │   │       └── devices          ---
-│   │   │           └── framework-lap--- the Framework 16's charge limit method, laid over steamos-manager's device files (copied by charge_limit)
 │   │   ├── logid.cfg                --- logid configuration file for Logitech peripherals (copied by logiops)
 │   │   ├── modprobe.d               ---
 │   │   │   ├── framework-charge-cont--- lets cros_charge_control take over the Framework 16's charge limit (copied by charge_limit)
@@ -198,6 +188,17 @@ The tree below shows the files in the repository and the role of each one. `make
 │   │   │       ├── webterm.service  --- systemd-socket-proxyd, exits when idle (copied by webterm)
 │   │   │       └── webterm.socket   --- listens on 127.0.0.1:7681 (copied by webterm)
 │   │   └── vconsole.conf            --- Linux virtual console configuration file (copied by console only where none exists)
+│   ├── opt                          ---
+│   │   └── dotfiles                 ---
+│   │       ├── bin                  ---
+│   │       │   ├── light-sleep      --- suspends, or idles with the displays off with an eGPU or on external power (copied by light_sleep)
+│   │       │   ├── orei-switch      --- hands an OREI HDMI switch to another input on sleep, back on wake (Framework 16; copied by orei_switch)
+│   │       │   ├── sddm-xsetup      --- mirrors the boot login screen onto the projector (copied by orei_switch)
+│   │       │   ├── sddm-xstop       --- redoes the VT switch to the session that the login screen's exit dropped (copied by orei_switch)
+│   │       │   └── vpower-filter    --- copies vpower's state to /run/vpower for Steam, with a slow charger shown as connected (copied by quiet_slow_charger)
+│   │       └── steamos-manager      ---
+│   │           └── devices          ---
+│   │               └── framework-lap--- the Framework 16's charge limit method, laid over steamos-manager's device files (copied by charge_limit)
 │   └── usr                          ---
 │       ├── local                    ---
 │       │   └── bin                  ---

@@ -353,7 +353,7 @@ UNIT
 # it runs then; anything else is a no-op.
 [Service]
 ExecStart=
-ExecStart=/usr/bin/bash -c 'if [[ -x /etc/dotfiles/bin/light-sleep && "$$(cat /sys/class/power_supply/test_ac/online 2>/dev/null)" == 1 ]]; then exec /etc/dotfiles/bin/light-sleep suspend; fi'
+ExecStart=/usr/bin/bash -c 'if [[ -x /opt/dotfiles/bin/light-sleep && "$$(cat /sys/class/power_supply/test_ac/online 2>/dev/null)" == 1 ]]; then exec /opt/dotfiles/bin/light-sleep suspend; fi'
 UNIT
   umount /mnt
 done

@@ -4,8 +4,9 @@ The `light_sleep` feature (part of `./install.sh --variant steamos --machine fra
 or the laptop is on external power, a suspend idles with the displays off instead, with only the graphical session
 frozen, so SSH logins (Tailscale SSH included) and webterm keep working. On battery without an eGPU it suspends as
 before. It installs
-`/etc/dotfiles/bin/light-sleep` and a `systemd-suspend.service` drop-in that runs
-`light-sleep suspend` in place of `systemd-sleep suspend`, plus a SteamOS keep list entry for the scripts.
+`/opt/dotfiles/bin/light-sleep` and a `systemd-suspend.service` drop-in that runs
+`light-sleep suspend` in place of `systemd-sleep suspend`. SteamOS updates keep both: `/opt` without a keep list,
+and the drop-in through SteamOS's default one.
 
 ## Setup
 - Framework 16 (AMD 7040, BIOS 04.04) on SteamOS, with the dual M.2 interposer in the expansion bay
@@ -79,7 +80,7 @@ brings it back. Gaming Mode suspends through `dbus-send` to logind (the power bu
   `kscreen-doctor` returns, so it waits (up to 3 s) for the connectors to report off before freezing, which stops KWin;
   frozen straight after the call, the panel stayed lit. Switching VT is not just unneeded but harmful: with KWin it
   lights the display up again.
-- **Wake:** on a key press on a keyboard, or the power button, or remotely with `sudo /etc/dotfiles/bin/light-sleep
+- **Wake:** on a key press on a keyboard, or the power button, or remotely with `sudo /opt/dotfiles/bin/light-sleep
   wake` (e.g. over Tailscale SSH), which writes a line into the fifo the wait reads, `/run/light-sleep.wake` (root's
   only; it exists only during a light sleep, so `wake` says when none is running). Each key and the power button has an
   `evtest --grab`, so the press reaches nothing else; without the grab, the frozen session's input queues would deliver

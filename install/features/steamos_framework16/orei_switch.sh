@@ -1,8 +1,8 @@
 # Feature: hand an OREI HDMI switch to another input while a Framework 16 sleeps, and back on wake, by cutting power
 # to the left USB-C PD controller with Framework's framework_tool, and turn the projector off over CEC on sleep and
-# poweroff and back on on wake and boot (see root/etc/dotfiles/bin/orei-switch). Also lay out the boot login screen for
-# the projector (root/etc/dotfiles/bin/sddm-xsetup), and keep its exit from dropping the switch to the session's VT
-# (root/etc/dotfiles/bin/sddm-xstop).
+# poweroff and back on on wake and boot (see root/opt/dotfiles/bin/orei-switch). Also lay out the boot login screen for
+# the projector (root/opt/dotfiles/bin/sddm-xsetup), and keep its exit from dropping the switch to the session's VT
+# (root/opt/dotfiles/bin/sddm-xstop).
 
 OREI_SWITCH_UNITS_SRC="root/etc/systemd/system"
 OREI_SWITCH_UNITS="orei-switch.service orei-switch-boot.service orei-switch-poweroff.service"
@@ -12,9 +12,9 @@ FRAMEWORK_TOOL="$SYSTEM_BIN_DIR/framework_tool"
 # "<mode> <repo-relative source>" for each file installed besides the units, at its path under root/. Copied, not
 # linked: they run while the home may be locked.
 OREI_SWITCH_FILES=(
-  "755 root/etc/dotfiles/bin/orei-switch"
-  "755 root/etc/dotfiles/bin/sddm-xsetup"
-  "755 root/etc/dotfiles/bin/sddm-xstop"
+  "755 root/opt/dotfiles/bin/orei-switch"
+  "755 root/opt/dotfiles/bin/sddm-xsetup"
+  "755 root/opt/dotfiles/bin/sddm-xstop"
   "644 root/etc/sddm.conf.d/orei-switch.conf"
 )
 
@@ -48,8 +48,8 @@ install_framework_tool() {
 }
 
 # Download framework_tool and install the orei-switch scripts, the SDDM config and the sleep, boot and poweroff units
-# into /etc (sudo). The units are enabled but not started: starting the sleep unit cuts power to the left ports, and
-# the poweroff one turns the projector off.
+# into /etc (sudo). The units are enabled, and only the poweroff one is started, which does nothing until a poweroff
+# stops it: starting the sleep unit cuts power to the left ports.
 #
 # @machine framework16
 # @os steamos
@@ -65,6 +65,8 @@ feature_orei_switch() {
     copy_system_file "$mode" "$src"
   done
   install_system_units --no-start "$DOTFILES_ROOT/$OREI_SWITCH_UNITS_SRC" $OREI_SWITCH_UNITS
+  # Its start does nothing; it only needs to be active for a poweroff to stop it (a no-op if it already is).
+  run sudo systemctl start orei-switch-poweroff.service
   info "Keep the charger on a right-side port: sleep cuts power to ports 2 and 3. Logs: journalctl -t orei-switch -b"
 }
 

@@ -4,10 +4,12 @@
 [Unit]
 Description=OREI HDMI switch and projector setup on boot
 Before=display-manager.service
+# /opt is a bind mount on SteamOS.
+RequiresMountsFor=/opt/dotfiles
 
 [Service]
 Type=oneshot
-ExecStart=/etc/dotfiles/bin/orei-switch boot
+ExecStart=/opt/dotfiles/bin/orei-switch boot
 # Delays the login screen, so give up rather than hang it.
 TimeoutStartSec=60
 

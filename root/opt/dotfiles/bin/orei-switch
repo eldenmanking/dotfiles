@@ -1,6 +1,6 @@
 #!/bin/bash
 # Hand the OREI HDMI switch to another input on sleep and back to this laptop on wake, and turn the projector off on
-# sleep and poweroff and back on on wake and boot. Installed into /etc/dotfiles/bin by the orei_switch feature
+# sleep and poweroff and back on on wake and boot. Installed into /opt/dotfiles/bin by the orei_switch feature
 # of ~/dotfiles/install.sh, and run by orei-switch.service (sleep, wake), orei-switch-boot.service (boot, boot-tv) and
 # orei-switch-poweroff.service (poweroff). See docs/orei-switch.md.
 #
@@ -12,7 +12,7 @@
 # Only a CEC TV is touched: a TV answers CEC at logical address 0, and ordinary monitors don't. The ports are only cut
 # when the TV is behind a switch (this laptop's physical address is two levels deep, like 1.1.0.0), so sleeping away
 # from the projector, or on a TV without a switch, leaves them on.
-FWT=/etc/dotfiles/bin/framework_tool
+FWT=/opt/dotfiles/bin/framework_tool
 # framework_tool polls the EC with no timeout of its own, and the boot and sleep units wait for this script (oneshot
 # units have none either), so a wedged EC would hold back the login screen or suspend for good.
 FWT_TIMEOUT=10
@@ -228,6 +228,12 @@ case "$1" in
     fi
     ;;
   poweroff)
+    # orei-switch-poweroff.service runs this when it stops, which also happens on reboot, restart or removal: only
+    # act while a poweroff is queued.
+    if ! systemctl list-jobs --no-legend poweroff.target 2>/dev/null | grep -qw start; then
+      log "not powering off; leaving the projector alone"
+      exit 0
+    fi
     if tv_present 1; then
       projector_off
     fi
