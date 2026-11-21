@@ -18,6 +18,19 @@ alias vi=nvim                                                   #
 alias vis="source vis"                                          # Allow vis to use the vi alias
 alias gitu='git pull && git add -u && git commit && git push'   #
 command -v gio >/dev/null 2>&1 && alias tt="gio trash"          # Move file to trash (GLib; not on macOS)
+# Run tmux with <arg>..., starting its server, if this starts one, in a systemd scope of its own in tmux.slice. tmux
+# 3.7 puts each pane in a scope that is PartOf= the server's unit, so a server left in the unit of the shell that
+# started it (webterm's ttyd service, Konsole's app scope) loses every pane when that unit stops. Without a systemd
+# user manager (macOS, containers), or with a server already up on the socket <arg>... names, it is plain tmux.
+# Usage: tmux [-L <name>|-S <path>] [<arg>...]
+tmux() {
+  if [ -S "${XDG_RUNTIME_DIR:-/nonexistent}/bus" ] && command -v systemd-run >/dev/null 2>&1 \
+    && ! case "${1:-}" in -L|-S) command tmux "$1" "$2" has-session ;; *) command tmux has-session ;; esac 2>/dev/null; then
+    systemd-run --user --scope --slice=tmux.slice --collect --quiet --description="tmux server" -- tmux "$@"
+  else
+    command tmux "$@"
+  fi
+}
 
 # git shortcuts
 alias gs="git status"
