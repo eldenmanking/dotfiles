@@ -216,7 +216,8 @@ feature_steamos_vm() {
 # Stop and remove the VM, its UEFI variables and its disk, after asking, since the disk holds the install. Keeps
 # virt-manager and the recovery image, so --reinstall installs a fresh SteamOS without downloading anything.
 uninstall_feature_steamos_vm() {
-  if ! steamos_vm_defined && [[ ! -e "$STEAMOS_VM_DISK" && ! -e "$STEAMOS_VM_XML" && ! -e "$STEAMOS_VM_NVRAM" ]]; then
+  if ! steamos_vm_defined && [[ ! -e "$STEAMOS_VM_DISK" && ! -e "$STEAMOS_VM_XML" && ! -e "$STEAMOS_VM_NVRAM" \
+    && ! -e "$STEAMOS_VM_TPM" ]]; then
     info "VM '$STEAMOS_VM_NAME' does not exist"
     return
   fi
@@ -233,7 +234,9 @@ uninstall_feature_steamos_vm() {
   if steamos_vm_defined; then
     # A running VM must be stopped first; destroy fails harmlessly when it is already off.
     run steamos_vm_virsh destroy "$STEAMOS_VM_NAME" &>/dev/null || true
-    run steamos_vm_virsh undefine --nvram --managed-save "$STEAMOS_VM_NAME"
+    run steamos_vm_virsh undefine --nvram --tpm --managed-save "$STEAMOS_VM_NAME"
   fi
   run rm -f "$STEAMOS_VM_DISK" "$STEAMOS_VM_XML" "$STEAMOS_VM_NVRAM" "$STEAMOS_VM_SERIAL_LOG"
+  # A new install gets a new TPM, as a new machine would.
+  run rm -rf "$STEAMOS_VM_TPM"
 }

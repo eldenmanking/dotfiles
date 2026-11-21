@@ -23,6 +23,10 @@ STEAMOS_VM_APP_DIR="$HOME/.var/app/$STEAMOS_VM_APP"
 STEAMOS_VM_DIR="$STEAMOS_VM_APP_DIR/data/steamos-vm"
 STEAMOS_VM_CACHE="$STEAMOS_VM_APP_DIR/cache/steamos-vm"
 STEAMOS_VM_DISK="$STEAMOS_VM_DIR/disk.qcow2"
+# The virtual TPM's state (swtpm, from the Flatpak's QEMU extension), kept here rather than under the domain's UUID,
+# which changes each time steamos_vm_define redefines it: what the guest sealed to the TPM (e.g. tailscaled's state)
+# would be lost.
+STEAMOS_VM_TPM="$STEAMOS_VM_DIR/tpm"
 # The recovery image, decompressed (kept across --reinstall), and the kernel, initramfs and efi-A partition UUID taken
 # out of it, to boot it with a serial console and an install command (see steamos_vm_installer_xml).
 STEAMOS_VM_RECOVERY="$STEAMOS_VM_DIR/recovery.img"
@@ -173,6 +177,9 @@ steamos_vm_domain_xml() {
     <video><model type='virtio' heads='1' primary='yes'><acceleration accel3d='yes'/></model></video>
     <memballoon model='none'/>
     <rng model='virtio'><backend model='random'>/dev/urandom</backend></rng>
+    <tpm model='tpm-crb'>
+      <backend type='emulator' version='2.0'><source type='dir' path='$STEAMOS_VM_TPM'/></backend>
+    </tpm>
   </devices>
   <qemu:override>
     <qemu:device alias='video0'>
@@ -257,10 +264,14 @@ EOF
 # - steamos-vm-agent.service, which answers ping, runs poweroff or reboot, and runs scripts (exec) from the host over
 #   virtio-serial (Game Mode treats the ACPI power button as suspend, so virsh shutdown can't stop the VM; steamos-vm
 #   run and sync use exec);
-# - a systemd-suspend.service drop-in that makes suspend a no-op: after a guest suspend (S3 or s2idle alike), the
-#   virtio-gpu native context loses its host-side state, so processes using the GPU hang in the kernel and the next
-#   shutdown takes minutes. It sorts after light-sleep's drop-in, so it wins in the VM.
-#   Steam's idle suspend still runs the sleep hooks (e.g. orei-switch), and "wakes" at once;
+# - a systemd-suspend.service drop-in that keeps suspend from reaching the kernel: after a guest suspend (S3 or s2idle
+#   alike), the virtio-gpu native context loses its host-side state, so processes using the GPU hang in the kernel and
+#   the next shutdown takes minutes. It sorts after light-sleep's drop-in, so it wins in the VM: on external power, with
+#   light_sleep installed, it runs light-sleep, which then takes a light sleep (freezing the graphical session until a
+#   key press) and never suspends; anything else is a no-op. Steam's idle suspend still runs the sleep hooks (e.g.
+#   orei-switch), and "wakes" at once;
+# - steamos-vm-power.service, which loads test_power for a fake charger (test_ac, a Mains supply like the Framework's
+#   ACAD) and battery, so what depends on the power source can be tested (steamos-vm power ac|battery switches it);
 # - steamos-vm-wifi.service, which loads mac80211_hwsim for a virtual Wi-Fi radio: when Steam starts it sets the Wi-Fi
 #   backend through steamos-manager, which stops NetworkManager, creates wlan0 on phy0 with iw when it is missing, and
 #   gives up before starting NetworkManager again when that fails, as it does without a Wi-Fi device. That left the
@@ -323,11 +334,26 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 UNIT
   ln -sfn /etc/systemd/system/steamos-vm-wifi.service "$etc/systemd/system/multi-user.target.wants/steamos-vm-wifi.service"
+  cat > "$etc/systemd/system/steamos-vm-power.service" <<'UNIT'
+[Unit]
+Description=A fake charger and battery (test_power), for testing what depends on the power source (steamos-vm)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/modprobe test_power
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  ln -sfn /etc/systemd/system/steamos-vm-power.service "$etc/systemd/system/multi-user.target.wants/steamos-vm-power.service"
   cat > "$etc/systemd/system/systemd-suspend.service.d/zz-steamos-vm.conf" <<'UNIT'
-# steamos-vm: suspend is a no-op in this VM, since the GPU doesn't survive a guest suspend.
+# steamos-vm: the GPU doesn't survive a guest suspend, so suspend never reaches the kernel in this VM. On external
+# power, light-sleep (the light_sleep feature of ~/dotfiles/install.sh) takes a light sleep, which never suspends, so
+# it runs then; anything else is a no-op.
 [Service]
 ExecStart=
-ExecStart=/usr/bin/true
+ExecStart=/usr/bin/bash -c 'if [[ -x /etc/dotfiles/bin/light-sleep && "$$(cat /sys/class/power_supply/test_ac/online 2>/dev/null)" == 1 ]]; then exec /etc/dotfiles/bin/light-sleep suspend; fi'
 UNIT
   umount /mnt
 done
@@ -358,14 +384,14 @@ steamos_vm_current_xml() {
 
 # Define the VM with its domain XML for this host (steamos_vm_current_xml), replacing an earlier definition.
 # The XML has no UUID, so libvirt would refuse it as a second domain of the same name: undefine the old one first,
-# keeping its UEFI variables. Takes effect on the next start.
+# keeping its UEFI variables and TPM state. Takes effect on the next start.
 # Usage: steamos_vm_define
 steamos_vm_define() {
   local new="$STEAMOS_VM_XML.new"
   run mkdir -p "$STEAMOS_VM_CACHE"
   steamos_vm_current_xml | write_file "$new"
   if steamos_vm_defined; then
-    run steamos_vm_virsh undefine --keep-nvram "$STEAMOS_VM_NAME" >/dev/null || return 1
+    run steamos_vm_virsh undefine --keep-nvram --keep-tpm "$STEAMOS_VM_NAME" >/dev/null || return 1
   fi
   # Saved only once defined, since steamos-vm compares it with what the VM should be.
   run steamos_vm_virsh define "$new" >/dev/null && run mv "$new" "$STEAMOS_VM_XML"
