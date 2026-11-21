@@ -1,4 +1,4 @@
-# Inferring the OS, profile and machine to install for from the running system (see --infer in README.md). The *_for_*
+# Inferring the OS, profile and machine to install for from the running system (see --infer in docs/installation.md). The *_for_*
 # functions are pure; infer_system reads the system and passes what it finds to them.
 
 # Machines --machine accepts (each OS supports some, see os_config). generic is any hardware without its own features;

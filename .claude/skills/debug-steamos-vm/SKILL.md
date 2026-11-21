@@ -5,7 +5,7 @@ description: Diagnose the steamos_vm VM when it misbehaves - won't start or answ
 
 # Debug the SteamOS VM
 Work from the outside in, and check the known causes below before digging further. Commands are `steamos-vm` (see
-SteamOS test VM in `README.md`) and, on the host, virsh from the virt-manager Flatpak:
+SteamOS test VM in `docs/features/test-vms.md`) and, on the host, virsh from the virt-manager Flatpak:
 `flatpak run --user --command=virsh org.virt_manager.virt-manager -c qemu:///session <args>` (bound it with
 `timeout`: it can hang for minutes while libvirtd starts).
 

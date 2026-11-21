@@ -1,6 +1,6 @@
 # Feature: webterm, a browser shell served by ttyd and started on demand by systemd socket activation.
 # The units go into /etc/systemd/user and are enabled globally, so both the units and their links are outside an
-# encrypted home and the user manager starts the socket from boot. See Webterm in README.md.
+# encrypted home and the user manager starts the socket from boot. See docs/features/webterm.md.
 
 WEBTERM_UNITS_SRC="$DOTFILES_ROOT/root/etc/systemd/user"
 WEBTERM_SOCKET="$WEBTERM_UNITS_SRC/webterm.socket"
@@ -97,7 +97,7 @@ check_socket_activation() {
 }
 
 # Serve a shell in the browser on localhost: download ttyd and install systemd user units into /etc (needs sudo)
-# that start it on demand (see Webterm in README.md).
+# that start it on demand (see docs/features/webterm.md).
 #
 # @machine any
 # @os linux

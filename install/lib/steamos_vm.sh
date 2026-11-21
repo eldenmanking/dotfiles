@@ -1,5 +1,5 @@
 # The SteamOS test VM, shared by the steamos_vm feature (install/features/steamos_vm.sh), which installs it, and
-# home/.local/bin/steamos-vm, which starts, stops and repairs it. See SteamOS test VM in README.md.
+# home/.local/bin/steamos-vm, which starts, stops and repairs it. See docs/features/test-vms.md.
 #
 # The VM runs under the virt-manager Flatpak's libvirt session (qemu:///session) with QEMU from its QEMU extension:
 # GNOME Boxes' QEMU is too old for DRM native context, which Game Mode needs (gamescope wants Vulkan, and native

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Validate the repo's structure, which must keep holding as files are added, moved or removed: the checkout is named
-# dotfiles, the README tree matches the tracked files, tests/versions.env pins a SHA-256 for every tool on every
+# dotfiles, the docs/layout.md tree matches the tracked files, tests/versions.env pins a SHA-256 for every tool on every
 # platform, the fixtures' Arch-based images match CI's, and features suit their variants. Run via
 # `make validate`.
 
@@ -47,9 +47,9 @@ main() {
     failed=1
   fi
 
-  info "README.md tree matches the tracked files"
-  if have_or_skip python3 "the README.md tree check"; then
-    python3 tests/validation/readme_tree.py || failed=1
+  info "The docs/layout.md tree matches the tracked files"
+  if have_or_skip python3 "the docs/layout.md tree check"; then
+    python3 tests/validation/layout_tree.py || failed=1
   fi
 
   info "tests/versions.env pins a SHA-256 for every tool and platform"
