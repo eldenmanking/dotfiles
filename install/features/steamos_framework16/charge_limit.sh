@@ -5,7 +5,7 @@
 # root/etc/systemd/system/usr-share-steamos\x2dmanager-devices.mount) and sets Steam's to 80%, the BIOS's default.
 
 CHARGE_LIMIT_MODPROBE="root/etc/modprobe.d/framework-charge-control.conf"
-CHARGE_LIMIT_DEVICE="root/etc/dotfiles/steamos-manager/devices/framework-laptop-16.toml"
+CHARGE_LIMIT_DEVICE="root/opt/dotfiles/steamos-manager/devices/framework-laptop-16.toml"
 CHARGE_LIMIT_UNIT_SRC="root/etc/systemd/system"
 CHARGE_LIMIT_UNIT='usr-share-steamos\x2dmanager-devices.mount'
 CHARGE_LIMIT_MODULE="cros_charge_control"
@@ -44,7 +44,7 @@ _charge_limit_set_steam_setting() {
 }
 
 # Copy the cros_charge_control option into /etc/modprobe.d, the steamos-manager device file into
-# /etc/dotfiles/steamos-manager/devices and the mount unit that adds it to steamos-manager's into /etc/systemd/system
+# /opt/dotfiles/steamos-manager/devices and the mount unit that adds it to steamos-manager's into /etc/systemd/system
 # (sudo), then reload cros_charge_control with the option if it was loaded without it, and restart steamos-manager if
 # anything changed. Copied, not linked: they are read at boot, while the home may be locked. Then turn on Steam's
 # charge limit at CHARGE_LIMIT_PERCENT in its config.vdf (only while Steam is closed). Loading the module resets the
@@ -88,13 +88,13 @@ uninstall_feature_charge_limit() {
     run sudo rm -fv "/${CHARGE_LIMIT_MODPROBE#root/}"
     _charge_limit_reload_module
   fi
-  # Each folder above the device file up to /etc/dotfiles goes if that left it empty.
+  # Each folder above the device file up to SYSTEM_DIR goes if that left it empty.
   [[ ! -e "$dir" ]] || run sudo rm -fv "$dir"
-  while dir="${dir%/*}"; [[ "$dir" == /etc/dotfiles/* ]]; do
+  while dir="${dir%/*}"; [[ "$dir" == "$SYSTEM_DIR"/* ]]; do
     [[ -d "$dir" && -z "$(ls -A "$dir")" ]] || break
     run sudo rmdir "$dir"
   done
-  # With no paths, this only removes /etc/dotfiles if that left it empty.
+  # With no paths, this only removes SYSTEM_DIR (and its keep list entry) if that left it empty.
   remove_system_files
   forget_across_steamos_updates charge_limit
 }

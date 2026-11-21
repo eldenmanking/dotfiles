@@ -9,10 +9,10 @@
 IMAGE=steamos
 ARGS="--variant steamos --machine framework16 --link --udev --tmpfiles --logind --hdmi_audio_fix --orei_switch --light_sleep --gamescope_screenshot"
 # framework_tool is left out of ROOT_FILES, as a binary too big to commit, so check it survived here instead.
-AFTER_INSTALL="sudo steamos-update && test -x /etc/dotfiles/bin/framework_tool"
+AFTER_INSTALL="sudo steamos-update && test -x /opt/dotfiles/bin/framework_tool"
 ROOT_FILES="/etc/atomic-update.conf.d /etc/udev/rules.d /etc/tmpfiles.d /etc/systemd/logind.conf.d /etc/systemd/user /etc/previous /etc/dummy.conf"
-ROOT_FILES="$ROOT_FILES /etc/dotfiles/bin/orei-switch /etc/dotfiles/bin/sddm-xsetup /etc/dotfiles/bin/sddm-xstop /etc/sddm.conf.d"
-ROOT_FILES="$ROOT_FILES /etc/dotfiles/bin/light-sleep /etc/systemd/system/systemd-suspend.service.d"
+ROOT_FILES="$ROOT_FILES /opt/dotfiles/bin/orei-switch /opt/dotfiles/bin/sddm-xsetup /opt/dotfiles/bin/sddm-xstop /etc/sddm.conf.d"
+ROOT_FILES="$ROOT_FILES /opt/dotfiles/bin/light-sleep /etc/systemd/system/systemd-suspend.service.d"
 # Each unit and the link for each target in its WantedBy=, rather than all of /etc/systemd/system, which holds the
 # image's own units too.
 for target in multi-user suspend hibernate hybrid-sleep suspend-then-hibernate; do
@@ -20,7 +20,7 @@ for target in multi-user suspend hibernate hybrid-sleep suspend-then-hibernate; 
 done
 ROOT_FILES="$ROOT_FILES /etc/systemd/system/sleep.target.wants/orei-switch.service"
 ROOT_FILES="$ROOT_FILES /etc/systemd/system/multi-user.target.wants/orei-switch-boot.service"
-ROOT_FILES="$ROOT_FILES /etc/systemd/system/poweroff.target.wants/orei-switch-poweroff.service"
+ROOT_FILES="$ROOT_FILES /etc/systemd/system/multi-user.target.wants/orei-switch-poweroff.service"
 for unit in hdmi-audio-fix orei-switch orei-switch-boot orei-switch-poweroff; do
   ROOT_FILES="$ROOT_FILES /etc/systemd/system/$unit.service"
 done

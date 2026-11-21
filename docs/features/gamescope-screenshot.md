@@ -11,7 +11,7 @@ Screenshots land in `~/Pictures/Screenshots`, not in Steam's Media tab: Steam on
 To check hotplug on the Framework 16 without touching a cable, cut the power to the right USB-C PD controller (`0`, ports 0 and 1, where the Keychron receiver is plugged in) with the `framework_tool` the `orei_switch` feature installs, then restore it. The watch restarts without the receiver, then again with it (`watching ... Keychron ...`); `framework_tool --pd-info` shows each controller's enabled ports:
 
 ```sh
-sudo /etc/dotfiles/bin/framework_tool --pd-disable 0
-sudo /etc/dotfiles/bin/framework_tool --pd-enable 0
+sudo /opt/dotfiles/bin/framework_tool --pd-disable 0
+sudo /opt/dotfiles/bin/framework_tool --pd-enable 0
 journalctl --user -u gamescope-screenshot.service -u keyboard-rescan.service -n 20
 ```

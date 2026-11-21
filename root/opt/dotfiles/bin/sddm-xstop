@@ -17,7 +17,7 @@
 #
 # SDDM's greeter no longer quits on login since commit da0b64d (after 0.21), so its X server stays up until the switch
 # is done; this can go once SteamOS ships that.
-# Installed into /etc/dotfiles/bin by the orei_switch feature of ~/dotfiles/install.sh.
+# Installed into /opt/dotfiles/bin by the orei_switch feature of ~/dotfiles/install.sh.
 BUDGET_MS=4000
 
 # Log a message to the journal, tagged orei-switch like the rest of the display handling.

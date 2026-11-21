@@ -234,3 +234,37 @@ tmux matters only with `light_sleep` (steamos, framework16).
   (a new webterm tab is fine once the step above ran), `tmux kill-server`, then start tmux again; or reboot. A tmux
   started from a Desktop Mode terminal is in `app.slice` by design and freezes with the session.
 - **Verify:** the check prints nothing; a new tmux from webterm shows `webterm.slice` in `/proc/<pid>/cgroup`.
+
+## Move system files from /etc/dotfiles to /opt/dotfiles (#121)
+The scripts, `framework_tool` and the steamos-manager device file that system units, the login screen and boot use
+moved from `/etc/dotfiles` to `/opt/dotfiles`, which SteamOS keeps across updates without a keep list (it bind-mounts
+`/opt` from `/home/.steamos/offload/opt`, outside the dirlock-encrypted `/home/deck`). The units, the light-sleep and
+vpower drop-ins and the SDDM config point at the new paths, and the keep list no longer names those files. Applies to
+Framework 16 machines that ran `--orei_switch`, `--light_sleep`, `--quiet_slow_charger` or `--charge_limit` (steamos).
+
+### Old copies in /etc/dotfiles (steamos)
+- **Check:** `ls -d /etc/dotfiles 2>/dev/null`
+- **Fix:** rerun each of those features the machine has, so the new files, units and SDDM config are in place, e.g.
+  `~/dotfiles/install.sh --variant steamos --machine framework16 --orei_switch --light_sleep --quiet_slow_charger --charge_limit`.
+  Once `grep -rl /etc/dotfiles /etc/systemd/system /etc/sddm.conf.d 2>/dev/null` prints nothing, after asking,
+  `sudo rm -rf /etc/dotfiles`.
+- **Verify:** the check prints nothing, `/opt/dotfiles/bin/framework_tool --version` runs (if `--orei_switch` ran),
+  `systemctl status orei-switch-boot.service vpower-filter.service --no-pager` shows no missing-file errors, and
+  `findmnt /usr/share/steamos-manager/devices` shows `lowerdir=/opt/dotfiles/steamos-manager/devices` (if
+  `--charge_limit` ran).
+
+### Keep list still names /etc/dotfiles (steamos)
+- **Check:** `grep -nE '^/etc/dotfiles/|^## feature (light_sleep|quiet_slow_charger)$' /etc/atomic-update.conf.d/dotfiles.conf 2>/dev/null`
+- **Fix:** after the step above (which rewrites the `orei_switch` and `charge_limit` subblocks), after asking, delete
+  the `## feature light_sleep` and `## feature quiet_slow_charger` subblocks (each heading and the path lines under it)
+  from `/etc/atomic-update.conf.d/dotfiles.conf` with `sudoedit`, leaving the `## Managed by dotfiles` markers.
+- **Verify:** the check prints nothing.
+
+### The steamos_vm VM's suspend drop-in still runs /etc/dotfiles (hosts with steamos_vm)
+`--steamos_vm` writes `zz-steamos-vm.conf` into the VM's `/etc` when it installs the VM, so a VM installed before this
+still runs `/etc/dotfiles/bin/light-sleep`, which a light_sleep install from now on doesn't create: suspend in the VM
+then silently does nothing, even on its fake external power.
+- **Check:** `steamos-vm status >/dev/null 2>&1 && steamos-vm run 'grep -l /etc/dotfiles /etc/systemd/system/systemd-suspend.service.d/zz-steamos-vm.conf 2>/dev/null'`
+- **Fix:** after asking (it edits the VM's `/etc`), `steamos-vm run --root "sed -i 's|/etc/dotfiles/|/opt/dotfiles/|g' /etc/systemd/system/systemd-suspend.service.d/zz-steamos-vm.conf && systemctl daemon-reload"`;
+  or, if nothing in the VM needs keeping, `~/dotfiles/install.sh --reinstall --steamos_vm` (erases the VM).
+- **Verify:** the check prints nothing.

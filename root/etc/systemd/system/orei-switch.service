@@ -3,14 +3,16 @@
 Description=OREI HDMI switch handoff on sleep/wake
 Before=sleep.target
 StopWhenUnneeded=yes
+# /opt is a bind mount on SteamOS.
+RequiresMountsFor=/opt/dotfiles
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/etc/dotfiles/bin/orei-switch sleep
+ExecStart=/opt/dotfiles/bin/orei-switch sleep
 # A hung start would otherwise block suspend.
 TimeoutStartSec=30
-ExecStop=/etc/dotfiles/bin/orei-switch wake
+ExecStop=/opt/dotfiles/bin/orei-switch wake
 # Reconnecting and retrying the projector can take about 100s.
 TimeoutStopSec=3min
 
