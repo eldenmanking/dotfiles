@@ -1,5 +1,6 @@
 # Feature: idle with the displays off instead of suspending while an eGPU is on the Framework 16 expansion bay, whose
-# PCIe link doesn't survive s2idle (see root/etc/dotfiles/bin/light-sleep and docs/light-sleep.md).
+# PCIe link doesn't survive s2idle, or on external power, freezing only the graphical session (see
+# root/etc/dotfiles/bin/light-sleep and docs/light-sleep.md).
 
 LIGHT_SLEEP_SCRIPT="root/etc/dotfiles/bin/light-sleep"
 LIGHT_SLEEP_DROPIN_SRC="root/etc/systemd/system/systemd-suspend.service.d"
@@ -20,7 +21,7 @@ feature_light_sleep() {
   f_call copy_system_files changed -- "$DOTFILES_ROOT/$LIGHT_SLEEP_DROPIN_SRC" "$LIGHT_SLEEP_DROPIN" \
     "$LIGHT_SLEEP_DROPIN_DIR"
   [[ -z "$changed" ]] || run sudo systemctl daemon-reload
-  info "Suspend idles instead while an eGPU is on the expansion bay. Logs: journalctl -t light-sleep -b"
+  info "Suspend idles instead with an eGPU on the bay or on external power. Logs: journalctl -t light-sleep -b"
 }
 
 # Remove the drop-in, so suspend runs systemd-sleep directly again, then the script.

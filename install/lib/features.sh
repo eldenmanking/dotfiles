@@ -41,7 +41,7 @@ feature_description() {
     hdmi_audio_fix) echo "install hdmi-audio-fix.service into /etc (sudo): a socclk floor on the Framework 16 780M, for HDMI audio" ;;
     gamescope_screenshot) echo "install systemd user units into /etc (sudo) that save a Gaming Mode screenshot on Print Screen or Shift+Meta+4" ;;
     desktop_settings) echo "load desktop settings: dump/dconf/arch.dconf on GNOME, home/.config KDE files merged with kwriteconfig on KDE" ;;
-    light_sleep) echo "install light-sleep into /etc (sudo): idle with the displays off instead of suspending while an eGPU is on the expansion bay" ;;
+    light_sleep) echo "install light-sleep into /etc (sudo): idle with the displays off instead of suspending while an eGPU is on the expansion bay or on external power" ;;
     quiet_slow_charger) echo "install vpower-filter into /etc (sudo): Steam shows a charger that can't keep up as connected, without its Slow Charger dialog" ;;
     charge_limit) echo "copy a modprobe option, a steamos-manager device file and a mount unit into /etc (sudo): Steam's battery charge limit setting controls the Framework 16's instead of the BIOS one, turned on at 80%" ;;
     tailscale)   echo "download Tailscale into /etc/dotfiles/bin, install tailscaled.service into /etc (sudo) and log in with Tailscale SSH on" ;;
