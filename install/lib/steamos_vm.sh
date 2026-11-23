@@ -268,7 +268,8 @@ EOF
 #   alike), the virtio-gpu native context loses its host-side state, so processes using the GPU hang in the kernel and
 #   the next shutdown takes minutes. It sorts after light-sleep's drop-in, so it wins in the VM: on external power, with
 #   light_sleep installed, it runs light-sleep, which then takes a light sleep (freezing the graphical session until a
-#   key press) and never suspends; anything else is a no-op. Steam's idle suspend still runs the sleep hooks (e.g.
+#   key press) and never suspends (LIGHT_SLEEP_SUSPEND=true makes its real suspend, on unplugging, a no-op too);
+#   anything else is a no-op. Steam's idle suspend still runs the sleep hooks (e.g.
 #   orei-switch), and "wakes" at once;
 # - steamos-vm-power.service, which loads test_power for a fake charger (test_ac, a Mains supply like the Framework's
 #   ACAD) and battery, so what depends on the power source can be tested (steamos-vm power ac|battery switches it);
@@ -350,10 +351,10 @@ UNIT
   cat > "$etc/systemd/system/systemd-suspend.service.d/zz-steamos-vm.conf" <<'UNIT'
 # steamos-vm: the GPU doesn't survive a guest suspend, so suspend never reaches the kernel in this VM. On external
 # power, light-sleep (the light_sleep feature of ~/dotfiles/install.sh) takes a light sleep, which never suspends, so
-# it runs then; anything else is a no-op.
+# it runs then, with its real suspend (once the charger is unplugged) made a no-op; anything else is a no-op.
 [Service]
 ExecStart=
-ExecStart=/usr/bin/bash -c 'if [[ -x /etc/dotfiles/bin/light-sleep && "$$(cat /sys/class/power_supply/test_ac/online 2>/dev/null)" == 1 ]]; then exec /etc/dotfiles/bin/light-sleep suspend; fi'
+ExecStart=/usr/bin/bash -c 'if [[ -x /etc/dotfiles/bin/light-sleep && "$$(cat /sys/class/power_supply/test_ac/online 2>/dev/null)" == 1 ]]; then LIGHT_SLEEP_SUSPEND=true exec /etc/dotfiles/bin/light-sleep suspend; fi'
 UNIT
   umount /mnt
 done

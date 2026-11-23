@@ -20,6 +20,9 @@ POWER_BUTTON=/dev/input/by-path/platform-PNP0C0C:00-event  # the ACPI power butt
 WAKE_GRAB=1             # seconds to keep swallowing presses after the one that wakes
 WAKE_FIFO=/run/light-sleep.wake  # where wait_for_press reads, while a light sleep runs; light-sleep wake writes to it
 SYSTEMD_SLEEP=/usr/lib/systemd/systemd-sleep
+# What a real suspend runs: systemd-sleep, unless the caller says otherwise (the steamos_vm VM, whose GPU doesn't
+# survive one, sets it to true).
+SUSPEND="${LIGHT_SLEEP_SUSPEND:-$SYSTEMD_SLEEP}"
 DPMS_WAIT=3            # seconds to wait for KWin to turn the displays off
 SESSION_USER=deck       # whose KWin (Desktop Mode) session to turn the displays off in
 FREEZE_WAIT=5           # seconds to wait for a cgroup to report it is frozen
@@ -65,23 +68,25 @@ watch_new_devices() {
   shopt -u nullglob
 }
 
-# Return on the first key or power button press, or a wake line from light-sleep wake. Each evtest grabs its device,
-# so the press never reaches the frozen session, whose input queues would otherwise deliver it on thaw (Steam would
-# suspend again on the power button). The fifo WAKE_FIFO (root's only) gets evtest's lines, udevadm's and light-sleep
-# wake's, and is removed on return; key repeats (value 2) and releases (value 0) are ignored, so a key held since
-# before the sleep doesn't wake. The grabs stay for WAKE_GRAB seconds after the press, to swallow any presses after it.
-# SIGKILL, not SIGTERM: this script's EXIT trap can make a just-forked job lose a SIGTERM before it execs, and an evtest
-# blocked on the full fifo wouldn't act on one.
+# Wait for a key or power button press, or a wake line from light-sleep wake. If a power supply change (udev's
+# power_supply events: the charger's, and the battery's) leaves no reason for a light sleep first, e.g. the charger
+# unplugged with no eGPU attached, suspend for real instead, with the grabs held, and return after the resume. The
+# reason is checked once more as soon as the monitor listens, since an unplug before that sends no later event. Returns
+# the real suspend's status (0 otherwise). Each evtest grabs its device, so the press never reaches the frozen session,
+# whose input queues would otherwise deliver it on thaw (Steam would suspend again on the power button); that goes for
+# the press that ends a real suspend too. The fifo WAKE_FIFO (root's only) gets evtest's lines, udevadm's and
+# light-sleep wake's (light_sleep creates it), and is removed on return; key repeats (value 2) and releases (value 0)
+# are ignored, so a key held since before the sleep doesn't wake. The grabs stay for WAKE_GRAB seconds after the
+# press or resume, to swallow any presses after it. SIGKILL, not SIGTERM: this script's EXIT trap can make a
+# just-forked job lose a SIGTERM before it execs, and an evtest blocked on the full fifo wouldn't act on one.
 # Usage: wait_for_press
 wait_for_press() {
-  local line key monitor devs=() pids=()
-  rm -f "$WAKE_FIFO"
-  mkfifo -m 600 "$WAKE_FIFO"
-  exec 3<>"$WAKE_FIFO"
-  stdbuf -oL udevadm monitor --udev --subsystem-match=input >&3 2>/dev/null &
+  local line key monitor gone="" status=0 devs=() pids=()
+  stdbuf -oL udevadm monitor --udev --subsystem-match=input --subsystem-match=power_supply >&3 2>/dev/null &
   monitor=$!
   watch_new_devices
-  while read -r line <&3; do
+  [[ -n "$(light_sleep_reason)" ]] || gone="before the wait started"
+  while [[ -z "$gone" ]] && read -r line <&3; do
     case "$line" in
       Event:*'(EV_KEY)'*'value 1')
         key="${line##*\(}"
@@ -92,14 +97,27 @@ wait_for_press() {
         log "woken by light-sleep wake"
         break
         ;;
+      UDEV*'(power_supply)') [[ -n "$(light_sleep_reason)" ]] || gone="${line##*/power_supply/}" ;;
       UDEV*' add '*) watch_new_devices ;;
     esac
   done
   rm -f "$WAKE_FIFO"
+  if [[ -n "$gone" ]]; then
+    log "no reason for a light sleep any more ($gone): suspending with $SUSPEND"
+    sleep_network
+    "$SUSPEND" suspend || status=$?
+    if [[ "$status" -eq 0 ]]; then
+      log "resumed from the real suspend"
+    else
+      log "$SUSPEND suspend failed with status $status"
+    fi
+    wake_network
+  fi
   sleep "$WAKE_GRAB"
   kill -9 "$monitor" "${pids[@]}" 2>/dev/null
   wait "$monitor" "${pids[@]}" 2>/dev/null
   exec 3>&-
+  return "$status"
 }
 
 # Turn the displays on or off ($1: on or off) through KWin, if Desktop Mode is running; gamescope does it itself.
@@ -135,14 +153,20 @@ on_external_power() {
 # scopes tmux starts.
 # Usage: graphical_cgroups
 graphical_cgroups() {
-  local id type scope uid manager slice unit
+  local id type scope uid cg manager slice unit
   for id in $(loginctl list-sessions --no-legend | awk '{print $1}'); do
     type="$(loginctl show-session "$id" -p Type --value)"
     scope="$(loginctl show-session "$id" -p Scope --value)"
     uid="$(loginctl show-session "$id" -p User --value)"
     [[ "$type" == wayland || "$type" == x11 ]] || continue
-    [[ -z "$scope" ]] || echo "/sys/fs/cgroup$(systemctl show -p ControlGroup --value "$scope")"
-    manager="/sys/fs/cgroup$(systemctl show -p ControlGroup --value "user@$uid.service")"
+    # A unit that is gone (a session closing) has an empty ControlGroup: skip it rather than freeze /sys/fs/cgroup.
+    if [[ -n "$scope" ]]; then
+      cg="$(systemctl show -p ControlGroup --value "$scope" 2>/dev/null)"
+      [[ -z "$cg" ]] || echo "/sys/fs/cgroup$cg"
+    fi
+    cg="$(systemctl show -p ControlGroup --value "user@$uid.service" 2>/dev/null)"
+    [[ -n "$cg" ]] || continue
+    manager="/sys/fs/cgroup$cg"
     for slice in $USER_SLICES; do
       for unit in "$manager/$slice"/*/; do
         unit="${unit%/}"
@@ -152,10 +176,10 @@ graphical_cgroups() {
   done | sort -u
 }
 
-# Freeze or thaw ($1: 1 or 0) the cgroups <cgroup>... through cgroup.freeze, waiting up to FREEZE_WAIT seconds for
-# each to report it. Not through systemctl freeze: a user manager refuses to freeze app.slice (dbus.socket in it can't
-# be frozen), and with its dbus-broker frozen in session.slice, its thaw jobs hang.
-# Usage: set_frozen 1|0 <cgroup>...
+# Freeze (<state> 1) or thaw (<state> 0) the cgroups <cgroup>... through cgroup.freeze, waiting up to FREEZE_WAIT
+# seconds for each to report it. Not through systemctl freeze: a user manager refuses to freeze app.slice (dbus.socket
+# in it can't be frozen), and with its dbus-broker frozen in session.slice, its thaw jobs hang.
+# Usage: set_frozen <state> <cgroup>...
 set_frozen() {
   local want="$1" cg i
   shift
@@ -187,15 +211,46 @@ wake_network() {
   fi
 }
 
-# Freeze the graphical sessions with the displays off until a key or power button press, then thaw them and turn the
-# displays back on.
+# Put NetworkManager back to sleep before a real suspend, as logind's PrepareForSleep did before wake_network woke it.
+# Usage: sleep_network
+sleep_network() {
+  busctl call org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager \
+    Sleep b true || log "failed to put NetworkManager to sleep"
+}
+
+# Print why a suspend should be a light sleep, or nothing when it should really suspend: a live eGPU on the bay would
+# lose its link, or the laptop is on external power.
+# Usage: light_sleep_reason
+light_sleep_reason() {
+  local egpus
+  egpus="$(live_egpus)"
+  if [[ -n "$egpus" ]]; then
+    echo "the eGPU at ${egpus//$'\n'/ } would lose its link"
+  elif [[ "$(on_external_power)" == true ]]; then
+    echo "on external power"
+  fi
+}
+
+# Freeze the graphical sessions with the displays off until a key or power button press (or light-sleep wake), then
+# thaw them and turn the displays back on. If the reason for the light sleep goes away first (the charger unplugged with
+# no eGPU attached), suspend for real, still frozen, and thaw on resume; a failed suspend is this function's failure.
 # Usage: light_sleep
 light_sleep() {
   local cgroups=() cg
+  # The fifo comes first, so a light-sleep wake sent while the sessions are listed, during the DPMS wait or during the
+  # freeze waits in it instead of failing.
+  rm -f "$WAKE_FIFO"
+  mkfifo -m 600 "$WAKE_FIFO"
+  exec 3<>"$WAKE_FIFO"
+  trap "rm -f $WAKE_FIFO" EXIT
   while IFS= read -r cg; do
     cgroups+=("$cg")
   done < <(graphical_cgroups)
-  log "freezing ${cgroups[*]##*/}"
+  if [[ ${#cgroups[@]} -eq 0 ]]; then
+    log "no graphical session to freeze"
+  else
+    log "freezing ${cgroups[*]##*/}"
+  fi
   # Expanded and quoted now (unit names hold backslashes): the trap runs after this function returns.
   trap "rm -f $WAKE_FIFO; ${cgroups[0]+set_frozen 0 $(printf '%q ' "${cgroups[@]}");} kwin_dpms on" EXIT
   kwin_dpms off
@@ -219,14 +274,18 @@ if [[ "$1" == wake ]]; then
   wake
   exit
 fi
-[[ "$1" == suspend ]] || exec "$SYSTEMD_SLEEP" "$@"
-egpus="$(live_egpus)"
-if [[ -n "$egpus" ]]; then
-  log "light sleep instead of suspend: the eGPU at ${egpus//$'\n'/ } would lose its link"
-elif [[ "$(on_external_power)" == true ]]; then
-  log "light sleep instead of suspend: on external power"
-else
-  exec "$SYSTEMD_SLEEP" "$@"
-fi
-light_sleep
-log "woke from light sleep"
+
+# Run as systemd-sleep with <mode>...: a light sleep instead of a suspend when there is a reason for one, else
+# systemd-sleep itself. Exits with the light sleep's status: a failed real suspend fails systemd-suspend.service, as
+# before.
+# Usage: main <mode>...
+main() {
+  local reason
+  [[ "$1" == suspend ]] || exec "$SYSTEMD_SLEEP" "$@"
+  reason="$(light_sleep_reason)"
+  [[ -n "$reason" ]] || exec "$SUSPEND" "$@"
+  log "light sleep instead of suspend: $reason"
+  light_sleep
+}
+
+main "$@"

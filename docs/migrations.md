@@ -214,7 +214,7 @@ linked those directories to a tools repo, or from `~/dotfiles/.claude`, before p
 - **Fix:** `rm` each link the check printed.
 - **Verify:** the check prints nothing.
 
-## Light sleep freezes only the graphical session; webterm gets its own slice (#118)
+## Light sleep freezes only the graphical session; webterm gets its own slice (#118, 7a9d2e1)
 `light-sleep` now freezes only the graphical session (its scope and the units in the user's `app.slice`,
 `session.slice` and `background.slice`) instead of all of `user.slice`, and webterm's services run in their own
 `webterm.slice` so they keep running. Machines that installed webterm before still have its units in `app.slice`, and a
@@ -225,7 +225,9 @@ tmux matters only with `light_sleep` (steamos, framework16).
 ### webterm's units still in app.slice (steamos, arch)
 - **Check:** `systemctl --user show -p Slice --value webterm-ttyd.service 2>/dev/null | grep -x app.slice`
 - **Fix:** `~/dotfiles/install.sh --variant <steamos|arch> --webterm`, which copies the new units and restarts ttyd
-  (open webterm tabs reconnect; tmux keeps running).
+  (open webterm tabs reconnect). Ask the user first if a tmux server runs inside `webterm-ttyd.service` (the check
+  below prints it): tmux 3.7 makes every pane `PartOf=` the server's unit, so the restart ends all its panes, and with
+  them any work running there.
 - **Verify:** the check prints nothing, and the command prints `webterm.slice` without the `grep`.
 
 ### tmux server from webterm left in app.slice (steamos, framework16)
@@ -234,3 +236,19 @@ tmux matters only with `light_sleep` (steamos, framework16).
   (a new webterm tab is fine once the step above ran), `tmux kill-server`, then start tmux again; or reboot. A tmux
   started from a Desktop Mode terminal is in `app.slice` by design and freezes with the session.
 - **Verify:** the check prints nothing; a new tmux from webterm shows `webterm.slice` in `/proc/<pid>/cgroup`.
+
+## Light sleep suspends for real once its reason is gone (#124)
+A light sleep now ends in a real suspend when a power supply change leaves no reason for it (the charger unplugged with
+no eGPU attached). In the `steamos_vm` VM that suspend must stay a no-op, since the guest's GPU doesn't survive one, so
+the VM's `systemd-suspend.service` drop-in now runs `light-sleep` with `LIGHT_SLEEP_SUSPEND=true`. VMs installed before
+have the old drop-in, and unplugging their fake charger (`steamos-vm power battery`) during a light sleep would really
+suspend the guest, hanging what uses the GPU. Affects the `steamos_vm` VM only, with `light_sleep` installed in it.
+
+### VM suspend drop-in without LIGHT_SLEEP_SUSPEND (steamos, steamos_vm)
+- **Check:** `steamos-vm run 'grep -L LIGHT_SLEEP_SUSPEND /etc/systemd/system/systemd-suspend.service.d/zz-steamos-vm.conf 2>/dev/null'`
+  (on the host, with the VM running)
+- **Fix:** either `~/dotfiles/install.sh --reinstall --steamos_vm`, which erases the VM after asking (ask the user
+  first), or edit the drop-in in place:
+  `steamos-vm run --root 'sed -i "s|then exec /etc/dotfiles/bin/light-sleep|then LIGHT_SLEEP_SUSPEND=true exec /etc/dotfiles/bin/light-sleep|" /etc/systemd/system/systemd-suspend.service.d/zz-steamos-vm.conf && systemctl daemon-reload'`.
+  The drop-in is in `/etc` of the running A/B slot, so repeat it after a slot switch.
+- **Verify:** the check prints nothing.
