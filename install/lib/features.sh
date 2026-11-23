@@ -39,7 +39,7 @@ feature_description() {
     steamgrid)   echo "copy the custom artwork in dump/steamgrid (Chrome, Discord) into each Steam user's config/grid" ;;
     webterm)     echo "download ttyd and install the webterm systemd user units into /etc (browser shell on localhost)" ;;
     hdmi_audio_fix) echo "install hdmi-audio-fix.service into /etc (sudo): a socclk floor on the Framework 16 780M, for HDMI audio" ;;
-    gamescope_screenshot) echo "install systemd user units into /etc (sudo) that save a Gaming Mode screenshot on Print Screen or Shift+Meta+4" ;;
+    gamescope_screenshot) echo "link gamescope-screenshot and install systemd user units into /etc (sudo) that save a Gaming Mode screenshot on Print Screen or Shift+Meta+4" ;;
     desktop_settings) echo "load desktop settings: dump/dconf/arch.dconf on GNOME, home/.config KDE files merged with kwriteconfig on KDE" ;;
     light_sleep) echo "install light-sleep into /etc (sudo): idle with the displays off instead of suspending while an eGPU is on the expansion bay or on external power" ;;
     quiet_slow_charger) echo "install vpower-filter into /etc (sudo): Steam shows a charger that can't keep up as connected, without its Slow Charger dialog" ;;
@@ -56,8 +56,8 @@ FEATURE_OSES="any linux macos arch steamos"
 FEATURE_GUIS="any desktop gnome kde"
 
 # Read the doc comment of feature or implementation <feature>: the comment block directly above its feature_<name>
-# (or feature_<name>__<dir>) function in install/features. A feature's doc is a description, a bare '#' line, then
-# its tags:
+# or declare_<name> (or feature_<name>__<dir>, declare_<name>__<dir>) function in install/features. A feature's doc
+# is a description, a bare '#' line, then its tags:
 #   # Install the thing for x.
 #   #
 #   # @machine any
@@ -68,7 +68,7 @@ FEATURE_GUIS="any desktop gnome kde"
 #   doc: the comment block, with each line's leading '#' and one space removed
 feature_doc() {
   local fn line doc="" nl=$'\n' first=true
-  fn="$(feature_function "$1")"
+  fn="${1//-/_}"
   while IFS= read -r line; do
     line="${line#\#}"
     $first || doc+="$nl"
@@ -77,7 +77,7 @@ feature_doc() {
   done < <(awk -v fn="$fn" '
     FNR == 1 { block = "" }
     /^#/ { block = block $0 "\n"; next }
-    index($0, fn "()") == 1 { printf "%s", block; exit }
+    index($0, "feature_" fn "()") == 1 || index($0, "declare_" fn "()") == 1 { printf "%s", block; exit }
     { block = "" }
   ' "$INSTALL_DIR"/features/*.sh "$INSTALL_DIR"/features/*/*.sh)
   f_return doc
@@ -154,17 +154,24 @@ implementation_feature() {
   printf '%s' "${1%%__*}"
 }
 
-# Print the ids of feature <feature>'s implementations, space-separated: <feature> when feature_<feature> is defined,
-# then each <feature>__<dir> whose feature_<feature>__<dir> is.
+# Print the ids of feature <feature>'s implementations, space-separated: <feature> when feature_<feature> or
+# declare_<feature> is defined, then each <feature>__<dir> whose feature_<feature>__<dir> or declare_<feature>__<dir>
+# is (declare_ for a declared implementation, see install/lib/hooks.sh).
 # Usage: feature_implementations <feature>
 feature_implementations() {
-  local fn ids="" line
+  local fn dfn ids="" line
   fn="$(feature_function "$1")"
-  fn_defined "$fn" && ids="$1"
+  dfn="$(fn_name declare_ "$1")"
+  if fn_defined "$fn" || fn_defined "$dfn"; then
+    ids="$1"
+  fi
   while IFS= read -r line; do
     line="${line#declare -f }"
-    [[ "$line" == "${fn}__"* ]] || continue
-    ids+="${ids:+ }$1__${line#"${fn}__"}"
+    if [[ "$line" == "${fn}__"* ]]; then
+      ids+="${ids:+ }$1__${line#"${fn}__"}"
+    elif [[ "$line" == "${dfn}__"* ]]; then
+      ids+="${ids:+ }$1__${line#"${dfn}__"}"
+    fi
   done < <(declare -F)
   printf '%s' "$ids"
 }
@@ -247,10 +254,11 @@ uninstall_function() {
   fn_name uninstall_feature_ "$1"
 }
 
-# Return 0 if feature $1 defines an uninstall function.
+# Return 0 if feature <feature> can be uninstalled: it declares its changes (see install/lib/hooks.sh), which
+# --uninstall undoes, or defines an uninstall function.
 # Usage: feature_uninstallable <feature>
 feature_uninstallable() {
-  fn_defined "$(uninstall_function "$1")"
+  fn_defined "$(fn_name declare_ "$1")" || fn_defined "$(uninstall_function "$1")"
 }
 
 # Features can define capture_feature_<name>, run by --capture to copy settings changed on this system (e.g. in a settings app)
